@@ -130,9 +130,10 @@ error behaviour since that strategy never requires exact balance.}
 
 \item{seed}{Optional integer. Random seed for reproducibility. Controls
 the random order in which sparse treatments are processed in phase one
-and the stochastic tie-breaking in phase two under \code{"random_balanced"}.
-If \code{NULL}, no seed is set and results may differ across runs; the seed
-used internally is returned as \code{seed_used}.}
+and the stochastic tie-breaking in phase two under \code{"random_balanced"},
+as well as tie-breaking in the strict exact constructor. If \code{NULL}, no
+seed is set and results may differ across runs; the seed used internally
+is returned as \code{seed_used}.}
 }
 \value{
 A named list with the following components:
@@ -172,7 +173,12 @@ groups between each pair of environments. \code{NULL} when
 \code{allocation_group_source}, \code{target_replications}, \code{n_treatments_total},
 \code{n_sparse_treatments}, \code{n_common_treatments}, \code{total_sparse_slots},
 \code{environment_sizes}, \code{min_replication}, \code{max_replication},
-\code{mean_replication}, and \code{n_groups}.}
+\code{mean_replication}, \code{min_sparse_replication}, \code{max_sparse_replication},
+\code{mean_sparse_replication}, \code{min_common_replication},
+\code{max_common_replication}, \code{mean_common_replication}, and \code{n_groups}.
+The overall replication summaries include common treatments, whereas the
+sparse-only summaries reflect the quantities relevant for strict M4
+equality checks.}
 \item{\code{seed_used}}{The integer seed passed to \code{set.seed()} internally, or
 \code{NULL} if no seed was supplied.}
 }
@@ -183,19 +189,24 @@ M3-type stochastic allocation that approximates balance without requiring
 exact BIBD parameters to be satisfiable — appropriate when environment
 capacities differ or when the trial dimensions do not admit an exact balanced
 solution. \code{"balanced_incomplete"} implements an M4-type allocation following
-BIBD principles at the MET level, enforcing equal replication and
-approximately uniform pairwise co-occurrence — appropriate when environments
-are comparable in size and equal replication is a hard requirement.
+BIBD principles at the MET level. When \code{allow_approximate = FALSE} and the
+slot identity is satisfied, the function uses an exact constructor that
+enforces equal replication of all non-common treatments. When
+\code{allow_approximate = TRUE}, it relaxes exact balance and constructs the
+closest feasible allocation.
 
-Allocation proceeds in two phases. Phase one guarantees that every non-common
+Allocation proceeds in two phases for \code{"random_balanced"} and approximate
+\code{"balanced_incomplete"}. Phase one guarantees that every non-common
 treatment appears in at least one environment, distributing treatments across
 environments with awareness of genetic group structure when
 \code{allocation_group_source} is not \code{"none"}. Phase two fills the remaining
 capacity in each environment up to \code{n_test_entries_per_environment}, guided
-by replication targets and group-balance penalties.
+by replication targets and group-balance penalties. For strict
+\code{"balanced_incomplete"} (\code{allow_approximate = FALSE}), allocation is carried
+out by a separate exact constructor rather than the two-phase heuristic.
 
 Before allocation begins, the function calls
-\code{\link[=.check_full_coverage_feasibility]{.check_full_coverage_feasibility()}} to verify that the total number of
+\code{.check_full_coverage_feasibility()} to verify that the total number of
 sparse slots across all environments is sufficient to assign every non-common
 treatment at least once. If it is not, the function stops with an informative
 error naming the deficit and the minimum capacity that would resolve it. Use
@@ -244,12 +255,13 @@ environments are weakly correlated.
 
 \subsection{Two-phase allocation}{
 
-Phase one iterates over sparse treatments in random order and assigns each
-to one environment, preferring environments where the treatment's genetic
-group is not yet represented when \code{allocation_group_source} is active.
-Phase two iterates over environments in decreasing order of remaining
-capacity and fills each to its target, guided by line-level replication
-deficit scores and group-balance penalties.
+For \code{"random_balanced"} and approximate \code{"balanced_incomplete"}, phase one
+iterates over sparse treatments in random order and assigns each to one
+environment, preferring environments where the treatment's genetic group is
+not yet represented when \code{allocation_group_source} is active. Phase two
+iterates over environments in decreasing order of remaining capacity and
+fills each to its target, guided by line-level replication deficit scores and
+group-balance penalties.
 }
 
 \subsection{Allocation groups}{
@@ -274,7 +286,9 @@ must satisfy:
 
 where \eqn{J^*} is the number of non-common treatments and \eqn{r} is the
 target replication. When this equality does not hold and
-\code{allow_approximate = FALSE}, the function stops. When
+\code{allow_approximate = FALSE}, the function stops. When the equality holds and
+\code{allow_approximate = FALSE}, the function attempts an exact constructor that
+enforces equal replication for all non-common treatments. When
 \code{allow_approximate = TRUE}, the function constructs the closest feasible
 allocation, accepting minor deviations from perfect balance.
 }
@@ -311,9 +325,9 @@ out1$summary
 head(out1$allocation_long)
 head(out1$group_by_environment)
 
-## Example 2: balanced incomplete allocation with common treatments.
-## Slot totals are feasible here, but exact BIBD-style balance is not always
-## constructible for arbitrary input combinations, so approximate mode is used.
+## Example 2: strict balanced incomplete allocation with common treatments.
+## Here the sparse slot totals are exactly feasible, so all non-common
+## treatments are replicated exactly `target_replications` times.
 out2 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,

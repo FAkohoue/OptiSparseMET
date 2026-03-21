@@ -15,19 +15,24 @@
 #' exact BIBD parameters to be satisfiable — appropriate when environment
 #' capacities differ or when the trial dimensions do not admit an exact balanced
 #' solution. `"balanced_incomplete"` implements an M4-type allocation following
-#' BIBD principles at the MET level, enforcing equal replication and
-#' approximately uniform pairwise co-occurrence — appropriate when environments
-#' are comparable in size and equal replication is a hard requirement.
+#' BIBD principles at the MET level. When `allow_approximate = FALSE` and the
+#' slot identity is satisfied, the function uses an exact constructor that
+#' enforces equal replication of all non-common treatments. When
+#' `allow_approximate = TRUE`, it relaxes exact balance and constructs the
+#' closest feasible allocation.
 #'
-#' Allocation proceeds in two phases. Phase one guarantees that every non-common
+#' Allocation proceeds in two phases for `"random_balanced"` and approximate
+#' `"balanced_incomplete"`. Phase one guarantees that every non-common
 #' treatment appears in at least one environment, distributing treatments across
 #' environments with awareness of genetic group structure when
 #' `allocation_group_source` is not `"none"`. Phase two fills the remaining
 #' capacity in each environment up to `n_test_entries_per_environment`, guided
-#' by replication targets and group-balance penalties.
+#' by replication targets and group-balance penalties. For strict
+#' `"balanced_incomplete"` (`allow_approximate = FALSE`), allocation is carried
+#' out by a separate exact constructor rather than the two-phase heuristic.
 #'
 #' Before allocation begins, the function calls
-#' [.check_full_coverage_feasibility()] to verify that the total number of
+#' `.check_full_coverage_feasibility()` to verify that the total number of
 #' sparse slots across all environments is sufficient to assign every non-common
 #' treatment at least once. If it is not, the function stops with an informative
 #' error naming the deficit and the minimum capacity that would resolve it. Use
@@ -66,12 +71,13 @@
 #'
 #' ## Two-phase allocation
 #'
-#' Phase one iterates over sparse treatments in random order and assigns each
-#' to one environment, preferring environments where the treatment's genetic
-#' group is not yet represented when `allocation_group_source` is active.
-#' Phase two iterates over environments in decreasing order of remaining
-#' capacity and fills each to its target, guided by line-level replication
-#' deficit scores and group-balance penalties.
+#' For `"random_balanced"` and approximate `"balanced_incomplete"`, phase one
+#' iterates over sparse treatments in random order and assigns each to one
+#' environment, preferring environments where the treatment's genetic group is
+#' not yet represented when `allocation_group_source` is active. Phase two
+#' iterates over environments in decreasing order of remaining capacity and
+#' fills each to its target, guided by line-level replication deficit scores and
+#' group-balance penalties.
 #'
 #' ## Allocation groups
 #'
@@ -94,7 +100,9 @@
 #'
 #' where \eqn{J^*} is the number of non-common treatments and \eqn{r} is the
 #' target replication. When this equality does not hold and
-#' `allow_approximate = FALSE`, the function stops. When
+#' `allow_approximate = FALSE`, the function stops. When the equality holds and
+#' `allow_approximate = FALSE`, the function attempts an exact constructor that
+#' enforces equal replication for all non-common treatments. When
 #' `allow_approximate = TRUE`, the function constructs the closest feasible
 #' allocation, accepting minor deviations from perfect balance.
 #'
@@ -199,9 +207,10 @@
 #'
 #' @param seed Optional integer. Random seed for reproducibility. Controls
 #'   the random order in which sparse treatments are processed in phase one
-#'   and the stochastic tie-breaking in phase two under `"random_balanced"`.
-#'   If `NULL`, no seed is set and results may differ across runs; the seed
-#'   used internally is returned as `seed_used`.
+#'   and the stochastic tie-breaking in phase two under `"random_balanced"`,
+#'   as well as tie-breaking in the strict exact constructor. If `NULL`, no
+#'   seed is set and results may differ across runs; the seed used internally
+#'   is returned as `seed_used`.
 #'
 #' @return A named list with the following components:
 #' \describe{
@@ -240,7 +249,12 @@
 #'     `allocation_group_source`, `target_replications`, `n_treatments_total`,
 #'     `n_sparse_treatments`, `n_common_treatments`, `total_sparse_slots`,
 #'     `environment_sizes`, `min_replication`, `max_replication`,
-#'     `mean_replication`, and `n_groups`.}
+#'     `mean_replication`, `min_sparse_replication`, `max_sparse_replication`,
+#'     `mean_sparse_replication`, `min_common_replication`,
+#'     `max_common_replication`, `mean_common_replication`, and `n_groups`.
+#'     The overall replication summaries include common treatments, whereas the
+#'     sparse-only summaries reflect the quantities relevant for strict M4
+#'     equality checks.}
 #'   \item{`seed_used`}{The integer seed passed to `set.seed()` internally, or
 #'     `NULL` if no seed was supplied.}
 #' }
@@ -291,9 +305,9 @@
 #' head(out1$allocation_long)
 #' head(out1$group_by_environment)
 #'
-#' ## Example 2: balanced incomplete allocation with common treatments.
-#' ## Slot totals are feasible here, but exact BIBD-style balance is not always
-#' ## constructible for arbitrary input combinations, so approximate mode is used.
+#' ## Example 2: strict balanced incomplete allocation with common treatments.
+#' ## Here the sparse slot totals are exactly feasible, so all non-common
+#' ## treatments are replicated exactly `target_replications` times.
 #' out2 <- allocate_sparse_met(
 #'   treatments                     = treatments,
 #'   environments                   = envs,
@@ -308,7 +322,6 @@
 #' out2$summary
 #'
 #' @export
-#' 
 allocate_sparse_met <- function(
     treatments,
     environments,
@@ -840,6 +853,18 @@ allocate_sparse_met <- function(
     }
   }
   
+  sparse_replications <- if (n_sparse > 0L) {
+    line_replications[sparse_treatments]
+  } else {
+    integer(0)
+  }
+  
+  common_replications <- if (n_common > 0L) {
+    line_replications[common_treatments]
+  } else {
+    integer(0)
+  }
+  
   summary <- list(
     allocation_method = allocation_method,
     allocation_group_source = allocation_group_source,
@@ -849,9 +874,19 @@ allocate_sparse_met <- function(
     n_common_treatments = n_common,
     total_sparse_slots = total_sparse_slots,
     environment_sizes = environment_sizes,
+    
     min_replication = if (length(line_replications)) min(line_replications) else NA_integer_,
     max_replication = if (length(line_replications)) max(line_replications) else NA_integer_,
     mean_replication = if (length(line_replications)) mean(line_replications) else NA_real_,
+    
+    min_sparse_replication = if (length(sparse_replications)) min(sparse_replications) else NA_integer_,
+    max_sparse_replication = if (length(sparse_replications)) max(sparse_replications) else NA_integer_,
+    mean_sparse_replication = if (length(sparse_replications)) mean(sparse_replications) else NA_real_,
+    
+    min_common_replication = if (length(common_replications)) min(common_replications) else NA_integer_,
+    max_common_replication = if (length(common_replications)) max(common_replications) else NA_integer_,
+    mean_common_replication = if (length(common_replications)) mean(common_replications) else NA_real_,
+    
     n_groups = n_groups
   )
   

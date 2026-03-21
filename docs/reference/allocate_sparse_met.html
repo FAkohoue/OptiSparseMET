@@ -4,15 +4,20 @@ M3-type stochastic allocation that approximates balance without requiring
 exact BIBD parameters to be satisfiable — appropriate when environment
 capacities differ or when the trial dimensions do not admit an exact balanced
 solution. "balanced_incomplete" implements an M4-type allocation following
-BIBD principles at the MET level, enforcing equal replication and
-approximately uniform pairwise co-occurrence — appropriate when environments
-are comparable in size and equal replication is a hard requirement.
-Allocation proceeds in two phases. Phase one guarantees that every non-common
+BIBD principles at the MET level. When allow_approximate = FALSE and the
+slot identity is satisfied, the function uses an exact constructor that
+enforces equal replication of all non-common treatments. When
+allow_approximate = TRUE, it relaxes exact balance and constructs the
+closest feasible allocation.
+Allocation proceeds in two phases for "random_balanced" and approximate
+"balanced_incomplete". Phase one guarantees that every non-common
 treatment appears in at least one environment, distributing treatments across
 environments with awareness of genetic group structure when
 allocation_group_source is not "none". Phase two fills the remaining
 capacity in each environment up to n_test_entries_per_environment, guided
-by replication targets and group-balance penalties.
+by replication targets and group-balance penalties. For strict
+"balanced_incomplete" (allow_approximate = FALSE), allocation is carried
+out by a separate exact constructor rather than the two-phase heuristic.
 Before allocation begins, the function calls
 .check_full_coverage_feasibility() to verify that the total number of
 sparse slots across all environments is sufficient to assign every non-common
@@ -24,15 +29,20 @@ M3-type stochastic allocation that approximates balance without requiring
 exact BIBD parameters to be satisfiable — appropriate when environment
 capacities differ or when the trial dimensions do not admit an exact balanced
 solution. "balanced_incomplete" implements an M4-type allocation following
-BIBD principles at the MET level, enforcing equal replication and
-approximately uniform pairwise co-occurrence — appropriate when environments
-are comparable in size and equal replication is a hard requirement.
-Allocation proceeds in two phases. Phase one guarantees that every non-common
+BIBD principles at the MET level. When allow_approximate = FALSE and the
+slot identity is satisfied, the function uses an exact constructor that
+enforces equal replication of all non-common treatments. When
+allow_approximate = TRUE, it relaxes exact balance and constructs the
+closest feasible allocation.
+Allocation proceeds in two phases for "random_balanced" and approximate
+"balanced_incomplete". Phase one guarantees that every non-common
 treatment appears in at least one environment, distributing treatments across
 environments with awareness of genetic group structure when
 allocation_group_source is not "none". Phase two fills the remaining
 capacity in each environment up to n_test_entries_per_environment, guided
-by replication targets and group-balance penalties.
+by replication targets and group-balance penalties. For strict
+"balanced_incomplete" (allow_approximate = FALSE), allocation is carried
+out by a separate exact constructor rather than the two-phase heuristic.
 Before allocation begins, the function calls
 .check_full_coverage_feasibility() to verify that the total number of
 sparse slots across all environments is sufficient to assign every non-common
@@ -77,15 +87,20 @@ M3-type stochastic allocation that approximates balance without requiring
 exact BIBD parameters to be satisfiable — appropriate when environment
 capacities differ or when the trial dimensions do not admit an exact balanced
 solution. <code>"balanced_incomplete"</code> implements an M4-type allocation following
-BIBD principles at the MET level, enforcing equal replication and
-approximately uniform pairwise co-occurrence — appropriate when environments
-are comparable in size and equal replication is a hard requirement.</p>
-<p>Allocation proceeds in two phases. Phase one guarantees that every non-common
+BIBD principles at the MET level. When <code>allow_approximate = FALSE</code> and the
+slot identity is satisfied, the function uses an exact constructor that
+enforces equal replication of all non-common treatments. When
+<code>allow_approximate = TRUE</code>, it relaxes exact balance and constructs the
+closest feasible allocation.</p>
+<p>Allocation proceeds in two phases for <code>"random_balanced"</code> and approximate
+<code>"balanced_incomplete"</code>. Phase one guarantees that every non-common
 treatment appears in at least one environment, distributing treatments across
 environments with awareness of genetic group structure when
 <code>allocation_group_source</code> is not <code>"none"</code>. Phase two fills the remaining
 capacity in each environment up to <code>n_test_entries_per_environment</code>, guided
-by replication targets and group-balance penalties.</p>
+by replication targets and group-balance penalties. For strict
+<code>"balanced_incomplete"</code> (<code>allow_approximate = FALSE</code>), allocation is carried
+out by a separate exact constructor rather than the two-phase heuristic.</p>
 <p>Before allocation begins, the function calls
 <code><a href="dot-check_full_coverage_feasibility.html">.check_full_coverage_feasibility()</a></code> to verify that the total number of
 sparse slots across all environments is sufficient to assign every non-common
@@ -268,9 +283,10 @@ error behaviour since that strategy never requires exact balance.</p></dd>
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Optional integer. Random seed for reproducibility. Controls
 the random order in which sparse treatments are processed in phase one
-and the stochastic tie-breaking in phase two under <code>"random_balanced"</code>.
-If <code>NULL</code>, no seed is set and results may differ across runs; the seed
-used internally is returned as <code>seed_used</code>.</p></dd>
+and the stochastic tie-breaking in phase two under <code>"random_balanced"</code>,
+as well as tie-breaking in the strict exact constructor. If <code>NULL</code>, no
+seed is set and results may differ across runs; the seed used internally
+is returned as <code>seed_used</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -327,7 +343,12 @@ groups between each pair of environments. <code>NULL</code> when
 <code>allocation_group_source</code>, <code>target_replications</code>, <code>n_treatments_total</code>,
 <code>n_sparse_treatments</code>, <code>n_common_treatments</code>, <code>total_sparse_slots</code>,
 <code>environment_sizes</code>, <code>min_replication</code>, <code>max_replication</code>,
-<code>mean_replication</code>, and <code>n_groups</code>.</p></dd>
+<code>mean_replication</code>, <code>min_sparse_replication</code>, <code>max_sparse_replication</code>,
+<code>mean_sparse_replication</code>, <code>min_common_replication</code>,
+<code>max_common_replication</code>, <code>mean_common_replication</code>, and <code>n_groups</code>.
+The overall replication summaries include common treatments, whereas the
+sparse-only summaries reflect the quantities relevant for strict M4
+equality checks.</p></dd>
 
 <dt><code>seed_used</code></dt>
 <dd><p>The integer seed passed to <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> internally, or
@@ -379,12 +400,13 @@ environments are weakly correlated.</p>
 <h3 id="two-phase-allocation">Two-phase allocation<a class="anchor" aria-label="anchor" href="#two-phase-allocation"></a></h3>
 
 
-<p>Phase one iterates over sparse treatments in random order and assigns each
-to one environment, preferring environments where the treatment's genetic
-group is not yet represented when <code>allocation_group_source</code> is active.
-Phase two iterates over environments in decreasing order of remaining
-capacity and fills each to its target, guided by line-level replication
-deficit scores and group-balance penalties.</p>
+<p>For <code>"random_balanced"</code> and approximate <code>"balanced_incomplete"</code>, phase one
+iterates over sparse treatments in random order and assigns each to one
+environment, preferring environments where the treatment's genetic group is
+not yet represented when <code>allocation_group_source</code> is active. Phase two
+iterates over environments in decreasing order of remaining capacity and
+fills each to its target, guided by line-level replication deficit scores and
+group-balance penalties.</p>
 </div>
 
 <div class="section">
@@ -411,7 +433,9 @@ must satisfy:</p>
 <p>$$\sum_{e=1}^{I} k_e^* = J^* \times r$$</p>
 <p>where \(J^*\) is the number of non-common treatments and \(r\) is the
 target replication. When this equality does not hold and
-<code>allow_approximate = FALSE</code>, the function stops. When
+<code>allow_approximate = FALSE</code>, the function stops. When the equality holds and
+<code>allow_approximate = FALSE</code>, the function attempts an exact constructor that
+enforces equal replication for all non-common treatments. When
 <code>allow_approximate = TRUE</code>, the function constructs the closest feasible
 allocation, accepting minor deviations from perfect balance.</p>
 </div>
@@ -499,6 +523,24 @@ allocation when <code>allocation_group_source</code> is not <code>"none"</code>.
 <span class="r-out co"><span class="r-pr">#&gt;</span> $mean_replication</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $min_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $max_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $mean_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $min_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $max_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $mean_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_groups</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -519,9 +561,9 @@ allocation when <code>allocation_group_source</code> is not <code>"none"</code>.
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5        Env1              F2            6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 6        Env2              F2            6</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 2: balanced incomplete allocation with common treatments.</span></span></span>
-<span class="r-in"><span><span class="co">## Slot totals are feasible here, but exact BIBD-style balance is not always</span></span></span>
-<span class="r-in"><span><span class="co">## constructible for arbitrary input combinations, so approximate mode is used.</span></span></span>
+<span class="r-in"><span><span class="co">## Example 2: strict balanced incomplete allocation with common treatments.</span></span></span>
+<span class="r-in"><span><span class="co">## Here the sparse slot totals are exactly feasible, so all non-common</span></span></span>
+<span class="r-in"><span><span class="co">## treatments are replicated exactly `target_replications` times.</span></span></span>
 <span class="r-in"><span><span class="va">out2</span> <span class="op">&lt;-</span> <span class="fu">allocate_sparse_met</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  treatments                     <span class="op">=</span> <span class="va">treatments</span>,</span></span>
 <span class="r-in"><span>  environments                   <span class="op">=</span> <span class="va">envs</span>,</span></span>
@@ -567,6 +609,24 @@ allocation when <code>allocation_group_source</code> is not <code>"none"</code>.
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $mean_replication</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2.166667</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $min_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $max_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $mean_sparse_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $min_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $max_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $mean_common_replication</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_groups</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0</span>
