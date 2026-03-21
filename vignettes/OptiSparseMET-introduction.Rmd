@@ -1,6 +1,8 @@
 ---
 title: "OptiSparseMET: A Unified Framework for Sparse Multi-Environment Trial Design"
-output: rmarkdown::html_vignette
+output:
+  rmarkdown::html_vignette: default
+  pdf_document: default
 vignette: >
   %\VignetteIndexEntry{OptiSparseMET: A Unified Framework for Sparse Multi-Environment Trial Design}
   %\VignetteEngine{knitr::rmarkdown}
