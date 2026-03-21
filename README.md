@@ -188,12 +188,16 @@ remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = FALSE,
 
 ---
 
-## Reference
+## Citation
 
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.
-
-
+Akohoue, F. (2026). OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction. https://github.com/FAkohoue/OptiSparseMET
 
 ## Contributing
 
-Issues and suggestions are welcome: https://github.com/FAkohoue/OptiDesign/issues
+Issues and suggestions are welcome: https://github.com/FAkohoue/OptiSparseMET/issues
+
+---
+
+## Reference
+
+Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.
