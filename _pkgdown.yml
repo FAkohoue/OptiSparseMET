@@ -1,0 +1,90 @@
+template:
+  bootstrap: 5
+
+url: https://FAkohoue.github.io/OptiSparseMET
+
+home:
+  title: "OptiSparseMET — Sparse Multi-Environment Trial Design"
+  description: >
+    An R package for designing sparse multi-environment trials by jointly
+    optimizing across-environment treatment allocation and within-environment
+    field layout construction, with support for genetic structure constraints
+    and seed availability.
+
+reference:
+  - title: "Across-environment allocation"
+    desc: >
+      Functions for distributing test treatments across environments.
+      Supports random balanced (M3) and balanced incomplete (M4) strategies,
+      optional common treatments, and allocation guided by family labels or
+      genomic and pedigree relationship matrices.
+    contents:
+      - allocate_sparse_met
+      - check_balanced_incomplete_feasibility
+      - derive_allocation_groups
+
+  - title: "Feasibility and capacity helpers"
+    desc: >
+      Helper functions to evaluate whether per-environment capacity is
+      sufficient to assign all non-common treatments at least once, and to
+      suggest safe values for n_test_entries_per_environment before calling
+      allocate_sparse_met(). Use suggest_safe_k() or min_k_for_full_coverage()
+      to choose a valid capacity, and warn_if_k_too_small() for a non-fatal
+      pre-flight check in interactive workflows.
+    contents:
+      - feasibility_helpers
+      - min_k_for_full_coverage
+      - suggest_safe_k
+      - warn_if_k_too_small
+
+  - title: "Seed-aware replication"
+    desc: >
+      Evaluates seed feasibility for each treatment and assigns replication
+      roles — replicated, unreplicated, or excluded — prior to field layout
+      construction.
+    contents:
+      - assign_replication_by_seed
+
+  - title: "Within-environment field design"
+    desc: >
+      Field layout construction engines for individual environments. Both
+      functions support family-based and matrix-based entry arrangement,
+      optional dispersion optimization, and optional mixed-model efficiency
+      evaluation.
+    contents:
+      - prep_famoptg
+      - alpha_rc_stream
+
+  - title: "Pipeline and assembly"
+    desc: >
+      End-to-end pipeline execution and MET-level field book assembly.
+      plan_sparse_met_design() runs the full two-stage workflow in a single
+      call. combine_met_fieldbooks() stacks environment-level field books
+      into one combined MET field book.
+    contents:
+      - plan_sparse_met_design
+      - combine_met_fieldbooks
+
+  - title: "Example data"
+    desc: >
+      Synthetic dataset for package examples, vignettes, and testing. All
+      components share the same treatment IDs and environments and can be
+      passed directly to any package function without modification.
+    contents:
+      - OptiSparseMET_example_data
+
+navbar:
+  structure:
+    left:  [home, reference, articles]
+    right: [github]
+  components:
+    reference:
+      text: "Reference"
+      href: reference/index.html
+    articles:
+      text: "Vignettes"
+      href: articles/index.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/FAkohoue/OptiSparseMET
+      aria-label: "GitHub repository"

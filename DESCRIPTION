@@ -1,0 +1,47 @@
+Package: OptiSparseMET
+Type: Package
+Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction
+Version: 0.1.0
+Authors@R: c(
+    person(
+      given = "Félicien",
+      family = "Akohoue",
+      email = "akohoue.f@gmail.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: Constructs sparse multi-environment trial designs by jointly
+    addressing across-environment treatment allocation and within-environment
+    field layout. Allocation supports random balanced and balanced incomplete
+    strategies, optional common treatments for cross-environment connectivity,
+    and optional structure-aware assignment guided by family labels or by
+    groups derived from genomic or pedigree relationship matrices. Feasibility
+    helpers (min_k_for_full_coverage(), suggest_safe_k(), warn_if_k_too_small())
+    verify that per-environment capacity is sufficient to assign all treatments
+    before allocation begins. Replication is determined by seed availability
+    through assign_replication_by_seed(). Within-environment layouts are built
+    via prep_famoptg() for repeated-check augmented, partially replicated, and
+    RCBD-type designs, or via alpha_rc_stream() for fixed-grid alpha row-column
+    designs. Optional mixed-model efficiency diagnostics are provided to
+    evaluate designs prior to field deployment.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 2.10)
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    Matrix,
+    pracma,
+    stats,
+    utils
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+URL: https://github.com/FAkohoue/OptiSparseMET,
+    https://FAkohoue.github.io/OptiSparseMET/
+BugReports: https://github.com/FAkohoue/OptiSparseMET/issues
+VignetteBuilder: knitr

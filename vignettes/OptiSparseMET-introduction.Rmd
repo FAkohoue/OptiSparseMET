@@ -1,0 +1,170 @@
+---
+title: "OptiSparseMET: A Unified Framework for Sparse Multi-Environment Trial Design"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{OptiSparseMET: A Unified Framework for Sparse Multi-Environment Trial Design}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+# 1. Introduction
+
+The fundamental constraint in multi-environment trials is that the number of candidate lines $J$ routinely exceeds the number of plots available across the $I$ environments in the trial. Complete evaluation of all lines in all environments is therefore infeasible, and some form of incomplete allocation is required.
+
+Sparse MET design formalizes this allocation problem. Rather than assigning lines to environments arbitrarily or by convenience, a principled sparse design controls replication, co-occurrence, and genetic connectivity simultaneously — so that the resulting data support the mixed-model inference the trial was built for. `OptiSparseMET` addresses this at two levels: across-environment allocation and within-environment field design, treated jointly rather than sequentially.
+
+---
+
+# 2. Statistical Framework
+
+The underlying model is a standard linear mixed model:
+
+$$y = X\beta + Zg + e$$
+
+where $g \sim N(0,\, K\sigma_g^2)$ and $e \sim N(0,\, R\sigma_e^2)$. The matrix $K$ is either a genomic relationship matrix (GRM) or a pedigree-based numerator relationship matrix $A$, depending on the available data. The covariance structure of $R$ can be identity (IID), or structured as AR1 or AR1$\times$AR1 to account for spatial gradients within environments.
+
+Design choices affect this model at multiple points. The incidence structure of $Z$ — determined by allocation — governs the estimability and precision of $\hat{g}$. The blocking structure within environments governs $R$ and the degree to which local field heterogeneity is absorbed rather than confounded with genetic effects. Both need to be well-constructed for the model to return reliable estimates.
+
+---
+
+# 3. Two-Level Design Structure
+
+## 3.1 Across-Environment Allocation
+
+The resource identity underlying balanced sparse allocation is:
+
+$$J \times r = I \times k$$
+
+where $J$ is the total number of treatments, $r$ is the number of environments each treatment enters, $I$ is the number of environments, and $k$ is the number of treatments tested per environment. This identity makes the tradeoff between coverage ($k$, how many lines each environment tests) and replication depth ($r$, how many environments each line enters) explicit. Given fixed total resources $N = J \times r = I \times k$, increasing one necessarily decreases the other.
+
+Allocation strategies in `OptiSparseMET` operate by finding treatment-by-environment incidence structures that satisfy or approximate this balance condition while respecting additional constraints on genetic structure and common treatment inclusion.
+
+## 3.2 Within-Environment Design
+
+Each environment receives an independent field design constructed by one of two engines: `prep_famoptg()` for block-based repeated-check designs including augmented and p-rep layouts, or `alpha_rc_stream()` for row-column alpha designs under large-scale spatial structure. The choice between them depends on field geometry and the anticipated spatial model at analysis.
+
+---
+
+# 4. Allocation Strategies
+
+## 4.1 Random Balanced (M3)
+
+The `random_balanced` strategy uses stochastic allocation to achieve approximate balance without requiring that exact BIBD parameters be satisfiable. It is appropriate when environment capacities are heterogeneous, when the dimensions of the trial do not admit an exact balanced solution, or when some flexibility in the incidence structure is acceptable. Balance is approximate rather than exact, but the stochastic construction is reproducible via the `seed` argument.
+
+## 4.2 Balanced Incomplete (M4)
+
+The `balanced_incomplete` strategy enforces equal replication across environments and approximately uniform pairwise co-occurrence of treatments, following BIBD principles applied at the MET level. This is the appropriate choice when environments are comparable in capacity, when equal replication is a hard requirement, and when the precision guarantees of balanced co-occurrence are needed for the planned contrasts. When exact BIBD parameters cannot be satisfied given the input dimensions, approximate balance is applied if `allow_approximate = TRUE`.
+
+---
+
+# 5. Genetic Structure-Aware Allocation
+
+Standard allocation treats lines as exchangeable. This is adequate when genetic relationships among candidates are weak or irrelevant to the design objective, but it fails when genomic prediction is a downstream goal or when family structure is strong enough to create genetic clustering.
+
+`OptiSparseMET` incorporates genetic structure through three mechanisms. Family-based allocation ensures that each family group is distributed across environments rather than concentrated in a subset of them, preventing systematic differences in the genetic composition of environments that would inflate GxE estimates. GRM-based allocation extends this by using the full genomic relationship matrix to disperse related lines across environments — directly improving the conditions under which GBLUP models are estimated. Pedigree-based allocation using $A$ serves the same purpose when genomic data are unavailable.
+
+---
+
+# 6. Common Treatments
+
+Let $C$ denote the number of treatments designated as common — meaning they appear in every environment. The effective per-environment capacity available for test entries is then:
+
+$$k_e^* = k_e - C$$
+
+Common treatments establish a baseline level of genetic connectivity across environments. Without them, environments that share no test entries are genetically disconnected, and cross-environment comparison of genetic effects relies entirely on the relationship structure in $K$. Including common treatments provides direct connectivity that does not depend on model assumptions. They also serve as stable references for estimating and removing environment-level effects, which stabilizes GxE estimation when environment correlations are weak.
+
+---
+
+# 7. Seed-Aware Replication
+
+A design that specifies replication without accounting for seed availability is not a deployable design. The feasibility condition for assigning replication $r_i$ to treatment $i$ is:
+
+$$s_i \geq r_i \times q_e$$
+
+where $s_i$ is the number of seeds available for treatment $i$ and $q_e$ is the seed quantity required per plot. `assign_replication_by_seed()` evaluates this condition for each line given a user-supplied data frame of seed inventories and a per-plot seed requirement, and returns a replication plan that respects the constraint. Lines for which the target replication is infeasible are flagged for review or excluded from the design.
+
+---
+
+# 8. Within-Environment Field Design Engines
+
+## 8.1 `prep_famoptg()`
+
+This function constructs block-based designs for environments where the primary concern is controlling between-block heterogeneity. It supports augmented designs (test entries with unreplicated checks), partially replicated (p-rep) designs, and RCBD-type repeated-check designs. The core constraints are: checks appear in every block, test entries appear at most once per block, and adjacency between related entries is minimized. When a relationship matrix is supplied, within-environment spatial dispersion of related lines is additionally controlled.
+
+## 8.2 `alpha_rc_stream()`
+
+This function constructs alpha-type row-column designs for large-scale environments where both row and column blocking are necessary. The stream-based construction handles large treatment numbers efficiently and produces layouts compatible with AR1 and AR1$\times$AR1 spatial models at the analysis stage. It is the appropriate engine when field geometry imposes simultaneous row and column structure and when spatial modeling is planned.
+
+---
+
+# 9. Example: Allocation
+
+```{r}
+library(OptiSparseMET)
+
+data("OptiSparseMET_example_data")
+x <- OptiSparseMET_example_data
+
+alloc <- allocate_sparse_met(
+  treatments                     = x$treatments,
+  environments                   = x$environments,
+  allocation_method              = "balanced_incomplete",
+  n_test_entries_per_environment = 40,
+  target_replications            = 2,
+  common_treatments              = x$common_treatments,
+  allow_approximate              = TRUE,
+  seed                           = 123
+)
+
+alloc$summary
+```
+
+---
+
+# 10. Full Pipeline
+
+```{r}
+out <- plan_sparse_met_design(
+  treatments                     = x$treatments,
+  environments                   = x$environments,
+  allocation_method              = "random_balanced",
+  n_test_entries_per_environment = 40,
+  common_treatments              = x$common_treatments,
+  env_design_specs               = x$env_design_specs,
+  treatment_info                 = x$treatment_info,
+  seed_info                      = x$seed_info,
+  seed_required_per_plot         = x$seed_required_per_plot,
+  seed                           = 123
+)
+
+names(out)
+head(out$combined_field_book)
+```
+
+---
+
+# 11. Design Component Summary
+
+| Component | Governing principle |
+|---|---|
+| Across-environment allocation | Balance replication depth against coverage breadth |
+| Genetic connectivity | Common treatments provide model-free cross-environment linkage |
+| Genetic structure | GRM / $A$ / family grouping prevents clustering and supports prediction |
+| Within-environment design | Block and spatial structure controls local heterogeneity |
+| Replication feasibility | Seed inventory determines what is deployable |
+
+---
+
+# 12. Conclusions
+
+`OptiSparseMET` treats MET design as a two-level problem and provides machinery to solve both levels in a consistent statistical framework. Allocation decisions are tied to within-environment design through shared constraints on genetic structure and connectivity. Seed feasibility is evaluated against the replication targets before a design is finalized. The result is a pipeline that produces designs which are statistically grounded and operationally deployable, rather than optimizing one at the expense of the other.
+
+---
+
+# 13. References
+
+Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.

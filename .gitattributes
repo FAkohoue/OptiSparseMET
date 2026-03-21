@@ -1,0 +1,10 @@
+# Normalize text files automatically
+* text=auto
+
+# Preserve line endings for shell scripts and markdown where needed
+*.sh text eol=lf
+*.R text eol=lf
+*.Rmd text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
