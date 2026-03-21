@@ -168,9 +168,22 @@ met <- combine_met_fieldbooks(...)
 
 ## Installation
 
+**Build Vignettes**
+
 ```r
 # install.packages("remotes")
-remotes::install_github("FAkohoue/OptiSparseMET")
+remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = TRUE,
+  dependencies = TRUE
+)
+```
+
+**Without Vignettes** 
+
+```r
+# install.packages("remotes")
+remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = FALSE,
+  dependencies = TRUE
+)
 ```
 
 ---
@@ -178,3 +191,9 @@ remotes::install_github("FAkohoue/OptiSparseMET")
 ## Reference
 
 Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.
+
+
+
+## Contributing
+
+Issues and suggestions are welcome: https://github.com/FAkohoue/OptiDesign/issues
