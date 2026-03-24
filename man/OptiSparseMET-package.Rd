@@ -116,7 +116,7 @@ prediction under balanced incomplete block design. \emph{The Plant Genome},
 Useful links:
 \itemize{
   \item \url{https://github.com/FAkohoue/OptiSparseMET}
-  \item \url{https://FAkohoue.github.io/OptiSparseMET/}
+  \item \url{https://FAkohoue.github.io/OptiSparseMET}
   \item Report bugs at \url{https://github.com/FAkohoue/OptiSparseMET/issues}
 }
 
