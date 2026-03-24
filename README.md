@@ -1,8 +1,29 @@
 # OptiSparseMET
 
-`OptiSparseMET` is an R framework for constructing sparse multi-environment trials (METs) that jointly addresses treatment allocation across environments and field design within environments — under shared statistical, genetic, and logistical constraints.
+<p align="center">
+  <img src="man/figures/logo.svg" alt="OptiSparseMET logo" width="100%">
+</p>
 
-The package targets a structural challenge common to modern breeding programs: the number of candidate lines routinely exceeds what any single environment can accommodate, environments are heterogeneous rather than interchangeable, and seed availability imposes limits that purely theoretical designs ignore. Standard MET tools typically address one of these problems at a time. `OptiSparseMET` integrates all of them within a single workflow.
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/R-CMD-check.yaml)
+[![pkgdown](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/pkgdown.yaml)
+<!-- badges: end -->
+
+---
+
+## Overview
+
+`OptiSparseMET` is an R framework for constructing sparse multi-environment
+trials (METs) that jointly addresses treatment allocation across environments
+and field design within environments — under shared statistical, genetic, and
+logistical constraints.
+
+The package targets a structural challenge common to modern breeding programs:
+the number of candidate lines routinely exceeds what any single environment
+can accommodate, environments are heterogeneous rather than interchangeable,
+and seed availability imposes limits that purely theoretical designs ignore.
+Standard MET tools typically address one of these problems at a time.
+`OptiSparseMET` integrates all of them within a single workflow.
 
 ---
 
@@ -10,107 +31,125 @@ The package targets a structural challenge common to modern breeding programs: t
 
 Sparse MET design is a two-level problem and should be treated as such.
 
-**Level 1 — Across-environment allocation** determines which treatments appear in which environments, how many times each treatment is replicated across the trial, and whether the resulting incidence structure preserves sufficient genetic connectivity for valid cross-environment inference.
+**Level 1 — Across-environment allocation** determines which treatments appear
+in which environments, how many times each treatment is replicated across the
+trial, and whether the resulting incidence structure preserves sufficient
+genetic connectivity for valid cross-environment inference.
 
-**Level 2 — Within-environment design** determines blocking structure, spatial layout, replication within each environment, and local control of field heterogeneity.
+**Level 2 — Within-environment design** determines blocking structure, spatial
+layout, replication within each environment, and local control of field
+heterogeneity.
 
-These two levels are statistically linked. Allocation decisions constrain which field layouts are feasible within environments; field layout choices affect the precision with which allocation-level effects can be estimated. Optimizing each level in isolation and patching them together is not equivalent to joint optimization. `OptiSparseMET` formalizes the link between them.
+These two levels are statistically linked. Allocation decisions constrain
+which field layouts are feasible within environments; field layout choices
+affect the precision with which allocation-level effects can be estimated.
+Optimizing each level in isolation is not equivalent to joint optimization.
+`OptiSparseMET` formalizes the link between them.
 
 ---
 
 ## Statistical Foundations
 
-### Sparse Testing Identity
+### Sparse testing identity
 
-The theoretical basis for sparse allocation follows Montesinos-López et al. (2023), who formalize the resource identity underlying balanced sparse designs:
+The theoretical basis follows Montesinos-López et al. (2023), who formalize
+the resource identity underlying balanced sparse designs:
 
 $$N = J \times r = I \times k$$
 
 | Symbol | Meaning |
-|---|---|
-| $J$ | total number of treatments |
-| $I$ | number of environments |
-| $k$ | number of treatments per environment |
-| $r$ | number of environments per treatment |
+|--------|---------|
+| $J$ | Total number of treatments |
+| $I$ | Number of environments |
+| $k$ | Number of treatments per environment |
+| $r$ | Number of environments per treatment |
 
-Given fixed total resources $N$, this identity makes the tradeoff between coverage breadth ($k$) and replication depth ($r$) explicit: increasing one necessarily decreases the other.
+Given fixed total resources $N$, this identity makes the tradeoff between
+coverage breadth ($k$) and replication depth ($r$) explicit.
 
-### Allocation Strategies
-
-Two allocation strategies are implemented.
+### Allocation strategies
 
 | Strategy | Argument | Properties |
-|---|---|---|
+|----------|----------|------------|
 | M3 | `random_balanced` | Stochastic allocation with approximate balance; tolerates unequal environment sizes |
 | M4 | `balanced_incomplete` | BIBD-inspired allocation with enforced equal replication and uniform co-occurrence |
 
-The `balanced_incomplete` strategy constructs a balanced incomplete incidence structure at the MET level. When the design dimensions admit an exact solution, equal replication is guaranteed. When exact balance is not achievable, approximate balance is available via `allow_approximate = TRUE`.
+### Genetic connectedness
 
-### Feasibility Helpers
+`OptiSparseMET` addresses genetic disconnectedness through three mechanisms:
+**common treatments** forced into every environment; **family-based
+allocation** that distributes each family group across environments; and
+**GRM/A-based allocation** that uses genomic or pedigree relationships to
+prevent genetic clustering across environments.
 
-Before running allocation, the package provides utilities to verify that the chosen per-environment capacity is sufficient to assign every non-common treatment at least once. Passing a capacity that is too small causes allocation to either fail or leave some treatments unassigned.
+### Seed constraints
 
-| Function | Purpose |
-|---|---|
-| `min_k_for_full_coverage()` | Compute the minimum entries per environment needed to place all treatments |
-| `suggest_safe_k()` | Propose a safe uniform value of `n_test_entries_per_environment` given the trial dimensions |
-| `warn_if_k_too_small()` | Emit a non-fatal warning when the chosen capacity is insufficient |
+`assign_replication_by_seed()` takes a data frame of available seed quantities
+and a per-plot seed requirement and returns a replication plan that respects
+those constraints — making designs deployable rather than merely theoretically
+optimal.
 
-Call `suggest_safe_k()` or `min_k_for_full_coverage()` before `allocate_sparse_met()` when the trial dimensions are new or when the number of treatments and environments has changed.
+---
 
-### Genetic Connectedness
+## Main Functions
 
-Genetic disconnectedness between environments — where different genetic material is tested in different locations with no shared lines — partially confounds environment effects and genetic effects. `OptiSparseMET` addresses this through three mechanisms.
+### Across-environment allocation
 
-**Common treatments** are forced into every environment before sparse allocation begins, establishing a baseline of direct cross-environment connectivity that does not depend on model assumptions.
+| Function | Description |
+|----------|-------------|
+| `allocate_sparse_met()` | Distribute treatments across environments (M3 or M4) |
+| `check_balanced_incomplete_feasibility()` | Verify BIBD feasibility given trial dimensions |
+| `derive_allocation_groups()` | Derive grouping structure from family, GRM, or A matrix |
 
-**Family-based allocation** distributes each family group across environments rather than concentrating it in a subset of them, preventing systematic differences in the genetic composition of environments that would inflate GxE estimates.
+### Feasibility and capacity helpers
 
-**GRM/A-based allocation** uses a genomic relationship matrix (GRM) or pedigree-based numerator relationship matrix (A) to guide how related lines are spread across environments, avoiding genetic clustering that degrades prediction accuracy under GBLUP and PBLUP models.
+| Function | Description |
+|----------|-------------|
+| `suggest_safe_k()` | Propose a safe `n_test_entries_per_environment` value |
+| `min_k_for_full_coverage()` | Compute minimum capacity for full treatment coverage |
+| `warn_if_k_too_small()` | Non-fatal pre-flight capacity check |
 
-### Within-Environment Field Design
+Call `suggest_safe_k()` or `min_k_for_full_coverage()` before
+`allocate_sparse_met()` whenever trial dimensions change.
 
-`prep_famoptg()` builds augmented, p-rep, or repeated-check RCBD-type designs. Checks appear in every block, test entries appear at most once per block, and adjacency between related entries is minimized. When a relationship matrix is supplied, spatial dispersion of related lines within the field layout is additionally controlled.
+### Within-environment field design
 
-`alpha_rc_stream()` constructs alpha-type row-column designs for large-scale field deployment with explicit spatial structure. These are appropriate when field dimensions impose simultaneous row and column blocking and when AR1 or AR1×AR1 spatial covariance models are anticipated at the analysis stage.
+| Function | Description |
+|----------|-------------|
+| `prep_famoptg()` | Augmented, p-rep, or repeated-check block designs |
+| `alpha_rc_stream()` | Alpha row-column designs for fixed-grid field deployment |
 
-### Mixed-Model Efficiency
+### Pipeline and assembly
 
-Designs can be evaluated under mixed-model frameworks before field deployment. Supported models include fixed-effects contrast precision, IID random effects, GBLUP and PBLUP using GRM or A, and spatial models with AR1 or AR1×AR1 error structure. The intent is to let the user verify that a proposed design will support the planned inference before committing resources.
-
-### Seed Constraints
-
-`assign_replication_by_seed()` takes a data frame of available seed quantities and a per-plot seed requirement, and returns a replication plan that respects those constraints. Lines with insufficient seed for the target replication are flagged or excluded. This is what makes designs produced by the package deployable rather than merely theoretically optimal.
+| Function | Description |
+|----------|-------------|
+| `plan_sparse_met_design()` | End-to-end pipeline in a single call |
+| `combine_met_fieldbooks()` | Stack environment-level field books into one MET field book |
 
 ---
 
 ## Workflow
 
 ```
-STEP 0: Verify capacity
-        ↓
+STEP 0  Verify capacity
         suggest_safe_k()  OR  min_k_for_full_coverage()
-
-STEP 1: Allocate treatments across environments
         ↓
+STEP 1  Allocate treatments across environments
         allocate_sparse_met()
-
-STEP 2: Define replication based on seed availability
         ↓
+STEP 2  Define replication based on seed availability
         assign_replication_by_seed()
-
-STEP 3: Build within-environment field designs
         ↓
+STEP 3  Build within-environment field designs
         prep_famoptg()  OR  alpha_rc_stream()
-
-STEP 4: Assemble the combined MET field book
         ↓
+STEP 4  Assemble the combined MET field book
         combine_met_fieldbooks()
 ```
 
 ---
 
-## Minimal Reproducible Example
+## Quick Start
 
 ```r
 library(OptiSparseMET)
@@ -118,10 +157,10 @@ library(OptiSparseMET)
 treatments <- paste0("L", sprintf("%03d", 1:120))
 envs       <- c("E1", "E2", "E3", "E4")
 
-# Step 0: verify that the chosen k is sufficient for full coverage
+# Step 0: verify capacity
 suggest_safe_k(treatments, envs, buffer = 3)  # returns 33
 
-# Step 1: allocation
+# Step 1: allocate
 alloc <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
@@ -145,7 +184,7 @@ rep_plan <- assign_replication_by_seed(
   seed_required_per_plot = 10
 )
 
-# Step 3: within-environment design (see prep_famoptg() documentation)
+# Step 3: within-environment design
 design_E1 <- prep_famoptg(...)
 
 # Step 4: combine into MET field book
@@ -156,53 +195,89 @@ met <- combine_met_fieldbooks(...)
 
 ## Design Strategy Notes
 
-**Use `random_balanced`** when environment capacities differ substantially, when exact BIBD parameters are not achievable given the trial dimensions, or when a degree of stochasticity in allocation is acceptable.
+**Use `random_balanced`** when environment capacities differ substantially,
+when exact BIBD parameters are not achievable, or when some stochasticity in
+allocation is acceptable.
 
-**Use `balanced_incomplete`** when environments are comparable in size, when equal replication across environments is a hard requirement, and when the downstream analysis will rely on the precision guarantees that uniform co-occurrence provides.
+**Use `balanced_incomplete`** when environments are comparable in size, when
+equal replication is a hard requirement, and when the downstream analysis
+relies on the precision guarantees that uniform co-occurrence provides.
 
-**Use GRM/A-based grouping** when genomic prediction is a primary objective, when family labels are too coarse to capture relevant genetic structure, or when there is a risk that related lines will cluster into the same environments under simpler allocation rules.
+**Use GRM/A-based grouping** when genomic prediction is a primary objective,
+when family labels are too coarse to capture relevant genetic structure, or
+when related lines risk clustering into the same environments.
 
-**Include common treatments** whenever environments are weakly correlated with each other, when genetic connectivity cannot otherwise be guaranteed, or when a stable reference set is needed for cross-environment benchmarking.
+**Include common treatments** whenever environments are weakly correlated,
+when genetic connectivity cannot otherwise be guaranteed, or when a stable
+reference set is needed for cross-environment benchmarking.
 
 ---
 
 ## Installation
 
-**Build Vignettes**
+Install from GitHub with vignettes (recommended):
 
 ```r
-# install.packages("remotes")
-remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = TRUE,
-  dependencies = TRUE
+install.packages("remotes")
+remotes::install_github("FAkohoue/OptiSparseMET",
+  build_vignettes = TRUE,
+  dependencies    = TRUE
 )
 ```
 
-**Without Vignettes** 
+Install without vignettes for a faster install:
 
 ```r
-# install.packages("remotes")
-remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = FALSE,
-  dependencies = TRUE
+remotes::install_github("FAkohoue/OptiSparseMET",
+  build_vignettes = FALSE,
+  dependencies    = TRUE
 )
 ```
+
 ---
 
 ## Documentation
 
-Full documentation and tutorials are available at: https://FAkohoue.github.io/OptiSparseMET/
+Full documentation, function reference, and tutorials are available at:
+
+<https://FAkohoue.github.io/OptiSparseMET/>
+
+To read the vignette after installation:
+
+```r
+vignette("OptiSparseMET-introduction", package = "OptiSparseMET")
+```
 
 ---
 
 ## Citation
 
-Akohoue, F. (2026). OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction. https://github.com/FAkohoue/OptiSparseMET
+If you use `OptiSparseMET` in published research, please cite:
 
-## Contributing
-
-Issues and suggestions are welcome: https://github.com/FAkohoue/OptiSparseMET/issues
+```
+Akohoue, F. (2026).
+OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local
+Field Layout Construction. R package version 0.1.0.
+https://github.com/FAkohoue/OptiSparseMET
+```
 
 ---
 
 ## Reference
 
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.
+Montesinos-López O.A., Mosqueda-González B.A., Salinas-Ruiz J.,
+Montesinos-López A., Crossa J. (2023). Sparse multi-trait genomic prediction
+under balanced incomplete block design. *The Plant Genome*, 16, e20305.
+
+---
+
+## Contributing
+
+Issues, bug reports, and feature suggestions are welcome:
+<https://github.com/FAkohoue/OptiSparseMET/issues>
+
+---
+
+## License
+
+MIT License © Félicien Akohoue

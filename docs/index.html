@@ -6,17 +6,40 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>OptiSparseMET — Sparse Multi-Environment Trial Design • OptiSparseMET</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" sizes="any" href="favicon.ico">
+<link rel="manifest" href="site.webmanifest">
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/Inter-0.4.10/font.css" rel="stylesheet">
+<link href="deps/Fira_Code-0.4.10/font.css" rel="stylesheet">
+<link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="OptiSparseMET — Sparse Multi-Environment Trial Design">
 <meta name="description" content="An R package for designing sparse multi-environment trials by jointly optimizing across-environment treatment allocation and within-environment field layout construction, with support for genetic structure constraints and seed availability.
 ">
 <meta property="og:description" content="An R package for designing sparse multi-environment trials by jointly optimizing across-environment treatment allocation and within-environment field layout construction, with support for genetic structure constraints and seed availability.
 ">
+<meta property="og:image" content="https://FAkohoue.github.io/OptiSparseMET/logo.svg">
 </head>
 <body>
+<p>
+
+
+
+
+
+
+
+
+
+  pkgdown/assets/favicon.html
+
+  
+
+  </p>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -24,7 +47,7 @@
 
     <a class="navbar-brand me-2" href="index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,7 +60,7 @@
 <li class="nav-item"><a class="nav-link" href="articles/index.html">Vignettes</a></li>
       </ul>
 <ul class="navbar-nav">
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
       </ul>
 </div>
 
@@ -46,27 +69,38 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="optisparsemet">OptiSparseMET<a class="anchor" aria-label="anchor" href="#optisparsemet"></a>
-</h1></div>
+<div class="page-header">
+<img src="logo.svg" class="logo" alt=""><h1 id="optisparsemet">OptiSparseMET<a class="anchor" aria-label="anchor" href="#optisparsemet"></a>
+</h1>
+</div>
+<p align="center">
+<img src="reference/figures/logo.svg" alt="OptiSparseMET logo" width="100%"></p>
+<!-- badges: start -->
+
+<hr>
+<div class="section level2">
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
+</h2>
 <p><code>OptiSparseMET</code> is an R framework for constructing sparse multi-environment trials (METs) that jointly addresses treatment allocation across environments and field design within environments — under shared statistical, genetic, and logistical constraints.</p>
 <p>The package targets a structural challenge common to modern breeding programs: the number of candidate lines routinely exceeds what any single environment can accommodate, environments are heterogeneous rather than interchangeable, and seed availability imposes limits that purely theoretical designs ignore. Standard MET tools typically address one of these problems at a time. <code>OptiSparseMET</code> integrates all of them within a single workflow.</p>
 <hr>
+</div>
 <div class="section level2">
 <h2 id="conceptual-framework">Conceptual Framework<a class="anchor" aria-label="anchor" href="#conceptual-framework"></a>
 </h2>
 <p>Sparse MET design is a two-level problem and should be treated as such.</p>
 <p><strong>Level 1 — Across-environment allocation</strong> determines which treatments appear in which environments, how many times each treatment is replicated across the trial, and whether the resulting incidence structure preserves sufficient genetic connectivity for valid cross-environment inference.</p>
 <p><strong>Level 2 — Within-environment design</strong> determines blocking structure, spatial layout, replication within each environment, and local control of field heterogeneity.</p>
-<p>These two levels are statistically linked. Allocation decisions constrain which field layouts are feasible within environments; field layout choices affect the precision with which allocation-level effects can be estimated. Optimizing each level in isolation and patching them together is not equivalent to joint optimization. <code>OptiSparseMET</code> formalizes the link between them.</p>
+<p>These two levels are statistically linked. Allocation decisions constrain which field layouts are feasible within environments; field layout choices affect the precision with which allocation-level effects can be estimated. Optimizing each level in isolation is not equivalent to joint optimization. <code>OptiSparseMET</code> formalizes the link between them.</p>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="statistical-foundations">Statistical Foundations<a class="anchor" aria-label="anchor" href="#statistical-foundations"></a>
 </h2>
 <div class="section level3">
-<h3 id="sparse-testing-identity">Sparse Testing Identity<a class="anchor" aria-label="anchor" href="#sparse-testing-identity"></a>
+<h3 id="sparse-testing-identity">Sparse testing identity<a class="anchor" aria-label="anchor" href="#sparse-testing-identity"></a>
 </h3>
-<p>The theoretical basis for sparse allocation follows Montesinos-López et al. (2023), who formalize the resource identity underlying balanced sparse designs:</p>
+<p>The theoretical basis follows Montesinos-López et al. (2023), who formalize the resource identity underlying balanced sparse designs:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>J</mi><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = J \times r = I \times k</annotation></semantics></math></p>
 <table class="table">
 <thead><tr>
@@ -76,33 +110,32 @@
 <tbody>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math></td>
-<td>total number of treatments</td>
+<td>Total number of treatments</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math></td>
-<td>number of environments</td>
+<td>Number of environments</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math></td>
-<td>number of treatments per environment</td>
+<td>Number of treatments per environment</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math></td>
-<td>number of environments per treatment</td>
+<td>Number of environments per treatment</td>
 </tr>
 </tbody>
 </table>
-<p>Given fixed total resources <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>, this identity makes the tradeoff between coverage breadth (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>) and replication depth (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>) explicit: increasing one necessarily decreases the other.</p>
+<p>Given fixed total resources <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>, this identity makes the tradeoff between coverage breadth (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>) and replication depth (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>) explicit.</p>
 </div>
 <div class="section level3">
-<h3 id="allocation-strategies">Allocation Strategies<a class="anchor" aria-label="anchor" href="#allocation-strategies"></a>
+<h3 id="allocation-strategies">Allocation strategies<a class="anchor" aria-label="anchor" href="#allocation-strategies"></a>
 </h3>
-<p>Two allocation strategies are implemented.</p>
 <table class="table">
 <colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
+<col width="31%">
+<col width="31%">
+<col width="37%">
 </colgroup>
 <thead><tr>
 <th>Strategy</th>
@@ -122,90 +155,150 @@
 </tr>
 </tbody>
 </table>
-<p>The <code>balanced_incomplete</code> strategy constructs a balanced incomplete incidence structure at the MET level. When the design dimensions admit an exact solution, equal replication is guaranteed. When exact balance is not achievable, approximate balance is available via <code>allow_approximate = TRUE</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="feasibility-helpers">Feasibility Helpers<a class="anchor" aria-label="anchor" href="#feasibility-helpers"></a>
+<h3 id="genetic-connectedness">Genetic connectedness<a class="anchor" aria-label="anchor" href="#genetic-connectedness"></a>
 </h3>
-<p>Before running allocation, the package provides utilities to verify that the chosen per-environment capacity is sufficient to assign every non-common treatment at least once. Passing a capacity that is too small causes allocation to either fail or leave some treatments unassigned.</p>
+<p><code>OptiSparseMET</code> addresses genetic disconnectedness through three mechanisms: <strong>common treatments</strong> forced into every environment; <strong>family-based allocation</strong> that distributes each family group across environments; and <strong>GRM/A-based allocation</strong> that uses genomic or pedigree relationships to prevent genetic clustering across environments.</p>
+</div>
+<div class="section level3">
+<h3 id="seed-constraints">Seed constraints<a class="anchor" aria-label="anchor" href="#seed-constraints"></a>
+</h3>
+<p><code><a href="reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> takes a data frame of available seed quantities and a per-plot seed requirement and returns a replication plan that respects those constraints — making designs deployable rather than merely theoretically optimal.</p>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="main-functions">Main Functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
+</h2>
+<div class="section level3">
+<h3 id="across-environment-allocation">Across-environment allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation"></a>
+</h3>
 <table class="table">
 <colgroup>
-<col width="50%">
-<col width="50%">
+<col width="43%">
+<col width="56%">
 </colgroup>
 <thead><tr>
 <th>Function</th>
-<th>Purpose</th>
+<th>Description</th>
 </tr></thead>
 <tbody>
 <tr>
-<td><code><a href="reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code></td>
-<td>Compute the minimum entries per environment needed to place all treatments</td>
+<td><code><a href="reference/allocate_sparse_met.html">allocate_sparse_met()</a></code></td>
+<td>Distribute treatments across environments (M3 or M4)</td>
 </tr>
 <tr>
-<td><code><a href="reference/suggest_safe_k.html">suggest_safe_k()</a></code></td>
-<td>Propose a safe uniform value of <code>n_test_entries_per_environment</code> given the trial dimensions</td>
+<td><code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code></td>
+<td>Verify BIBD feasibility given trial dimensions</td>
 </tr>
 <tr>
-<td><code><a href="reference/warn_if_k_too_small.html">warn_if_k_too_small()</a></code></td>
-<td>Emit a non-fatal warning when the chosen capacity is insufficient</td>
+<td><code><a href="reference/derive_allocation_groups.html">derive_allocation_groups()</a></code></td>
+<td>Derive grouping structure from family, GRM, or A matrix</td>
 </tr>
 </tbody>
 </table>
-<p>Call <code><a href="reference/suggest_safe_k.html">suggest_safe_k()</a></code> or <code><a href="reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code> before <code><a href="reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> when the trial dimensions are new or when the number of treatments and environments has changed.</p>
 </div>
 <div class="section level3">
-<h3 id="genetic-connectedness">Genetic Connectedness<a class="anchor" aria-label="anchor" href="#genetic-connectedness"></a>
+<h3 id="feasibility-and-capacity-helpers">Feasibility and capacity helpers<a class="anchor" aria-label="anchor" href="#feasibility-and-capacity-helpers"></a>
 </h3>
-<p>Genetic disconnectedness between environments — where different genetic material is tested in different locations with no shared lines — partially confounds environment effects and genetic effects. <code>OptiSparseMET</code> addresses this through three mechanisms.</p>
-<p><strong>Common treatments</strong> are forced into every environment before sparse allocation begins, establishing a baseline of direct cross-environment connectivity that does not depend on model assumptions.</p>
-<p><strong>Family-based allocation</strong> distributes each family group across environments rather than concentrating it in a subset of them, preventing systematic differences in the genetic composition of environments that would inflate GxE estimates.</p>
-<p><strong>GRM/A-based allocation</strong> uses a genomic relationship matrix (GRM) or pedigree-based numerator relationship matrix (A) to guide how related lines are spread across environments, avoiding genetic clustering that degrades prediction accuracy under GBLUP and PBLUP models.</p>
+<table class="table">
+<colgroup>
+<col width="43%">
+<col width="56%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/suggest_safe_k.html">suggest_safe_k()</a></code></td>
+<td>Propose a safe <code>n_test_entries_per_environment</code> value</td>
+</tr>
+<tr>
+<td><code><a href="reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code></td>
+<td>Compute minimum capacity for full treatment coverage</td>
+</tr>
+<tr>
+<td><code><a href="reference/warn_if_k_too_small.html">warn_if_k_too_small()</a></code></td>
+<td>Non-fatal pre-flight capacity check</td>
+</tr>
+</tbody>
+</table>
+<p>Call <code><a href="reference/suggest_safe_k.html">suggest_safe_k()</a></code> or <code><a href="reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code> before <code><a href="reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> whenever trial dimensions change.</p>
 </div>
 <div class="section level3">
-<h3 id="within-environment-field-design">Within-Environment Field Design<a class="anchor" aria-label="anchor" href="#within-environment-field-design"></a>
+<h3 id="within-environment-field-design">Within-environment field design<a class="anchor" aria-label="anchor" href="#within-environment-field-design"></a>
 </h3>
-<p><code><a href="reference/prep_famoptg.html">prep_famoptg()</a></code> builds augmented, p-rep, or repeated-check RCBD-type designs. Checks appear in every block, test entries appear at most once per block, and adjacency between related entries is minimized. When a relationship matrix is supplied, spatial dispersion of related lines within the field layout is additionally controlled.</p>
-<p><code><a href="reference/alpha_rc_stream.html">alpha_rc_stream()</a></code> constructs alpha-type row-column designs for large-scale field deployment with explicit spatial structure. These are appropriate when field dimensions impose simultaneous row and column blocking and when AR1 or AR1×AR1 spatial covariance models are anticipated at the analysis stage.</p>
+<table class="table">
+<colgroup>
+<col width="43%">
+<col width="56%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/prep_famoptg.html">prep_famoptg()</a></code></td>
+<td>Augmented, p-rep, or repeated-check block designs</td>
+</tr>
+<tr>
+<td><code><a href="reference/alpha_rc_stream.html">alpha_rc_stream()</a></code></td>
+<td>Alpha row-column designs for fixed-grid field deployment</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level3">
-<h3 id="mixed-model-efficiency">Mixed-Model Efficiency<a class="anchor" aria-label="anchor" href="#mixed-model-efficiency"></a>
+<h3 id="pipeline-and-assembly">Pipeline and assembly<a class="anchor" aria-label="anchor" href="#pipeline-and-assembly"></a>
 </h3>
-<p>Designs can be evaluated under mixed-model frameworks before field deployment. Supported models include fixed-effects contrast precision, IID random effects, GBLUP and PBLUP using GRM or A, and spatial models with AR1 or AR1×AR1 error structure. The intent is to let the user verify that a proposed design will support the planned inference before committing resources.</p>
-</div>
-<div class="section level3">
-<h3 id="seed-constraints">Seed Constraints<a class="anchor" aria-label="anchor" href="#seed-constraints"></a>
-</h3>
-<p><code><a href="reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> takes a data frame of available seed quantities and a per-plot seed requirement, and returns a replication plan that respects those constraints. Lines with insufficient seed for the target replication are flagged or excluded. This is what makes designs produced by the package deployable rather than merely theoretically optimal.</p>
+<table class="table">
+<colgroup>
+<col width="43%">
+<col width="56%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code></td>
+<td>End-to-end pipeline in a single call</td>
+</tr>
+<tr>
+<td><code><a href="reference/combine_met_fieldbooks.html">combine_met_fieldbooks()</a></code></td>
+<td>Stack environment-level field books into one MET field book</td>
+</tr>
+</tbody>
+</table>
 <hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a>
 </h2>
-<pre><code>STEP 0: Verify capacity
-        ↓
+<pre><code>STEP 0  Verify capacity
         suggest_safe_k()  OR  min_k_for_full_coverage()
-
-STEP 1: Allocate treatments across environments
         ↓
+STEP 1  Allocate treatments across environments
         allocate_sparse_met()
-
-STEP 2: Define replication based on seed availability
         ↓
+STEP 2  Define replication based on seed availability
         assign_replication_by_seed()
-
-STEP 3: Build within-environment field designs
         ↓
+STEP 3  Build within-environment field designs
         prep_famoptg()  OR  alpha_rc_stream()
-
-STEP 4: Assemble the combined MET field book
         ↓
+STEP 4  Assemble the combined MET field book
         combine_met_fieldbooks()</code></pre>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="minimal-reproducible-example">Minimal Reproducible Example<a class="anchor" aria-label="anchor" href="#minimal-reproducible-example"></a>
+<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
@@ -213,10 +306,10 @@ STEP 4: Assemble the combined MET field book
 <span><span class="va">treatments</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%03d"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">120</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">envs</span>       <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"E1"</span>, <span class="st">"E2"</span>, <span class="st">"E3"</span>, <span class="st">"E4"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 0: verify that the chosen k is sufficient for full coverage</span></span>
+<span><span class="co"># Step 0: verify capacity</span></span>
 <span><span class="fu"><a href="reference/suggest_safe_k.html">suggest_safe_k</a></span><span class="op">(</span><span class="va">treatments</span>, <span class="va">envs</span>, buffer <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>  <span class="co"># returns 33</span></span>
 <span></span>
-<span><span class="co"># Step 1: allocation</span></span>
+<span><span class="co"># Step 1: allocate</span></span>
 <span><span class="va">alloc</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">envs</span>,</span>
@@ -240,7 +333,7 @@ STEP 4: Assemble the combined MET field book
 <span>  seed_required_per_plot <span class="op">=</span> <span class="fl">10</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 3: within-environment design (see prep_famoptg() documentation)</span></span>
+<span><span class="co"># Step 3: within-environment design</span></span>
 <span><span class="va">design_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/prep_famoptg.html">prep_famoptg</a></span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Step 4: combine into MET field book</span></span>
@@ -250,50 +343,66 @@ STEP 4: Assemble the combined MET field book
 <div class="section level2">
 <h2 id="design-strategy-notes">Design Strategy Notes<a class="anchor" aria-label="anchor" href="#design-strategy-notes"></a>
 </h2>
-<p><strong>Use <code>random_balanced</code></strong> when environment capacities differ substantially, when exact BIBD parameters are not achievable given the trial dimensions, or when a degree of stochasticity in allocation is acceptable.</p>
-<p><strong>Use <code>balanced_incomplete</code></strong> when environments are comparable in size, when equal replication across environments is a hard requirement, and when the downstream analysis will rely on the precision guarantees that uniform co-occurrence provides.</p>
-<p><strong>Use GRM/A-based grouping</strong> when genomic prediction is a primary objective, when family labels are too coarse to capture relevant genetic structure, or when there is a risk that related lines will cluster into the same environments under simpler allocation rules.</p>
-<p><strong>Include common treatments</strong> whenever environments are weakly correlated with each other, when genetic connectivity cannot otherwise be guaranteed, or when a stable reference set is needed for cross-environment benchmarking.</p>
+<p><strong>Use <code>random_balanced</code></strong> when environment capacities differ substantially, when exact BIBD parameters are not achievable, or when some stochasticity in allocation is acceptable.</p>
+<p><strong>Use <code>balanced_incomplete</code></strong> when environments are comparable in size, when equal replication is a hard requirement, and when the downstream analysis relies on the precision guarantees that uniform co-occurrence provides.</p>
+<p><strong>Use GRM/A-based grouping</strong> when genomic prediction is a primary objective, when family labels are too coarse to capture relevant genetic structure, or when related lines risk clustering into the same environments.</p>
+<p><strong>Include common treatments</strong> whenever environments are weakly correlated, when genetic connectivity cannot otherwise be guaranteed, or when a stable reference set is needed for cross-environment benchmarking.</p>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p><strong>Build Vignettes</strong></p>
+<p>Install from GitHub with vignettes (recommended):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"FAkohoue/OptiSparseMET"</span>, build_vignettes <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  dependencies <span class="op">=</span> <span class="cn">TRUE</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"remotes"</span><span class="op">)</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"FAkohoue/OptiSparseMET"</span>,</span>
+<span>  build_vignettes <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  dependencies    <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><strong>Without Vignettes</strong></p>
+<p>Install without vignettes for a faster install:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"FAkohoue/OptiSparseMET"</span>, build_vignettes <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  dependencies <span class="op">=</span> <span class="cn">TRUE</span></span>
+<code class="sourceCode R"><span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"FAkohoue/OptiSparseMET"</span>,</span>
+<span>  build_vignettes <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  dependencies    <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
-<p>Full documentation and tutorials are available at: <a href="https://FAkohoue.github.io/OptiSparseMET/" class="uri">https://FAkohoue.github.io/OptiSparseMET/</a></p>
+<p>Full documentation, function reference, and tutorials are available at:</p>
+<p><a href="https://FAkohoue.github.io/OptiSparseMET/" class="uri">https://FAkohoue.github.io/OptiSparseMET/</a></p>
+<p>To read the vignette after installation:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"OptiSparseMET-introduction"</span>, package <span class="op">=</span> <span class="st">"OptiSparseMET"</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
-<p>Akohoue, F. (2026). OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction. <a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link uri">https://github.com/FAkohoue/OptiSparseMET</a></p>
-</div>
-<div class="section level2">
-<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
-</h2>
-<p>Issues and suggestions are welcome: <a href="https://github.com/FAkohoue/OptiSparseMET/issues" class="external-link uri">https://github.com/FAkohoue/OptiSparseMET/issues</a></p>
+<p>If you use <code>OptiSparseMET</code> in published research, please cite:</p>
+<pre><code>Akohoue, F. (2026).
+OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local
+Field Layout Construction. R package version 0.1.0.
+https://github.com/FAkohoue/OptiSparseMET</code></pre>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="reference">Reference<a class="anchor" aria-label="anchor" href="#reference"></a>
 </h2>
-<p>Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., &amp; Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. <em>The Plant Genome</em>, 16, e20305.</p>
+<p>Montesinos-López O.A., Mosqueda-González B.A., Salinas-Ruiz J., Montesinos-López A., Crossa J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. <em>The Plant Genome</em>, 16, e20305.</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
+</h2>
+<p>Issues, bug reports, and feature suggestions are welcome: <a href="https://github.com/FAkohoue/OptiSparseMET/issues" class="external-link uri">https://github.com/FAkohoue/OptiSparseMET/issues</a></p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
+</h2>
+<p>MIT License © Félicien Akohoue</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
@@ -323,7 +432,8 @@ STEP 4: Assemble the combined MET field book
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Félicien Akohoue <br><small class="roles"> Author, maintainer </small>   </li>
+<li>
+<a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a> <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2160-0182" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -334,7 +444,7 @@ STEP 4: Assemble the combined MET field book
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Félicien Akohoue.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">
@@ -348,5 +458,6 @@ STEP 4: Assemble the combined MET field book
 
 
 
-  </body>
+  
+</body>
 </html>

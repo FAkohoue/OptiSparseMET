@@ -2,14 +2,14 @@ Package: OptiSparseMET
 Type: Package
 Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction
 Version: 0.1.0
-Authors@R: c(
+Authors@R:
     person(
-      given = "Félicien",
-      family = "Akohoue",
-      email = "akohoue.f@gmail.com",
-      role = c("aut", "cre")
+      given   = "Félicien",
+      family  = "Akohoue",
+      email   = "akohoue.f@gmail.com",
+      role    = c("aut", "cre"),
+      comment = c(ORCID = "0000-0002-2160-0182")
     )
-  )
 Description: Constructs sparse multi-environment trial designs by jointly
     addressing across-environment treatment allocation and within-environment
     field layout. Allocation supports random balanced and balanced incomplete

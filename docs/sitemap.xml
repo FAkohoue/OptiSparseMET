@@ -3,6 +3,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/articles/index.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-introduction.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/authors.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/favicon.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/index.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/LICENSE-text.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/LICENSE.html</loc></url>
@@ -14,10 +15,16 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/combine_met_fieldbooks.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/derive_allocation_groups.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-check_full_coverage_feasibility.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-optisparsemet_dbg.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-optisparsemet_z.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-validate_cols.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-validate_named_coverage.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-validate_square_matrix.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/feasibility_helpers.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/index.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/OptiSparseMET-package.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/OptiSparseMET.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/OptiSparseMET_example_data.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.html</loc></url>
