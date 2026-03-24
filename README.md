@@ -185,6 +185,11 @@ remotes::install_github("FAkohoue/OptiSparseMET", build_vignettes = FALSE,
   dependencies = TRUE
 )
 ```
+---
+
+## Documentation
+
+Full documentation and tutorials are available at: https://FAkohoue.github.io/OptiSparseMET/
 
 ---
 
