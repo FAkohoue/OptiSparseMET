@@ -13,25 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: r-lib/actions/setup-pandoc@v2
-
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::pkgdown, any::roxygen2, local::.
-
       - name: Document package
         shell: Rscript {0}
         run: roxygen2::roxygenise()
-
       - name: Build site
         shell: Rscript {0}
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
-
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
