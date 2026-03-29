@@ -11,7 +11,6 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/OptiSparseMET-package.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/OptiSparseMET_example_data.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.html</loc></url>
-<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/alpha_rc_stream.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/assign_replication_by_seed.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/combine_met_fieldbooks.html</loc></url>
@@ -24,9 +23,14 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/dot-validate_square_matrix.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/feasibility_helpers.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/index.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_evaluate_alpha_efficiency.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_evaluate_famoptg_efficiency.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_optimize_alpha_rc.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_optimize_famoptg.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.html</loc></url>
-<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.html</loc></url>
 </urlset>

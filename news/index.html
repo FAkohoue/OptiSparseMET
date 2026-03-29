@@ -17,11 +17,11 @@
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,7 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Vignettes</a></li>
+<li class="active nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
       </ul></div>
 
@@ -45,16 +46,133 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="optisparsemet-010">OptiSparseMET 0.1.0<a class="anchor" aria-label="anchor" href="#optisparsemet-010"></a></h2>
-<ul><li>Initial package structure.</li>
-<li>Added <code><a href="../reference/prep_famoptg.html">prep_famoptg()</a></code>.</li>
-<li>Added <code><a href="../reference/alpha_rc_stream.html">alpha_rc_stream()</a></code>.</li>
-<li>Added package documentation, tests, pkgdown configuration, and GitHub Actions workflow.</li>
+<div class="section level3">
+<h3 id="initial-release-0-1-0">Initial release<a class="anchor" aria-label="anchor" href="#initial-release-0-1-0"></a></h3>
+<p><code>OptiSparseMET</code> introduces a unified framework for sparse multi-environment trial (MET) design, jointly addressing treatment allocation across environments and within-environment field design under shared statistical, genetic, and logistical constraints.</p>
+<p>The package links allocation structure, genetic connectivity, seed availability, and spatial design assumptions in a single reproducible workflow compatible with mixed-model inference.</p>
+<hr></div>
+<div class="section level3">
+<h3 id="across-environment-allocation-0-1-0">Across-environment allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation-0-1-0"></a></h3>
+<ul><li>
+<p>Added <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> for constructing treatment-by-environment incidence matrices using sparse testing principles.</p>
+<ul><li>Supports <code>"random_balanced"</code> (M3) for flexible approximate balance with coverage-first guarantees.</li>
+<li>Supports <code>"balanced_incomplete"</code> (M4) for BIBD-inspired uniform replication structure with enforced equal replication and equal environment sizes across the trial.</li>
+<li>Accepts <code>"M3"</code> and <code>"M4"</code> as convenient aliases.</li>
+<li>Supports unequal environment capacities under <code>random_balanced</code>.</li>
+<li>Supports common treatments to ensure design-based connectivity across environments.</li>
+<li>Returns <code>$allocation_matrix</code> (binary treatment-by-environment incidence matrix) from which pairwise co-occurrence can be computed post-hoc as <code>out$allocation_matrix %*% t(out$allocation_matrix)</code>.</li>
+</ul></li>
+<li><p>Added <code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify the slot identity (J* × r = I × k*) before attempting balanced incomplete allocation, confirming that equal replication is achievable for the chosen dimensions.</p></li>
+<li>
+<p>Added <code><a href="../reference/derive_allocation_groups.html">derive_allocation_groups()</a></code> to construct grouping structures from:</p>
+<ul><li>family membership labels</li>
+<li>genomic relationship matrix (GRM)</li>
+<li>pedigree relationship matrix (A matrix)</li>
+</ul><p>Group-guided allocation improves genetic connectedness and stability of cross-environment inference.</p>
+</li>
+</ul><hr></div>
+<div class="section level3">
+<h3 id="capacity-and-feasibility-helpers-0-1-0">Capacity and feasibility helpers<a class="anchor" aria-label="anchor" href="#capacity-and-feasibility-helpers-0-1-0"></a></h3>
+<ul><li>Added <code><a href="../reference/suggest_safe_k.html">suggest_safe_k()</a></code> to propose a safe uniform value for <code>n_test_entries_per_environment</code> given treatment count, environment count, common treatments, and a user-defined buffer.</li>
+<li>Added <code><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code> to compute the minimum per-environment capacity required for every non-common treatment to be assigned at least once.</li>
+<li>Added <code><a href="../reference/warn_if_k_too_small.html">warn_if_k_too_small()</a></code> to provide a non-fatal diagnostic warning when the chosen capacity is insufficient for full treatment coverage.</li>
+</ul><p>These helpers prevent the most common failure mode: passing a capacity too small to assign all treatments before <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> is called.</p>
+<hr></div>
+<div class="section level3">
+<h3 id="seed-aware-replication-planning-0-1-0">Seed-aware replication planning<a class="anchor" aria-label="anchor" href="#seed-aware-replication-planning-0-1-0"></a></h3>
+<ul><li>Added <code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> to determine feasible replication levels based on available seed quantities and per-plot seed requirements.
+<ul><li>Supports <code>"augmented"</code>, <code>"p_rep"</code>, and <code>"rcbd_type"</code> replication modes.</li>
+<li>Supports <code>shortage_action</code> values <code>"error"</code>, <code>"downgrade"</code>, and <code>"exclude"</code> for handling treatments with insufficient seed.</li>
+<li>Returns a role-partitioned list (<code>p_rep_treatments</code>, <code>unreplicated_treatments</code>, <code>excluded_treatments</code>) suitable for direct input to <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code>.</li>
+</ul></li>
+</ul><hr></div>
+<div class="section level3">
+<h3 id="within-environment-field-design-engines-0-1-0">Within-environment field design engines<a class="anchor" aria-label="anchor" href="#within-environment-field-design-engines-0-1-0"></a></h3>
+<div class="section level4">
+<h4 id="block-based-repeated-check-designs-0-1-0">Block-based repeated-check designs<a class="anchor" aria-label="anchor" href="#block-based-repeated-check-designs-0-1-0"></a></h4>
+<ul><li>
+<p>Added <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> for constructing augmented, partially replicated (p-rep), and RCBD-type repeated-check block designs.</p>
+<p>Key structural guarantees:</p>
+<ul><li>Check treatments appear in every block.</li>
+<li>Replicated (p-rep) treatments appear at most once per block.</li>
+<li>Unreplicated treatments appear exactly once across the field.</li>
+<li>Optional genetic dispersion optimisation using GRM or A matrix.</li>
+<li>Optional within-environment efficiency evaluation (A, D, CDmean).</li>
+</ul></li>
+<li>
+<p>Added <code><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency()</a></code> for evaluating the statistical efficiency of <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> designs under:</p>
+<ul><li>Fixed or random treatment effects.</li>
+<li>IID, AR1, or AR1×AR1 residual covariance structures.</li>
+<li>A-optimality, D-efficiency, CDmean, and mean PEV criteria.</li>
+<li>Requires <code>sigma_b2</code> (block variance) in <code>varcomp</code>.</li>
+</ul></li>
+<li><p>Added <code><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg()</a></code> for criterion-driven optimisation of <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> designs via Random Restart.</p></li>
 </ul></div>
-  </main></div>
+<div class="section level4">
+<h4 id="row-column-alpha-designs-0-1-0">Row-column alpha designs<a class="anchor" aria-label="anchor" href="#row-column-alpha-designs-0-1-0"></a></h4>
+<ul><li>
+<p>Added <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> for generating alpha row-column stream designs suitable for large structured fields.</p>
+<p>Key features:</p>
+<ul><li>Repeated checks in every incomplete block.</li>
+<li>Configurable block sizes via <code>min_block_size</code> / <code>max_block_size</code> or fixed <code>n_blocks_per_rep</code>.</li>
+<li>Row-major, column-major, and serpentine traversal orders.</li>
+<li>Optional genetic grouping from family, GRM, or A matrix.</li>
+<li>Optional within-environment efficiency evaluation.</li>
+</ul></li>
+<li>
+<p>Added <code><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency()</a></code> for evaluating the statistical efficiency of <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> designs under the same criteria as <code><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency()</a></code>.</p>
+<ul><li>Requires <code>sigma_rep2</code> (replicate variance) and <code>sigma_ib2</code> (incomplete block within replicate variance) in <code>varcomp</code>, distinguishing it from the block-based evaluator.</li>
+</ul></li>
+<li><p>Added <code><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc()</a></code> for criterion-driven optimisation of <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> designs via Random Restart, Simulated Annealing, or Genetic Algorithm.</p></li>
+</ul><hr></div>
+</div>
+<div class="section level3">
+<h3 id="pipeline-orchestration-0-1-0">Pipeline orchestration<a class="anchor" aria-label="anchor" href="#pipeline-orchestration-0-1-0"></a></h3>
+<ul><li>
+<p>Added <code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code> providing an end-to-end MET design workflow that integrates:</p>
+<ul><li>Across-environment allocation via <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code>.</li>
+<li>Per-environment seed feasibility via <code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code>.</li>
+<li>Environment-specific field design via <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> or <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code>, selected by <code>design</code> in <code>env_design_specs</code>.</li>
+<li>Mixed design strategies across environments in a single call.</li>
+</ul><p>Each environment’s design engine is specified via <code>env_design_specs</code>, a named list where <code>design = "met_prep_famoptg"</code> or <code>design = "met_alpha_rc_stream"</code> selects the constructor.</p>
+</li>
+<li><p>Added <code><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks()</a></code> to stack environment-level field books produced by <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> or <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> into a unified MET-level field book with standard metadata columns (<code>Environment</code>, <code>LocalDesign</code>, <code>ReplicationMode</code>, <code>SparseMethod</code>, <code>IsCommonTreatment</code>). Handles heterogeneous column sets across environments by filling missing columns with <code>NA</code>.</p></li>
+</ul><hr></div>
+<div class="section level3">
+<h3 id="statistical-framework-0-1-0">Statistical framework<a class="anchor" aria-label="anchor" href="#statistical-framework-0-1-0"></a></h3>
+<p>Implements the sparse testing identity:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>N <span class="ot">=</span> J × r <span class="ot">=</span> I × k</span></code></pre></div>
+<p>making explicit the tradeoff between number of treatments (J), number of environments (I), replication depth (r), and treatments per environment (k).</p>
+<p>Design outputs are compatible with mixed-model analysis:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>y <span class="ot">=</span> Xβ <span class="sc">+</span> Zg <span class="sc">+</span> e</span></code></pre></div>
+<p>where the covariance of g may be proportional to a GRM or pedigree A matrix, and the residual covariance structure may be IID, AR1, or AR1×AR1.</p>
+<p>Supports design strategies that improve: - cross-environment genetic connectivity - G×E estimation stability - genomic prediction performance (CDmean criterion; Rincent et al. 2012) - precision of BLUP estimates</p>
+<hr></div>
+<div class="section level3">
+<h3 id="efficiency-diagnostics-0-1-0">Efficiency diagnostics<a class="anchor" aria-label="anchor" href="#efficiency-diagnostics-0-1-0"></a></h3>
+<p>Within-environment designs support optional efficiency evaluation, summarized via <code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code> across all environments:</p>
+<ul><li>A-criterion and A-efficiency</li>
+<li>D-criterion and D-efficiency</li>
+<li>Mean prediction error variance (mean PEV)</li>
+<li>CDmean (coefficient of determination for genomic prediction)</li>
+</ul><p>Metrics are reported in <code>$efficiency_summary</code> (long format) and <code>$environment_summary</code> (wide format with <code>has_efficiency</code>, <code>eff_A</code>, <code>eff_D</code>, <code>eff_mean_PEV</code> columns).</p>
+<hr></div>
+<div class="section level3">
+<h3 id="infrastructure-0-1-0">Infrastructure<a class="anchor" aria-label="anchor" href="#infrastructure-0-1-0"></a></h3>
+<ul><li>Initial package structure with all exports documented via roxygen2.</li>
+<li>Bundled example dataset <code>OptiSparseMET_example_data</code> with 120 treatments, 4 environments, GRM, pedigree A matrix, prediction matrix K, seed availability data, pre-built allocation argument lists, and environment-specific design specifications.</li>
+<li>Vignette describing the statistical framework, two-stage pipeline, and worked examples.</li>
+<li>Unit test suite covering all 13 exported functions plus internal helpers.</li>
+<li>pkgdown configuration for the documentation website.</li>
+<li>GitHub Actions workflows for R CMD check and pkgdown deployment.</li>
+</ul></div>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

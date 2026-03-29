@@ -1,6 +1,8 @@
-# Validate a square matrix
+# Internal square matrix validator
 
-Validate a square matrix
+Checks that an object is a base R matrix with the expected square
+dimensions. Used internally to validate relationship matrices (GRM, A,
+K).
 
 ## Usage
 
@@ -12,12 +14,16 @@ Validate a square matrix
 
 - M:
 
-  Matrix.
+  Object to validate.
 
 - p:
 
-  Expected dimension.
+  Expected dimension. Must have `nrow(M) == p` and `ncol(M) == p`.
 
 - nm:
 
-  Object name for messages.
+  Character scalar. Object name used in error messages.
+
+## Value
+
+Invisibly returns `TRUE` if validation passes.

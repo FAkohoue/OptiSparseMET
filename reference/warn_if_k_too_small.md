@@ -61,8 +61,18 @@ capacity is insufficient.
 Checks whether the supplied `n_test_entries_per_environment` provides
 enough sparse slots to assign every non-common treatment at least once.
 If not, emits a warning that states the deficit and the minimum capacity
-needed to resolve it. Execution continues regardless — this function is
+needed to resolve it. Execution continues regardless – this function is
 a diagnostic aid, not a hard stop.
+
+## See also
+
+[`suggest_safe_k()`](https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.md)
+and
+[`min_k_for_full_coverage()`](https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.md)
+for functions that compute a feasible capacity.
+[`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
+which enforces this condition with a hard stop via
+[`.check_full_coverage_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/dot-check_full_coverage_feasibility.md).
 
 ## Examples
 
@@ -70,7 +80,7 @@ a diagnostic aid, not a hard stop.
 trt <- paste0("L", sprintf("%03d", 1:80))
 env <- c("Env1", "Env2", "Env3")
 
-## k = 20: total sparse slots = 3 x 20 = 60 < 80 — warns and suggests k = 27
+## k = 20: total sparse slots = 60 < 80 -- warns and suggests k = 27
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,
@@ -78,14 +88,14 @@ warn_if_k_too_small(
 )
 #> Warning: Current design is infeasible for full treatment coverage: 60 sparse slots available for 80 non-common treatments. For a uniform design, use at least 27 entries per environment.
 
-## k = 27: total sparse slots = 3 x 27 = 81 >= 80 — no warning
+## k = 27: total sparse slots = 81 >= 80 -- no warning
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,
   n_test_entries_per_environment = 27
 )
 
-## Heterogeneous capacities: total = 20 + 25 + 20 = 65 < 80 — warns
+## Heterogeneous capacities: total = 65 < 80 -- warns
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,

@@ -39,11 +39,11 @@ treatments.'><meta property="og:image" content="https://FAkohoue.github.io/OptiS
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,6 +53,7 @@ treatments.'><meta property="og:image" content="https://FAkohoue.github.io/OptiS
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Vignettes</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
       </ul></div>
 
@@ -107,11 +108,20 @@ silently deduplicated. Must contain at least one element.</p></dd>
 
 
 <dt id="arg-allocation-group-source">allocation_group_source<a class="anchor" aria-label="anchor" href="#arg-allocation-group-source"></a></dt>
-<dd><p>Character scalar. Grouping mode. One of:</p><ul><li><p><code>"none"</code>: all treatments assigned to a single group <code>"ALL"</code>.</p></li>
-<li><p><code>"Family"</code>: group labels read from <code>treatment_info$Family</code>.</p></li>
-<li><p><code>"GRM"</code>: cluster labels derived from <code>GRM</code> via PCA and clustering.</p></li>
-<li><p><code>"A"</code>: cluster labels derived from <code>A</code> via PCA and clustering.</p></li>
-</ul></dd>
+<dd><p>Character scalar. Grouping mode. One of:</p><dl><dt><code>"none"</code></dt>
+<dd><p>All treatments assigned to a single group <code>"ALL"</code>.</p></dd>
+
+<dt><code>"Family"</code></dt>
+<dd><p>Group labels read from <code>treatment_info$Family</code>.</p></dd>
+
+<dt><code>"GRM"</code></dt>
+<dd><p>Cluster labels derived from <code>GRM</code> via PCA and clustering.</p></dd>
+
+<dt><code>"A"</code></dt>
+<dd><p>Cluster labels derived from <code>A</code> via PCA and clustering.</p></dd>
+
+
+</dl></dd>
 
 
 <dt id="arg-treatment-info">treatment_info<a class="anchor" aria-label="anchor" href="#arg-treatment-info"></a></dt>
@@ -170,8 +180,7 @@ Active only when <code>allocation_group_source %in% c("GRM", "A")</code> and
 <dd><p>Integer or <code>Inf</code>. Number of leading principal components
 retained for clustering. <code>Inf</code> retains all components corresponding to
 positive eigenvalues, up to \(n - 1\). Smaller integer values retain
-only the leading components, preserving broad structure and discarding
-finer differentiation. Must be at least 2. Ignored when
+only the leading components. Must be at least 2. Ignored when
 <code>allocation_group_source %in% c("none", "Family")</code>.</p></dd>
 
 </dl></div>
@@ -195,8 +204,8 @@ form <code>"GRP_G{k}"</code> under <code>"GRM"</code> or <code>"GRP_A{k}"</code>
     <p><code>derive_allocation_groups()</code> assigns a group label to each treatment prior
 to sparse allocation across environments. These labels are then used by
 <code><a href="allocate_sparse_met.html">allocate_sparse_met()</a></code> to guide the incidence structure so that genetic
-groups — defined by family membership or by clusters derived from a
-relationship matrix — are distributed across environments rather than
+groups – defined by family membership or by clusters derived from a
+relationship matrix – are distributed across environments rather than
 concentrated in a subset of them. The function is called internally by
 <code><a href="allocate_sparse_met.html">allocate_sparse_met()</a></code> when <code>allocation_group_source</code> is not <code>"none"</code>,
 but can also be called directly to inspect or audit the group structure
@@ -206,10 +215,11 @@ before running allocation.</p><div class="section">
 
 <p>When <code>allocation_group_source %in% c("GRM", "A")</code>, the function extracts
 the treatment-level submatrix, performs eigendecomposition, and retains
-eigenvectors corresponding to positive eigenvalues (threshold \(&gt; 10^{-10}\))
-as principal components. Component scores are scaled by the square root of
-the corresponding eigenvalues before clustering, which weights components
-proportionally to their contribution to variance in the relationship matrix.</p>
+eigenvectors corresponding to positive eigenvalues (threshold
+\(&gt; 10^{-10}\)) as principal components. Component scores are scaled by
+the square root of the corresponding eigenvalues before clustering, which
+weights components proportionally to their contribution to variance in the
+relationship matrix.</p>
 <p>The number of components retained is controlled by <code>n_pcs_use</code>. Setting
 <code>n_pcs_use = Inf</code> retains all positive-eigenvalue components up to
 \(\min(n_{\text{pos}},\, n - 1)\). Smaller values retain only the leading
@@ -235,6 +245,12 @@ the submatrix.</p>
 </div>
 
     </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="allocate_sparse_met.html">allocate_sparse_met()</a></code> which calls this function internally when
+<code>allocation_group_source</code> is not <code>"none"</code>. Call <code>derive_allocation_groups()</code>
+directly to inspect or audit the group structure before running allocation.</p></div>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -246,7 +262,7 @@ the submatrix.</p>
 <span class="r-in"><span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 1: family-based groups — labels read directly from treatment_info.</span></span></span>
+<span class="r-in"><span><span class="co">## Example 1: family-based groups</span></span></span>
 <span class="r-in"><span><span class="va">grp_fam</span> <span class="op">&lt;-</span> <span class="fu">derive_allocation_groups</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  treatments              <span class="op">=</span> <span class="va">treatments</span>,</span></span>
 <span class="r-in"><span>  allocation_group_source <span class="op">=</span> <span class="st">"Family"</span>,</span></span>
@@ -266,11 +282,9 @@ the submatrix.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10      L010              F3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11      L011              F3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12      L012              F3</span>
-<span class="r-in"><span><span class="co"># 12 rows; AllocationGroup is "F1", "F2", or "F3" according to family</span></span></span>
+<span class="r-in"><span><span class="co"># AllocationGroup is "F1", "F2", or "F3"</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 2: no grouping — all treatments assigned to "ALL".</span></span></span>
-<span class="r-in"><span><span class="co">## Use this to disable group-guided allocation without changing any other</span></span></span>
-<span class="r-in"><span><span class="co">## argument in allocate_sparse_met().</span></span></span>
+<span class="r-in"><span><span class="co">## Example 2: no grouping</span></span></span>
 <span class="r-in"><span><span class="va">grp_none</span> <span class="op">&lt;-</span> <span class="fu">derive_allocation_groups</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  treatments              <span class="op">=</span> <span class="va">treatments</span>,</span></span>
 <span class="r-in"><span>  allocation_group_source <span class="op">=</span> <span class="st">"none"</span></span></span>
@@ -278,11 +292,9 @@ the submatrix.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">grp_none</span><span class="op">$</span><span class="va">AllocationGroup</span><span class="op">)</span>  <span class="co"># "ALL"</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "ALL"</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 3: GRM-based clustering — groups derived from eigenstructure</span></span></span>
-<span class="r-in"><span><span class="co">## of a genomic relationship matrix. Number of clusters anchored to the</span></span></span>
-<span class="r-in"><span><span class="co">## number of families in treatment_info when supplied.</span></span></span>
+<span class="r-in"><span><span class="co">## Example 3: GRM-based clustering</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">treatments</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">n</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">treatments</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span> <span class="op">*</span> <span class="va">n</span><span class="op">)</span>, <span class="va">n</span>, <span class="va">n</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">GRM</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/crossprod.html" class="external-link">crossprod</a></span><span class="op">(</span><span class="va">raw</span><span class="op">)</span> <span class="op">/</span> <span class="va">n</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">GRM</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">GRM</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.1</span></span></span>
@@ -313,7 +325,6 @@ the submatrix.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11      L011          GRP_G2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12      L012          GRP_G3</span>
 <span class="r-in"><span><span class="co"># AllocationGroup values are "GRP_G1", "GRP_G2", "GRP_G3"</span></span></span>
-<span class="r-in"><span><span class="co"># (3 clusters, anchored to 3 families in treatment_info)</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
@@ -322,7 +333,7 @@ the submatrix.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

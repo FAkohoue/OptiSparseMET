@@ -1,26 +1,35 @@
 # Allocate test treatments across environments for sparse MET designs
 
 Two allocation strategies are available. `"random_balanced"` implements
-an M3-type stochastic allocation that approximates balance without
-requiring exact BIBD parameters to be satisfiable — appropriate when
+an M3-inspired stochastic allocation that approximates balance without
+requiring exact BIBD parameters to be satisfiable – appropriate when
 environment capacities differ or when the trial dimensions do not admit
-an exact balanced solution. `"balanced_incomplete"` implements an
-M4-type allocation following BIBD principles at the MET level. When
-`allow_approximate = FALSE` and the slot identity is satisfied, the
-function uses an exact constructor that enforces equal replication of
-all non-common treatments. When `allow_approximate = TRUE`, it relaxes
-exact balance and constructs the closest feasible allocation.
+an exact balanced solution. Unlike the original M3 of Montesinos-Lopez
+et al. (2023), which allocates location by location and may silently
+leave some lines with fewer than \\r\\ replications, this implementation
+uses a two-phase coverage-first strategy that additionally guarantees
+every non-common treatment appears in at least one environment before
+replication filling begins.
 
-Allocation proceeds in two phases for `"random_balanced"` and
-approximate `"balanced_incomplete"`. Phase one guarantees that every
-non-common treatment appears in at least one environment, distributing
-treatments across environments with awareness of genetic group structure
-when `allocation_group_source` is not `"none"`. Phase two fills the
-remaining capacity in each environment up to
-`n_test_entries_per_environment`, guided by replication targets and
-group-balance penalties. For strict `"balanced_incomplete"`
-(`allow_approximate = FALSE`), allocation is carried out by a separate
-exact constructor rather than the two-phase heuristic.
+The `"balanced_incomplete"` method implements the M4 allocation of
+Montesinos-Lopez et al. (2023): every non-common treatment appears in
+exactly \\r\\ environments (equal replication) and every environment
+receives exactly \\k^\*\\ sparse treatments (equal environment sizes),
+so the resource identity \\J^\* \times r = I \times k^\*\\ holds
+exactly. This equal-replication, equal-environment-size guarantee is
+what distinguishes M4 from M3 in the paper, and is always the goal in
+plant breeding programs where thousands of lines are tested across a few
+environments.
+
+`allow_approximate = FALSE` (the default) is the standard M4 path: the
+slot identity must hold exactly, and the function stops with an
+informative error if it cannot be met, so the caller always knows
+whether equal replication was achieved. Construction first tries
+[`crossdes::find.BIB()`](https://rdrr.io/pkg/crossdes/man/find.BIB.html)
+(if crossdes is installed), then falls back to a greedy load-balanced
+constructor. `allow_approximate = TRUE` relaxes the slot identity and
+allows minor replication imbalances across lines; it is a fallback for
+exploratory use, not the intended primary path.
 
 Before allocation begins, the function calls
 [`.check_full_coverage_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/dot-check_full_coverage_feasibility.md)
@@ -79,10 +88,10 @@ allocate_sparse_met(
 - allocation_method:
 
   Character scalar. Sparse allocation strategy. Accepted values are
-  `"random_balanced"` (M3-type stochastic allocation) and
-  `"balanced_incomplete"` (M4-type BIBD-inspired allocation). The
-  aliases `"M3"` and `"M4"` are also accepted and translated internally
-  to their canonical names before any further processing.
+  `"random_balanced"` (M3-inspired stochastic allocation) and
+  `"balanced_incomplete"` (M4-type BIBD allocation). The aliases `"M3"`
+  and `"M4"` are also accepted and translated internally to their
+  canonical names before any further processing.
 
 - n_test_entries_per_environment:
 
@@ -198,11 +207,14 @@ allocate_sparse_met(
 
 - allow_approximate:
 
-  Logical, default `FALSE`. When `FALSE`, an infeasible exact balanced
-  incomplete allocation triggers an error. When `TRUE`, the function
-  falls back to the closest feasible approximate allocation. For
-  `"random_balanced"`, this argument has no effect on the error
-  behaviour since that strategy never requires exact balance.
+  Logical, default `FALSE`. When `FALSE` and
+  `allocation_method = "balanced_incomplete"`, the slot identity \\J^\*
+  \times r = I \times k^\*\\ must hold exactly; the function stops with
+  an error if it does not. This is the standard M4 path and guarantees
+  equal replication for every non-common treatment. When `TRUE`, the
+  slot identity is not enforced and minor replication imbalances are
+  accepted; this is a relaxed fallback for exploratory use, not the
+  primary mode. For `"random_balanced"`, this argument has no effect.
 
 - seed:
 
@@ -276,10 +288,8 @@ A named list with the following components:
   `total_sparse_slots`, `environment_sizes`, `min_replication`,
   `max_replication`, `mean_replication`, `min_sparse_replication`,
   `max_sparse_replication`, `mean_sparse_replication`,
-  `min_common_replication`, `max_common_replication`,
-  `mean_common_replication`, and `n_groups`. The overall replication
-  summaries include common treatments, whereas the sparse-only summaries
-  reflect the quantities relevant for strict M4 equality checks.
+  `min_common_replication`, `max_common_replication`, and
+  `mean_common_replication`.
 
 - `seed_used`:
 
@@ -301,7 +311,7 @@ attempting to fill additional replication slots.
 ### Relation to sparse testing theory
 
 The allocation strategies implemented here correspond to M3 and M4 in
-Montesinos-López et al. (2023). The underlying resource identity is:
+Montesinos-Lopez et al. (2023). The underlying resource identity is:
 
 \$\$N = J \times r = I \times k\$\$
 
@@ -337,6 +347,21 @@ Phase two iterates over environments in decreasing order of remaining
 capacity and fills each to its target, guided by line-level replication
 deficit scores and group-balance penalties.
 
+### Within-environment layout
+
+Once allocation is complete, the set of treatments assigned to each
+environment is passed to the within-environment design function.
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
+constructs repeated-check augmented, partially replicated (p-rep), and
+RCBD-type block designs.
+[`met_alpha_rc_stream()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.md)
+constructs stream-based alpha row-column designs for fixed-grid field
+geometry. Both accept output from
+[`assign_replication_by_seed()`](https://FAkohoue.github.io/OptiSparseMET/reference/assign_replication_by_seed.md)
+directly. The end-to-end pipeline that coordinates allocation and local
+design construction is
+[`plan_sparse_met_design()`](https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.md).
+
 ### Allocation groups
 
 When `allocation_group_source` is not `"none"`, both phases use genetic
@@ -350,28 +375,41 @@ not yet reached `min_env_per_group` (`force_group_connectivity`).
 Line-level replication targets are preserved within these group-level
 constraints.
 
-### Feasibility of balanced incomplete allocation
+### M4 allocation and the role of allow_approximate
 
-For a fully balanced incomplete allocation, the total number of sparse
-slots must satisfy:
+The M4 method (Montesinos-Lopez et al., 2023) enforces two conditions:
 
-\$\$\sum\_{e=1}^{I} k_e^\* = J^\* \times r\$\$
+1.  Equal replication: every non-common treatment appears in exactly
+    \\r\\ environments.
 
-where \\J^\*\\ is the number of non-common treatments and \\r\\ is the
-target replication. When this equality does not hold and
-`allow_approximate = FALSE`, the function stops. When the equality holds
-and `allow_approximate = FALSE`, the function attempts an exact
-constructor that enforces equal replication for all non-common
-treatments. When `allow_approximate = TRUE`, the function constructs the
-closest feasible allocation, accepting minor deviations from perfect
-balance.
+2.  Equal environment sizes: every environment receives exactly \\k^\*\\
+    sparse treatments, so \\J^\* \times r = I \times k^\*\\.
+
+`allow_approximate = FALSE` (the default) enforces both conditions
+strictly. If the slot identity \\J^\* \times r = I \times k^\*\\ does
+not hold for the chosen `n_test_entries_per_environment` and
+`target_replications`, the function stops with an informative error. Use
+[`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)
+to verify the slot identity before calling, or adjust \\k\\ and \\r\\ so
+that \\J^\* \times r = I \times k^\*\\. Construction first tries
+[`crossdes::find.BIB()`](https://rdrr.io/pkg/crossdes/man/find.BIB.html)
+(if crossdes is installed), then falls back to a greedy load-balanced
+constructor that guarantees equal replication even when crossdes is
+absent.
+
+`allow_approximate = TRUE` relaxes the slot identity: the function
+constructs the most balanced allocation it can without stopping on
+infeasibility, accepting that some lines may receive more or fewer
+replications than \\r\\. This mode is useful for exploratory analysis
+but does not provide the equal-replication guarantee that is the
+defining property of M4.
 
 ## References
 
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
-Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic
+Montesinos-Lopez, O. A., Mosqueda-Gonzalez, B. A., Salinas-Ruiz, J.,
+Montesinos-Lopez, A., & Crossa, J. (2023). Sparse multi-trait genomic
 prediction under balanced incomplete block design. *The Plant Genome*,
-16, e20305.
+16, e20305. [doi:10.1002/tpg2.20305](https://doi.org/10.1002/tpg2.20305)
 
 ## See also
 
@@ -386,6 +424,13 @@ for verifying the slot identity before attempting a
 [`derive_allocation_groups()`](https://FAkohoue.github.io/OptiSparseMET/reference/derive_allocation_groups.md)
 for inspecting the group structure that guides allocation when
 `allocation_group_source` is not `"none"`.
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
+and
+[`met_alpha_rc_stream()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.md)
+for the within-environment design functions that consume the allocation
+output.
+[`plan_sparse_met_design()`](https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.md)
+for the end-to-end two-stage MET pipeline.
 
 ## Examples
 
@@ -491,9 +536,11 @@ head(out1$group_by_environment)
 #> 5        Env1              F2            6
 #> 6        Env2              F2            6
 
-## Example 2: strict balanced incomplete allocation with common treatments.
-## Here the sparse slot totals are exactly feasible, so all non-common
-## treatments are replicated exactly `target_replications` times.
+## Example 2: M4 balanced incomplete allocation (paper method).
+## Equal replication (r=2) and equal environment sizes (k*=55 per env).
+## Slot identity: J* x r = I x k* => 110 x 2 = 4 x 55 = 220. Valid.
+## allow_approximate = FALSE enforces the slot identity strictly, stopping
+## with an error if it is not met (the default safe behaviour).
 out2 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
@@ -561,4 +608,8 @@ out2$summary
 #> $n_groups
 #> [1] 0
 #> 
+# Every sparse line appears in exactly 2 environments
+range(out2$line_replications[!(names(out2$line_replications) %in%
+                                treatments[1:10])])
+#> [1] 2 2
 ```

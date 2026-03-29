@@ -73,9 +73,9 @@ plan_sparse_met_design(
 
   Named list with one element per environment. Each element must contain
   at least a `design` field selecting the local design engine
-  (`"prep_famoptg"` or `"alpha_rc_stream"`). All other fields are passed
-  through to the corresponding local design function, except a small set
-  of pipeline-consumed fields used internally for seed-aware
+  (`"met_prep_famoptg"` or `"met_alpha_rc_stream"`). All other fields
+  are passed through to the corresponding local design function, except
+  a small set of pipeline-consumed fields used internally for seed-aware
   replication.
 
 - treatment_info:
@@ -226,7 +226,7 @@ Compared with calling the lower-level functions manually,
 
 - environment specs are validated before design construction
 
-- [`prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.md)
+- [`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
   replication mode can be inferred automatically when not supplied
   explicitly
 

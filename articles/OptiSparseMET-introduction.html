@@ -37,11 +37,11 @@
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,6 +52,7 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item"><a class="nav-link" href="../articles/index.html">Vignettes</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
@@ -76,518 +77,1322 @@
 
     
     
+<hr>
 <div class="section level2">
 <h2 id="introduction">1. Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>The fundamental constraint in multi-environment trials is that the
-number of candidate lines
+<div class="section level3">
+<h3 id="the-core-problem">1.1 The core problem<a class="anchor" aria-label="anchor" href="#the-core-problem"></a>
+</h3>
+<p>A multi-environment trial (MET) evaluates a set of candidate lines —
+varieties, hybrids, inbred lines — across multiple environments
+(locations, years, or location-year combinations). The goal is to
+estimate the performance of each line across environments, partition
+genetic from environment effects, and identify lines with broad or
+specific adaptation.</p>
+<p>The fundamental constraint is that the number of candidate lines
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
-routinely exceeds the number of plots available across the
+almost always exceeds the number of plots available in any single
+environment. Testing all
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
+lines in all
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-environments in the trial. Complete evaluation of all lines in all
-environments is therefore infeasible, and some form of incomplete
-allocation is required.</p>
-<p>Sparse MET design formalizes this allocation problem. Rather than
-assigning lines to environments arbitrarily or by convenience, a
-principled sparse design controls replication, co-occurrence, and
-genetic connectivity simultaneously — so that the resulting data support
-the mixed-model inference the trial was built for.
-<code>OptiSparseMET</code> addresses this at two levels:
-across-environment allocation and within-environment field design,
-treated jointly rather than sequentially.</p>
-<p>This package is built for breeding workflows where design quality
-must satisfy both statistical and operational constraints:</p>
-<ul>
-<li>limited field capacity per environment</li>
-<li>unequal environment sizes</li>
-<li>strong family or genomic structure among candidates</li>
-<li>seed availability constraints on replication</li>
-<li>need for mixed-model compatible layouts</li>
-<li>need for a unified MET-level field book</li>
-</ul>
+environments is infeasible; some form of incomplete testing is
+unavoidable. The question is not whether to test incompletely, but how
+to structure that incompleteness so the resulting data still support
+reliable inference.</p>
+<p><strong>Sparse testing</strong> is the formal approach. A sparse MET
+design specifies, for each line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+and environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>,
+whether that combination appears in the trial. The goal is a structure
+that is statistically efficient, genetically connected, and
+operationally deployable given seed and plot constraints.</p>
+</div>
+<div class="section level3">
+<h3 id="what-optisparsemet-does">1.2 What OptiSparseMET does<a class="anchor" aria-label="anchor" href="#what-optisparsemet-does"></a>
+</h3>
+<p><code>OptiSparseMET</code> addresses sparse MET design at two linked
+levels:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Across-environment allocation</strong> — which lines go
+to which environments, how many times each line is replicated across the
+trial, and whether the resulting connectivity is sufficient for
+cross-environment inference.</p></li>
+<li><p><strong>Within-environment design</strong> — how the lines
+assigned to each environment are arranged in the field, how checks are
+distributed, how blocks control local heterogeneity, and how spatial
+gradients are managed.</p></li>
+</ol>
+<p>Standard tools optimize each level separately.
+<code>OptiSparseMET</code> treats them jointly: the allocation output
+constrains the within-environment layout, and the within-environment
+design targets match what the allocation delivers.</p>
 <hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="statistical-framework">2. Statistical Framework<a class="anchor" aria-label="anchor" href="#statistical-framework"></a>
 </h2>
-<p>The underlying model is a standard linear mixed model:</p>
+<div class="section level3">
+<h3 id="the-linear-mixed-model">2.1 The linear mixed model<a class="anchor" aria-label="anchor" href="#the-linear-mixed-model"></a>
+</h3>
+<p>Phenotypic observations in plant breeding trials are analyzed using a
+linear mixed model. For a single environment, a typical form is:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + e</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>K</mi><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">g \sim N(0,\, K\sigma_g^2)</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>R</mi><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">e \sim N(0,\, R\sigma_e^2)</annotation></semantics></math>.
-The matrix
+<p>where:</p>
+<ul>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>y</mi><annotation encoding="application/x-tex">y</annotation></semantics></math>
+is the vector of observed phenotypic values (one per plot)</li>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mi>β</mi></mrow><annotation encoding="application/x-tex">X\beta</annotation></semantics></math>
+captures fixed effects: the overall mean, environment effects, check
+effects, and any fixed treatment contrasts</li>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>g</mi></mrow><annotation encoding="application/x-tex">Zg</annotation></semantics></math>
+captures random line effects:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>K</mi><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">g \sim N(0,\, K\sigma_g^2)</annotation></semantics></math>,
+where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-is either a genomic relationship matrix (GRM) or a pedigree-based
-numerator relationship matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>,
-depending on the available data. The covariance structure of
+is a relationship matrix (genomic or pedigree-based) and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma_g^2</annotation></semantics></math>
+is the genetic variance</li>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>R</mi><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">e \sim N(0,\, R\sigma_e^2)</annotation></semantics></math>
+is the vector of residuals, with
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-can be identity (IID), or structured as AR1 or
-AR1<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>×</mo><annotation encoding="application/x-tex">\times</annotation></semantics></math>AR1
-to account for spatial gradients within environments.</p>
-<p>Design choices affect this model at multiple points. The incidence
-structure of
+encoding the spatial covariance structure</li>
+</ul>
+<p>The design matrix
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-— determined by allocation — governs the estimability and precision of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>g</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{g}</annotation></semantics></math>.
-The blocking structure within environments governs
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-and the degree to which local field heterogeneity is absorbed rather
-than confounded with genetic effects. Both levels need to be
-well-constructed for the model to return reliable estimates.</p>
+— whose columns correspond to lines and whose rows correspond to plots —
+is determined entirely by the experimental design. <strong>A good design
+is one that makes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+well-conditioned for estimation.</strong></p>
+</div>
+<div class="section level3">
+<h3 id="why-design-affects-inference">2.2 Why design affects inference<a class="anchor" aria-label="anchor" href="#why-design-affects-inference"></a>
+</h3>
+<p>When
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+is sparse, not all lines are observed in all environments.
+Cross-environment inference then depends on either:</p>
+<ul>
+<li>
+<strong>Design-based connectivity</strong>: lines that co-occur in
+the same environment create direct comparisons; common treatments that
+appear in every environment create bridges between sites.</li>
+<li>
+<strong>Model-based connectivity</strong>: the relationship matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+propagates information between genetically related lines, even if they
+never appear in the same environment.</li>
+</ul>
+<p>Both mechanisms are important, but model-based connectivity is less
+robust because it depends on the assumed covariance structure being
+correct. A well-designed sparse MET builds in design-based connectivity
+as a safeguard.</p>
+</div>
+<div class="section level3">
+<h3 id="efficiency-criteria">2.3 Efficiency criteria<a class="anchor" aria-label="anchor" href="#efficiency-criteria"></a>
+</h3>
+<p>Given a design, its statistical efficiency can be measured by how
+well it supports estimation and prediction of genetic values. The three
+main criteria used by <code>OptiSparseMET</code> are:</p>
+<p><strong>A-optimality</strong> minimizes the average variance of
+treatment comparison estimates (contrasts). Formally it minimizes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">trace</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>C</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{trace}(C^{-1})</annotation></semantics></math>
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+is the coefficient matrix of the treatment effects. A lower value is
+better. Its reciprocal, <strong>A-efficiency</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mn>1</mn><mi>/</mi><msub><mi>A</mi><mtext mathvariant="normal">criterion</mtext></msub></mrow><annotation encoding="application/x-tex">= 1 / A_{\text{criterion}}</annotation></semantics></math>,
+is sometimes more interpretable because larger values are better.</p>
+<p><strong>D-optimality</strong> maximizes the determinant
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">|</mo><mi>C</mi><mo stretchy="true" form="postfix">|</mo></mrow><annotation encoding="application/x-tex">|C|</annotation></semantics></math>,
+which corresponds to maximizing the volume of the confidence ellipsoid
+for treatment estimates. It is more sensitive to the overall spread of
+information across all contrasts than A-optimality, which focuses on the
+average. Again, <strong>D-efficiency</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mn>1</mn><mi>/</mi><msub><mi>D</mi><mtext mathvariant="normal">criterion</mtext></msub></mrow><annotation encoding="application/x-tex">= 1 / D_{\text{criterion}}</annotation></semantics></math>
+is used so larger values are better.</p>
+<p><strong>CDmean</strong> (coefficient of determination of the mean) is
+the criterion most directly tied to genomic prediction. It is defined
+as:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDmean</mtext><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mover><mtext mathvariant="normal">PEV</mtext><mo accent="true">¯</mo></mover><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup></mfrac></mrow><annotation encoding="application/x-tex">\text{CDmean} = 1 - \frac{\overline{\text{PEV}}}{\sigma_g^2}</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mtext mathvariant="normal">PEV</mtext><mo accent="true">¯</mo></mover><annotation encoding="application/x-tex">\overline{\text{PEV}}</annotation></semantics></math>
+is the mean prediction error variance (PEV) of the BLUP estimates and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma_g^2</annotation></semantics></math>
+is the genetic variance. CDmean lies in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, 1]</annotation></semantics></math>;
+values close to 1 indicate that the design supports precise prediction.
+It captures how accurately genomic estimated breeding values (GEBVs) can
+be recovered from the design, incorporating both the relationship matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+and the block structure.</p>
+<blockquote>
+<p><strong>For novice readers</strong>: Think of CDmean as “what
+fraction of the true genetic value the design allows you to recover on
+average.” A CDmean of 0.85 means the design, on average, captures 85% of
+the genetic signal.</p>
+</blockquote>
 <hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="two-level-design-structure">3. Two-Level Design Structure<a class="anchor" aria-label="anchor" href="#two-level-design-structure"></a>
 </h2>
-<p>Sparse MET design in <code>OptiSparseMET</code> is intentionally
-divided into two linked levels.</p>
 <div class="section level3">
-<h3 id="across-environment-allocation">3.1 Across-Environment Allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation"></a>
+<h3 id="across-environment-allocation">3.1 Across-environment allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation"></a>
 </h3>
 <p>The resource identity underlying balanced sparse allocation is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>J</mi><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">J \times r = I \times k</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
-is the total number of treatments,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-is the number of environments each treatment enters,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-is the number of environments, and
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>J</mi><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = J \times r = I \times k</annotation></semantics></math></p>
+<p>where:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Symbol</th>
+<th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math></td>
+<td>Total number of line-by-environment observations</td>
+</tr>
+<tr class="even">
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math></td>
+<td>Total number of candidate lines</td>
+</tr>
+<tr class="odd">
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math></td>
+<td>Number of environments each line enters (replication depth)</td>
+</tr>
+<tr class="even">
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math></td>
+<td>Number of environments</td>
+</tr>
+<tr class="odd">
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math></td>
+<td>Number of lines tested per environment (coverage breadth)</td>
+</tr>
+</tbody>
+</table>
+<p>Given a fixed total resource
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>,
+this identity formalizes a fundamental tradeoff: <strong>increasing
+coverage breadth</strong> (testing more lines per environment, larger
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>)
+<strong>necessarily reduces replication depth</strong> (each line
+appears in fewer environments, smaller
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>).
+No design can simultaneously maximize both.</p>
+<blockquote>
+<p><strong>For novice readers</strong>: If you have 100 lines, 4
+environments, and enough seed for 400 plots total, you could test 100
+lines in 4 environments (full replication, but only if all 400 plots are
+available per environment), or test 50 lines per environment and have
+each line appear in 2 environments
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn><mo>,</mo><mi>k</mi><mo>=</mo><mn>100</mn></mrow><annotation encoding="application/x-tex">r = 2, k = 100</annotation></semantics></math>),
+or test 25 lines per environment and have each appear in 4 environments
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn><mo>,</mo><mi>k</mi><mo>=</mo><mn>100</mn></mrow><annotation encoding="application/x-tex">r = 4, k = 100</annotation></semantics></math>).
+The product
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>J</mi><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J \times r</annotation></semantics></math>
+always equals
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = I \times k</annotation></semantics></math>.</p>
+</blockquote>
+<p>The practical constraint is that
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
-is the number of treatments tested per environment. Given fixed total
-resources
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>J</mi><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = J \times r = I \times k</annotation></semantics></math>,
-this identity makes the tradeoff between coverage breadth
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>)
-and replication depth
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>)
-explicit: increasing one necessarily decreases the other.</p>
-<p>Allocation strategies in <code>OptiSparseMET</code> operate by
-constructing treatment-by-environment incidence matrices that satisfy or
-approximate this constraint while respecting genetic structure
-constraints and common treatment requirements.</p>
+is bounded by the number of plots available per environment, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+is bounded by seed availability. The allocation problem is to choose
+which lines go to which environments, subject to these bounds.</p>
+<p>When common treatments are included, a number
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+of lines are assigned to <strong>every</strong> environment before
+sparse allocation begins. Their count is subtracted from each
+environment’s capacity:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>k</mi><mi>e</mi><mo>*</mo></msubsup><mo>=</mo><msub><mi>k</mi><mi>e</mi></msub><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_e^* = k_e - C</annotation></semantics></math></p>
+<p>The sparse-allocatable lines number
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math>,
+and the modified resource identity applies to them:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math></p>
 </div>
 <div class="section level3">
-<h3 id="within-environment-design">3.2 Within-Environment Design<a class="anchor" aria-label="anchor" href="#within-environment-design"></a>
+<h3 id="within-environment-design">3.2 Within-environment design<a class="anchor" aria-label="anchor" href="#within-environment-design"></a>
 </h3>
 <p>Each environment receives an independent field design constructed by
 one of two engines:</p>
 <ul>
 <li>
-<code><a href="../reference/prep_famoptg.html">prep_famoptg()</a></code> for block-based repeated-check designs,
-including augmented and p-rep layouts</li>
+<code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> for block-based repeated-check
+designs, including augmented, partially replicated (p-rep), and
+RCBD-type layouts</li>
 <li>
-<code><a href="../reference/alpha_rc_stream.html">alpha_rc_stream()</a></code> for row-column alpha designs under
-large-scale spatial structure</li>
+<code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> for row-column alpha designs
+suited to large-scale spatial field structure</li>
 </ul>
 <p>The choice between them depends on field geometry, check structure,
-replication goals, and the spatial model anticipated at analysis.</p>
+replication goals, and the spatial model anticipated at analysis. They
+can differ across environments within the same trial.</p>
 <hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="pipeline-overview">4. Pipeline Overview<a class="anchor" aria-label="anchor" href="#pipeline-overview"></a>
 </h2>
-<p>The package workflow proceeds in four stages:</p>
-<ul>
-<li>
-<code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> distributes treatments across
-environments</li>
-<li>
-<code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> verifies replication
-feasibility when seed constraints are relevant</li>
-<li>local design engines construct within-environment layouts</li>
-<li>
-<code><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks()</a></code> merges all layouts into a
-single MET-level field book</li>
-</ul>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install if needed: install.packages("DiagrammeR")</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rich-iannone.github.io/DiagrammeR/" class="external-link">DiagrammeR</a></span><span class="op">)</span></span>
+<p>The <code>OptiSparseMET</code> workflow proceeds in four stages, with
+an optional shortcut that runs all four together.</p>
+<pre><code>STAGE 0   Verify per-environment capacity
+          suggest_safe_k()  OR  min_k_for_full_coverage()
+          |
+STAGE 1   Allocate lines across environments
+          allocate_sparse_met()
+          |
+STAGE 2   Verify replication feasibility given seed inventory
+          assign_replication_by_seed()
+          |
+STAGE 3   Build within-environment field designs
+          met_prep_famoptg()  OR  met_alpha_rc_stream()
+          (optional: evaluate and optimise each design)
+          |
+STAGE 4   Assemble the combined MET field book
+          combine_met_fieldbooks()
+
+          --- OR: run stages 1-4 together ---
+
+          plan_sparse_met_design()</code></pre>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rich-iannone.github.io/DiagrammeR/" class="external-link">DiagrammeR</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">grViz</span><span class="op">(</span><span class="st">"</span></span>
 <span><span class="st">digraph OptiSparseMET {</span></span>
 <span><span class="st">  graph [layout = dot, rankdir = LR]</span></span>
 <span><span class="st">  node [shape = rectangle, style = rounded, fontname = Helvetica]</span></span>
 <span><span class="st"></span></span>
-<span><span class="st">  A [label = 'Input data\nTreatments\nEnvironments\nFamilies / GRM / A\nSeed inventory']</span></span>
-<span><span class="st">  B [label = 'Across-environment allocation\nallocate_sparse_met()\n(M3 or M4)']</span></span>
-<span><span class="st">  C [label = 'Allocation matrix']</span></span>
-<span><span class="st">  D [label = 'Seed-aware replication\nassign_replication_by_seed()']</span></span>
-<span><span class="st">  E [label = 'Within-environment design\nprep_famoptg()\nor\nalpha_rc_stream()']</span></span>
-<span><span class="st">  F [label = 'Local field books']</span></span>
-<span><span class="st">  G [label = 'combine_met_fieldbooks()']</span></span>
-<span><span class="st">  H [label = 'Outputs\ncombined_field_book\nenvironment_summary\nefficiency_summary']</span></span>
+<span><span class="st">  A [label = 'Input\nLines  Environments\nFamilies / GRM / A\nSeed inventory']</span></span>
+<span><span class="st">  B [label = 'Stage 0: Verify capacity\nsuggest_safe_k()']</span></span>
+<span><span class="st">  C [label = 'Stage 1: Allocation\nallocate_sparse_met()\n(M3 or M4)']</span></span>
+<span><span class="st">  D [label = 'Stage 2: Seed replication\nassign_replication_by_seed()']</span></span>
+<span><span class="st">  E [label = 'Stage 3: Field design\nmet_prep_famoptg()\nor met_alpha_rc_stream()']</span></span>
+<span><span class="st">  F [label = 'Stage 4: Assemble\ncombine_met_fieldbooks()']</span></span>
+<span><span class="st">  G [label = 'Outputs\ncombined_field_book\nenvironment_summary\nefficiency_summary']</span></span>
 <span><span class="st"></span></span>
-<span><span class="st">  A -&gt; B -&gt; C -&gt; D -&gt; E -&gt; F -&gt; G -&gt; H</span></span>
+<span><span class="st">  A -&gt; B -&gt; C -&gt; D -&gt; E -&gt; F -&gt; G</span></span>
 <span><span class="st">}</span></span>
 <span><span class="st">"</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="allocation-strategies">5. Allocation Strategies<a class="anchor" aria-label="anchor" href="#allocation-strategies"></a>
+<h2 id="feasibility-helpers">5. Feasibility Helpers<a class="anchor" aria-label="anchor" href="#feasibility-helpers"></a>
 </h2>
-<div class="section level3">
-<h3 id="random-balanced-m3">5.1 Random Balanced (M3)<a class="anchor" aria-label="anchor" href="#random-balanced-m3"></a>
-</h3>
-<p>The <code>random_balanced</code> strategy uses stochastic allocation
-to achieve approximate balance without requiring exact BIBD parameters
-to be satisfiable. It is appropriate when environment capacities are
-heterogeneous, when the trial dimensions do not admit an exact balanced
-solution, or when some flexibility in the incidence structure is
-acceptable. Balance is approximate rather than exact, but the
-construction is reproducible through the <code>seed</code> argument.</p>
-</div>
-<div class="section level3">
-<h3 id="balanced-incomplete-m4">5.2 Balanced Incomplete (M4)<a class="anchor" aria-label="anchor" href="#balanced-incomplete-m4"></a>
-</h3>
-<p>The <code>balanced_incomplete</code> strategy enforces equal
-replication across environments and approximately uniform pairwise
-co-occurrence of treatments, following BIBD principles applied at the
-MET level. It is appropriate when environments are comparable in
-capacity, equal replication is a hard requirement, and uniform
-co-occurrence is needed for precision of treatment comparisons. When
-exact slot equality holds and <code>allow_approximate = FALSE</code>,
-strict replication equality among non-common treatments is enforced.
-When exact balance cannot be satisfied,
-<code>allow_approximate = TRUE</code> relaxes the requirement.</p>
-<hr>
-</div>
-</div>
-<div class="section level2">
-<h2 id="m3-versus-m4">6. M3 versus M4<a class="anchor" aria-label="anchor" href="#m3-versus-m4"></a>
-</h2>
-<table class="table">
-<thead><tr class="header">
-<th>Feature</th>
-<th>M3 <code>random_balanced</code>
-</th>
-<th>M4 <code>balanced_incomplete</code>
-</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>Replication equality</td>
-<td>Approximate</td>
-<td>Exact or near-exact</td>
-</tr>
-<tr class="even">
-<td>Pairwise co-occurrence</td>
-<td>Stochastic</td>
-<td>More uniform</td>
-</tr>
-<tr class="odd">
-<td>Feasibility requirement</td>
-<td>Flexible</td>
-<td>Stricter</td>
-</tr>
-<tr class="even">
-<td>Typical use case</td>
-<td>Heterogeneous environments</td>
-<td>Uniform MET networks</td>
-</tr>
-<tr class="odd">
-<td>Balance guarantee</td>
-<td>Heuristic</td>
-<td>Design-based</td>
-</tr>
-</tbody>
-</table>
-<p>In practice, M3 is often easier to use in real breeding pipelines. M4
-is preferable when exact balance is central to the design objective.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
-<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="va">OptiSparseMET_example_data</span></span>
-<span></span>
-<span><span class="va">alloc_M3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
-<span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
-<span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
-<span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">40</span>,</span>
-<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
-<span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">alloc_M4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
-<span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
-<span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
-<span>  allocation_method              <span class="op">=</span> <span class="st">"balanced_incomplete"</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">40</span>,</span>
-<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
-<span>  allow_approximate              <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">alloc_M3</span><span class="op">$</span><span class="va">summary</span></span>
-<span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">summary</span></span></code></pre></div>
-<hr>
-</div>
-<div class="section level2">
-<h2 id="genetic-structure-aware-allocation">7. Genetic Structure-Aware Allocation<a class="anchor" aria-label="anchor" href="#genetic-structure-aware-allocation"></a>
-</h2>
-<p>Standard allocation treats lines as exchangeable. This is inadequate
-when genomic prediction is a downstream objective, family structure is
-strong, or environments risk receiving genetically clustered subsets of
-entries. <code>OptiSparseMET</code> incorporates genetic structure
-through three mechanisms.</p>
-<div class="section level3">
-<h3 id="family-based-allocation">7.1 Family-Based Allocation<a class="anchor" aria-label="anchor" href="#family-based-allocation"></a>
-</h3>
-<p>Family-based allocation distributes related materials across
-environments rather than concentrating them in a few sites, preventing
-systematic differences in the genetic composition of environments that
-would otherwise inflate GxE estimates.</p>
-</div>
-<div class="section level3">
-<h3 id="grm-based-allocation">7.2 GRM-Based Allocation<a class="anchor" aria-label="anchor" href="#grm-based-allocation"></a>
-</h3>
-<p>Genomic relationship matrix allocation uses marker-derived
-relatedness to spread genetically similar lines across environments,
-improving the conditions under which GBLUP models are estimated and
-reducing the risk of genetic clustering.</p>
-</div>
-<div class="section level3">
-<h3 id="pedigree-based-allocation">7.3 Pedigree-Based Allocation<a class="anchor" aria-label="anchor" href="#pedigree-based-allocation"></a>
-</h3>
-<p>When genomic data are unavailable, the pedigree-based numerator
-relationship matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-plays the same role as the GRM in guiding allocation away from genetic
-clustering.</p>
-<p>All three mechanisms improve cross-environment connectedness,
-comparability of genetic effects across sites, stability of GxE
-estimation, and prediction accuracy under GBLUP and PBLUP models.</p>
-<hr>
-</div>
-</div>
-<div class="section level2">
-<h2 id="common-treatments">8. Common Treatments<a class="anchor" aria-label="anchor" href="#common-treatments"></a>
-</h2>
-<p>Let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-denote the number of common treatments — treatments assigned to every
-environment before sparse allocation begins. The effective
-per-environment sparse capacity is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>k</mi><mi>e</mi><mo>*</mo></msubsup><mo>=</mo><msub><mi>k</mi><mi>e</mi></msub><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_e^* = k_e - C</annotation></semantics></math></p>
-<p>Common treatments play two key roles. They establish direct
-cross-environment connectivity that does not depend on model assumptions
-about
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>,
-and they stabilize estimation of environment-level effects. Without
-them, cross-environment linkage relies entirely on the covariance
-structure of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>,
-which is model-based rather than design-based. Common treatments are
-most important when environments are weakly correlated.</p>
-<hr>
-</div>
-<div class="section level2">
-<h2 id="feasibility-helpers">9. Feasibility Helpers<a class="anchor" aria-label="anchor" href="#feasibility-helpers"></a>
-</h2>
-<p>Before allocation, it is important to verify that the chosen
-per-environment capacity is sufficient to assign every non-common
-treatment at least once. Passing a capacity that is too small causes
-<code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> to stop with an informative error.
-The package provides three helpers for this pre-flight check.</p>
+<p>Before any allocation, it is essential to verify that the chosen
+per-environment capacity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+is large enough to assign every non-common line at least once. Passing a
+capacity that is too small causes <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> to
+stop with an informative error.</p>
+<p>The minimum capacity for full coverage under equal environment sizes
+is:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>k</mi><mo>min</mo></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">⌈</mo><mfrac><msup><mi>J</mi><mo>*</mo></msup><mi>I</mi></mfrac><mo stretchy="true" form="postfix">⌉</mo></mrow><mo>+</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_{\min} = \left\lceil \frac{J^*}{I} \right\rceil + C</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⌈</mo><mo>⋅</mo><mo stretchy="false" form="postfix">⌉</mo></mrow><annotation encoding="application/x-tex">\lceil \cdot \rceil</annotation></semantics></math>
+is the ceiling function. This is the floor below which any sparse
+allocation must leave some lines unassigned.</p>
+<p><code>OptiSparseMET</code> provides three helpers:</p>
 <table class="table">
 <colgroup>
-<col width="50%">
-<col width="50%">
+<col width="55%">
+<col width="44%">
 </colgroup>
 <thead><tr class="header">
 <th>Function</th>
-<th>Purpose</th>
+<th>Action</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td><code><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code></td>
-<td>Compute the minimum entries per environment required to place all
-treatments</td>
+<td>Returns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mo>min</mo></msub><annotation encoding="application/x-tex">k_{\min}</annotation></semantics></math>
+exactly</td>
 </tr>
 <tr class="even">
 <td><code><a href="../reference/suggest_safe_k.html">suggest_safe_k()</a></code></td>
-<td>Propose a safe uniform value of
-<code>n_test_entries_per_environment</code> with a buffer</td>
+<td>Returns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mo>min</mo></msub><annotation encoding="application/x-tex">k_{\min}</annotation></semantics></math>
+plus a user-defined buffer</td>
 </tr>
 <tr class="odd">
 <td><code><a href="../reference/warn_if_k_too_small.html">warn_if_k_too_small()</a></code></td>
-<td>Emit a non-fatal warning when the chosen capacity is
-insufficient</td>
+<td>Emits a non-fatal warning if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>&lt;</mo><msub><mi>k</mi><mo>min</mo></msub></mrow><annotation encoding="application/x-tex">k &lt; k_{\min}</annotation></semantics></math>
+</td>
 </tr>
 </tbody>
 </table>
-<p>These helpers are especially useful when many common treatments
-reduce effective sparse capacity.</p>
+<p>Always call one of these before
+<code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="va">OptiSparseMET_example_data</span></span>
 <span></span>
-<span><span class="co"># Suggest a safe k with a small buffer above the strict minimum</span></span>
+<span><span class="co"># Strict arithmetic minimum</span></span>
+<span><span class="fu"><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage</a></span><span class="op">(</span></span>
+<span>  n_treatments_total  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span><span class="op">)</span>,    <span class="co"># 120</span></span>
+<span>  n_environments      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">environments</span><span class="op">)</span>,  <span class="co"># 4</span></span>
+<span>  n_common_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span><span class="op">)</span>  <span class="co"># 8; J*=112</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># min_sparse_slots_per_environment = 28  (= ceil(112/4))</span></span>
+<span><span class="co"># min_total_entries_per_environment = 36 (= 28 + 8)</span></span>
+<span></span>
+<span><span class="co"># Safe value with buffer of 3</span></span>
 <span><span class="fu"><a href="../reference/suggest_safe_k.html">suggest_safe_k</a></span><span class="op">(</span></span>
 <span>  treatments        <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments      <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
 <span>  common_treatments <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
 <span>  buffer            <span class="op">=</span> <span class="fl">3</span></span>
 <span><span class="op">)</span></span>
+<span><span class="co"># Returns 39</span></span>
 <span></span>
-<span><span class="co"># Compute the strict minimum directly</span></span>
-<span><span class="fu"><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage</a></span><span class="op">(</span></span>
-<span>  n_treatments_total  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span><span class="op">)</span>,</span>
-<span>  n_environments      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">environments</span><span class="op">)</span>,</span>
-<span>  n_common_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Non-fatal check on a proposed capacity</span></span>
+<span><span class="co"># Non-fatal check (useful inside scripts)</span></span>
 <span><span class="fu"><a href="../reference/warn_if_k_too_small.html">warn_if_k_too_small</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
 <span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span><span class="co"># No warning: 4 * (39 - 8) = 124 &gt;= 112 sparse lines</span></span></code></pre></div>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="seed-aware-replication">10. Seed-Aware Replication<a class="anchor" aria-label="anchor" href="#seed-aware-replication"></a>
-</h2>
-<p>A design that requests replication without accounting for seed
-availability is not deployable. The feasibility condition for assigning
-replication
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
-to treatment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>s</mi><mi>i</mi></msub><mo>≥</mo><msub><mi>r</mi><mi>i</mi></msub><mo>×</mo><msub><mi>q</mi><mi>e</mi></msub></mrow><annotation encoding="application/x-tex">s_i \geq r_i \times q_e</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mi>i</mi></msub><annotation encoding="application/x-tex">s_i</annotation></semantics></math>
-is the seeds available for treatment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
-is the assigned replication level, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>e</mi></msub><annotation encoding="application/x-tex">q_e</annotation></semantics></math>
-is the seeds required per plot.
-<code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> evaluates this condition and
-assigns each treatment one of three roles — replicated, unreplicated
-(downgraded from the target), or excluded — depending on the design mode
-and available seed. This step is especially relevant before calling
-<code><a href="../reference/prep_famoptg.html">prep_famoptg()</a></code> in p-rep or RCBD-type repeated-check
-designs.</p>
-<hr>
-</div>
-<div class="section level2">
-<h2 id="within-environment-design-engines">11. Within-Environment Design Engines<a class="anchor" aria-label="anchor" href="#within-environment-design-engines"></a>
+<h2 id="allocation-strategies">6. Allocation Strategies<a class="anchor" aria-label="anchor" href="#allocation-strategies"></a>
 </h2>
 <div class="section level3">
-<h3 id="prep_famoptg">11.1 <code>prep_famoptg()</code><a class="anchor" aria-label="anchor" href="#prep_famoptg"></a>
+<h3 id="the-random-balanced-strategy-m3">6.1 The random balanced strategy (M3)<a class="anchor" aria-label="anchor" href="#the-random-balanced-strategy-m3"></a>
 </h3>
-<p>This function builds repeated-check block designs supporting three
-main design classes:</p>
-<ul>
-<li>
-<strong>Augmented repeated-check design</strong>: checks repeated in
-every block, all test entries unreplicated</li>
-<li>
-<strong>Partially replicated (p-rep) design</strong>: a subset of
-entries replicated, the remainder unreplicated</li>
-<li>
-<strong>RCBD-type repeated-check design</strong>: all non-check
-entries replicated at a common level</li>
-</ul>
-<p>Core rules enforced across all classes: checks appear in every block;
-replicated non-check entries appear at most once per block; unreplicated
-entries appear exactly once in the full design. Optionally, the function
-minimizes same-group adjacency within blocks, applies dispersion
-optimization using a relationship matrix, and evaluates mixed-model
-efficiency metrics.</p>
+<p>The <code>"random_balanced"</code> method is a coverage-first
+stochastic allocation inspired by the M3 method of Montesinos-López et
+al. (2023). It operates in two phases:</p>
+<p><strong>Phase 1 (coverage guarantee)</strong>: Every non-common line
+is assigned to at least one environment. Lines are processed in random
+order; each is placed in the environment with the most remaining
+capacity, with a preference for environments where the line’s genetic
+group is not yet represented when <code>allocation_group_source</code>
+is active.</p>
+<p><strong>Phase 2 (replication filling)</strong>: Remaining slots are
+filled by repeatedly selecting lines with the largest replication
+deficit relative to <code>target_replications</code>, subject to
+group-balance penalties.</p>
+<p>This strategy is appropriate when: - Environment capacities are
+heterogeneous - Exact BIBD parameters are not achievable for the trial
+dimensions - Some flexibility in the incidence structure is
+acceptable</p>
+<p>Unlike the original M3, which allocates environment by environment
+and may silently leave some lines with no assignment, this
+implementation guarantees full coverage before attempting any additional
+replication.</p>
 </div>
 <div class="section level3">
-<h3 id="alpha_rc_stream">11.2 <code>alpha_rc_stream()</code><a class="anchor" aria-label="anchor" href="#alpha_rc_stream"></a>
+<h3 id="the-balanced-incomplete-strategy-m4">6.2 The balanced incomplete strategy (M4)<a class="anchor" aria-label="anchor" href="#the-balanced-incomplete-strategy-m4"></a>
 </h3>
-<p>This function builds stream-based alpha row-column designs over a
-fixed grid. It is best suited when fields are large, row and column
-trends matter, and spatial models such as AR1 or
-AR1<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>×</mo><annotation encoding="application/x-tex">\times</annotation></semantics></math>AR1
-are planned at the analysis stage. Each entry appears exactly once per
-replicate and checks appear once in every incomplete block. Replicate
-boundaries are determined by position in the traversal stream rather
-than by geometric subdivision of the grid.</p>
-<hr>
-</div>
-</div>
-<div class="section level2">
-<h2 id="design-engine-selection-guide">12. Design Engine Selection Guide<a class="anchor" aria-label="anchor" href="#design-engine-selection-guide"></a>
-</h2>
+<p>The <code>"balanced_incomplete"</code> method implements the M4
+allocation of Montesinos-López et al. (2023). It enforces two structural
+guarantees:</p>
+<p><strong>Condition 1 — Equal replication</strong>: every non-common
+line appears in exactly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+environments. This ensures no line is systematically under-evaluated and
+is the defining property that distinguishes M4 from M3.</p>
+<p><strong>Condition 2 — Equal environment sizes</strong>: every
+environment receives exactly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
+sparse lines. This ensures environments are comparable and the resource
+identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
+holds exactly.</p>
+<p>These two conditions are what matter in plant breeding programs where
+thousands of candidate lines are tested across a few environments.
+Enforcing them means every line gets the same number of chances to be
+evaluated — a fundamental fairness and precision requirement.</p>
+<blockquote>
+<p><strong>For novice readers</strong>: Equal replication means that if
+two breeders each select the “top 10% of lines” based on the trial data,
+they are working from the same quality of information for every line.
+Without equal replication, lines tested more often have lower-variance
+estimates and a systematic advantage in selection.</p>
+</blockquote>
+<p><code>allow_approximate = FALSE</code> (the default) enforces both
+conditions strictly. The slot identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
+must hold exactly, and the function stops with a clear error if it does
+not. Use <code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify
+the slot identity before allocating:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rich-iannone.github.io/DiagrammeR/" class="external-link">DiagrammeR</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># With k=39, J*=112, I=4, r=1: available slots = 4*(39-8) = 124,</span></span>
+<span><span class="co"># required slots = 112*1 = 112. 124 ≠ 112 -&gt; slot identity fails.</span></span>
+<span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
+<span>  n_treatments_total             <span class="op">=</span> <span class="fl">120</span>,</span>
+<span>  n_environments                 <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  n_common_treatments            <span class="op">=</span> <span class="fl">8</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># feasible   = FALSE  (available = 124, required = 112, difference = 12)</span></span>
+<span><span class="co"># Adjust k so that J*×r = I×k*: e.g. k=36 -&gt; k*=28, 4*28=112=112*1.</span></span>
 <span></span>
-<span><span class="fu">grViz</span><span class="op">(</span><span class="st">"</span></span>
-<span><span class="st">digraph design_choice {</span></span>
-<span><span class="st">  graph [layout = dot, rankdir = TB]</span></span>
-<span><span class="st">  node [shape = diamond, fontname = Helvetica]</span></span>
-<span><span class="st"></span></span>
-<span><span class="st">  A [label = 'Is field geometry strongly row-column structured?']</span></span>
-<span><span class="st">  B [label = 'Is spatial modeling planned?']</span></span>
-<span><span class="st">  C [label = 'Use alpha_rc_stream()']</span></span>
-<span><span class="st">  D [label = 'Need augmented or p-rep repeated-check design?']</span></span>
-<span><span class="st">  E [label = 'Use prep_famoptg()']</span></span>
-<span><span class="st"></span></span>
-<span><span class="st">  A -&gt; B [label = 'yes']</span></span>
-<span><span class="st">  B -&gt; C [label = 'yes']</span></span>
-<span><span class="st">  B -&gt; D [label = 'no']</span></span>
-<span><span class="st">  A -&gt; D [label = 'no']</span></span>
-<span><span class="st">  D -&gt; E [label = 'yes']</span></span>
-<span><span class="st">  D -&gt; C [label = 'no']</span></span>
-<span><span class="st">}</span></span>
-<span><span class="st">"</span><span class="op">)</span></span></code></pre></div>
-<p>Use <code><a href="../reference/prep_famoptg.html">prep_famoptg()</a></code> when repeated checks are central,
-when a p-rep or augmented design is needed, or when block structure is
-the primary local control mechanism.</p>
-<p>Use <code><a href="../reference/alpha_rc_stream.html">alpha_rc_stream()</a></code> when the field is large and
-rectangular, when row and column variation is substantial, or when a
-spatial residual model is anticipated at analysis.</p>
-<hr>
+<span><span class="co"># With k=36: slot identity holds.</span></span>
+<span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
+<span>  n_treatments_total             <span class="op">=</span> <span class="fl">120</span>,</span>
+<span>  n_environments                 <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">36</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  n_common_treatments            <span class="op">=</span> <span class="fl">8</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># feasible = TRUE (difference = 0)</span></span></code></pre></div>
+<p>Construction proceeds via <code><a href="https://rdrr.io/pkg/crossdes/man/find.BIB.html" class="external-link">crossdes::find.BIB()</a></code> when the
+<code>crossdes</code> package is installed, falling back to a greedy
+load-balanced constructor otherwise.</p>
+<p><code>allow_approximate = TRUE</code> relaxes the slot identity and
+accepts minor replication imbalances. This is a fallback for exploratory
+use when exact slot identity cannot be achieved, not the primary
+path.</p>
 </div>
-<div class="section level2">
-<h2 id="example-allocation">13. Example: Allocation<a class="anchor" aria-label="anchor" href="#example-allocation"></a>
-</h2>
+<div class="section level3">
+<h3 id="m3-versus-m4-choosing-the-right-strategy">6.3 M3 versus M4: choosing the right strategy<a class="anchor" aria-label="anchor" href="#m3-versus-m4-choosing-the-right-strategy"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="14%">
+<col width="39%">
+<col width="45%">
+</colgroup>
+<thead><tr class="header">
+<th>Feature</th>
+<th>M3 <code>"random_balanced"</code>
+</th>
+<th>M4 <code>"balanced_incomplete"</code>
+</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Equal replication guarantee</td>
+<td>No (approximate)</td>
+<td>Yes (<code>allow_approximate = FALSE</code>)</td>
+</tr>
+<tr class="even">
+<td>Equal environment sizes</td>
+<td>No</td>
+<td>Yes (both modes)</td>
+</tr>
+<tr class="odd">
+<td>Pairwise co-occurrence</td>
+<td>Stochastic</td>
+<td>Approximately uniform; compute from
+<code>$allocation_matrix %*% t($allocation_matrix)</code>
+</td>
+</tr>
+<tr class="even">
+<td>Handles unequal environment sizes</td>
+<td>Yes</td>
+<td>Only with <code>allow_approximate = TRUE</code>
+</td>
+</tr>
+<tr class="odd">
+<td>Requires slot identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mi>r</mi><mo>=</mo><mi>I</mi><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* r = I k^*</annotation></semantics></math>
+</td>
+<td>No</td>
+<td>Yes (strict mode)</td>
+</tr>
+<tr class="even">
+<td>Coverage guarantee</td>
+<td>Yes (phase 1)</td>
+<td>Yes</td>
+</tr>
+<tr class="odd">
+<td>Typical use</td>
+<td>Heterogeneous programs, exploratory</td>
+<td>Standard MET networks with equal replication</td>
+</tr>
+</tbody>
+</table>
+<p>In practice, M3 is more flexible and tolerates heterogeneous
+constraints. M4 with <code>allow_approximate = FALSE</code> (the
+default) is the correct choice whenever equal replication is a hard
+requirement — which it should be in most standard breeding programs.
+Verify the slot identity first with
+<code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> and adjust
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+so that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
+holds. M4 with <code>allow_approximate = TRUE</code> is a fallback when
+the slot identity cannot be satisfied.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="va">OptiSparseMET_example_data</span></span>
 <span></span>
-<span><span class="va">alloc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span><span class="co"># Verify feasibility first</span></span>
+<span><span class="fu"><a href="../reference/suggest_safe_k.html">suggest_safe_k</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span>, <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>               common_treatments <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>, buffer <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co"># Returns 39: ceil(112/4) + 8 + 3 = 39</span></span>
+<span></span>
+<span><span class="co"># M3: random balanced allocation</span></span>
+<span><span class="va">alloc_M3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
+<span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># M4: balanced incomplete allocation with equal replication.</span></span>
+<span><span class="co"># J*=112, I=4, r=1: need k* = 112/4 = 28, k = 28+8 = 36.</span></span>
+<span><span class="co"># Slot identity: 112*1 = 4*28 = 112. Verified above.</span></span>
+<span><span class="va">alloc_M4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
 <span>  allocation_method              <span class="op">=</span> <span class="st">"balanced_incomplete"</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">40</span>,</span>
-<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">36</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
-<span>  allow_approximate              <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  allow_approximate              <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">alloc_M3</span><span class="op">$</span><span class="va">summary</span>  <span class="co"># allocation_method, min/max/mean replication, etc.</span></span>
+<span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">summary</span>  <span class="co"># min_sparse_replication = max_sparse_replication = 1 (equal)</span></span>
+<span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">max_sparse_replication</span>  <span class="co"># equals min_sparse_replication: equal replication confirmed</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="genetic-structure-aware-allocation">7. Genetic Structure-Aware Allocation<a class="anchor" aria-label="anchor" href="#genetic-structure-aware-allocation"></a>
+</h2>
+<p>Standard allocation treats lines as exchangeable — any line could go
+to any environment with equal probability. This is inadequate when:</p>
+<ul>
+<li>Genomic prediction is a downstream objective (related lines
+clustered in the same environments provide redundant rather than
+complementary information)</li>
+<li>Family structure is strong and environments differ in their genetic
+composition</li>
+<li>Genetic disconnectedness would bias G×E estimation</li>
+</ul>
+<p><code>OptiSparseMET</code> incorporates genetic structure through
+three mechanisms, controlled by <code>allocation_group_source</code> in
+<code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code>.</p>
+<div class="section level3">
+<h3 id="family-based-allocation-family">7.1 Family-based allocation (<code>"Family"</code>)<a class="anchor" aria-label="anchor" href="#family-based-allocation-family"></a>
+</h3>
+<p>Family labels (e.g., full-sib or half-sib families) are read from
+<code>treatment_info$Family</code>. Lines from the same family are
+treated as a group and the allocator distributes groups across
+environments rather than concentrating them. This prevents any one
+environment from containing a disproportionate fraction of one family’s
+members, which would inflate within-family variance estimates and reduce
+the effective diversity of each site’s test set.</p>
+</div>
+<div class="section level3">
+<h3 id="grm-based-allocation-grm">7.2 GRM-based allocation (<code>"GRM"</code>)<a class="anchor" aria-label="anchor" href="#grm-based-allocation-grm"></a>
+</h3>
+<p>When marker data are available, the genomic relationship matrix (GRM)
+encodes pairwise genetic similarity between all candidate lines. The
+allocator performs PCA on the GRM, then clusters lines by their
+positions in genomic principal component space using k-means or
+hierarchical clustering. The resulting cluster labels guide allocation
+just as family labels do.</p>
+<p>This approach is more precise than family-based allocation when
+families are heterogeneous in size or when marker data captures
+structure not visible from pedigree labels alone. It directly improves
+the conditions under which GBLUP models operate by ensuring that
+genomically similar lines are spread across environments.</p>
+</div>
+<div class="section level3">
+<h3 id="pedigree-based-allocation-a">7.3 Pedigree-based allocation (<code>"A"</code>)<a class="anchor" aria-label="anchor" href="#pedigree-based-allocation-a"></a>
+</h3>
+<p>When genomic data are unavailable, the pedigree numerator
+relationship matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+plays the same role as the GRM. PCA is performed on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+and clustering proceeds identically. The resulting groups reflect
+pedigree relatedness rather than marker-estimated genomic
+similarity.</p>
+</div>
+<div class="section level3">
+<h3 id="why-this-matters-for-prediction">7.4 Why this matters for prediction<a class="anchor" aria-label="anchor" href="#why-this-matters-for-prediction"></a>
+</h3>
+<p>Under a GBLUP model, prediction accuracy for unobserved lines depends
+on their relatedness to observed lines. When genetically similar lines
+are clustered in the same environments, the model gets redundant
+replication of the same genetic profiles while other profiles go
+unobserved. Spreading related lines across environments ensures the full
+genetic diversity of the candidate set is represented at each site,
+maximizing the amount of novel genetic information available for
+calibrating the prediction model.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">alloc_grm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
+<span>  allocation_group_source        <span class="op">=</span> <span class="st">"GRM"</span>,</span>
+<span>  GRM                            <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">OptiSparseMET_GRM</span>,</span>
+<span>  treatment_info                 <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span>,</span>
+<span>  group_method                   <span class="op">=</span> <span class="st">"kmeans"</span>,</span>
+<span>  group_seed                     <span class="op">=</span> <span class="fl">42</span>,</span>
+<span>  group_attempts                 <span class="op">=</span> <span class="fl">25</span>,</span>
+<span>  min_groups_per_environment     <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  min_env_per_group              <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  balance_groups_across_env      <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  force_group_connectivity       <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">alloc_grm</span><span class="op">$</span><span class="va">group_by_environment</span>  <span class="co"># how many lines per group per environment</span></span>
+<span><span class="va">alloc_grm</span><span class="op">$</span><span class="va">group_overlap_matrix</span>  <span class="co"># how many groups are shared across env pairs</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="common-treatments">8. Common Treatments<a class="anchor" aria-label="anchor" href="#common-treatments"></a>
+</h2>
+<p>Common treatments are lines assigned to <strong>every</strong>
+environment before sparse allocation begins. If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+is the number of common treatments, each environment has its effective
+sparse capacity reduced:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>k</mi><mi>e</mi><mo>*</mo></msubsup><mo>=</mo><msub><mi>k</mi><mi>e</mi></msub><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_e^* = k_e - C</annotation></semantics></math></p>
+<p>and the number of sparse-allocatable lines is:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math></p>
+<div class="section level3">
+<h3 id="why-common-treatments-matter">8.1 Why common treatments matter<a class="anchor" aria-label="anchor" href="#why-common-treatments-matter"></a>
+</h3>
+<p>Common treatments serve two statistically distinct purposes.</p>
+<p><strong>Design-based connectivity</strong>: Two environments that
+share no tested lines can only be linked through the model — through the
+assumed structure of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>.
+Common treatments provide direct comparisons that do not depend on any
+model assumption. This is important when environments are weakly
+genetically correlated or when the researcher wants robust cross-site
+inference.</p>
+<p><strong>Estimation stability</strong>: Common treatments appear in
+every environment, so their effects are estimated with the highest
+precision. They function as stable benchmarks against which the
+performance of sparse treatments is measured. In practice, they are
+often elite lines or standard checks whose behavior is already partially
+known.</p>
+<blockquote>
+<p><strong>For novice readers</strong>: Common treatments are like
+reference points in a measurement system. Even if two environments test
+completely different sets of experimental lines, they can still be
+compared through their shared reference lines — just as two labs can
+compare results if they all measure the same control sample.</p>
+</blockquote>
+</div>
+<div class="section level3">
+<h3 id="when-to-include-them">8.2 When to include them<a class="anchor" aria-label="anchor" href="#when-to-include-them"></a>
+</h3>
+<p>Include common treatments when: - Environments are expected to be
+weakly correlated (e.g., very different climate zones, different growing
+seasons) - Direct cross-environment comparisons need to be reliable
+without assuming a specific genetic covariance structure - A stable
+reference set is needed for cross-trial benchmarking</p>
+<p>Minimize the number of common treatments when: - All environments are
+similar and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>-based
+connectivity is sufficient - Sparse capacity is already tight and common
+treatments would leave too few slots for the experimental lines</p>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="seed-aware-replication">9. Seed-Aware Replication<a class="anchor" aria-label="anchor" href="#seed-aware-replication"></a>
+</h2>
+<div class="section level3">
+<h3 id="the-feasibility-constraint">9.1 The feasibility constraint<a class="anchor" aria-label="anchor" href="#the-feasibility-constraint"></a>
+</h3>
+<p>A design that requests replication without accounting for available
+seed cannot be deployed. The feasibility condition for assigning
+replication
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
+to line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+in environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
+is:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>s</mi><mi>i</mi></msub><mo>≥</mo><msub><mi>r</mi><mi>i</mi></msub><mo>×</mo><msub><mi>q</mi><mi>e</mi></msub><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">s_i \geq r_i \times q_e + b</annotation></semantics></math></p>
+<p>where: -
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mi>i</mi></msub><annotation encoding="application/x-tex">s_i</annotation></semantics></math>
+= seeds available for line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+-
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
+= desired replication level -
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>e</mi></msub><annotation encoding="application/x-tex">q_e</annotation></semantics></math>
+= seeds required per plot in environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
+-
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math>
+= optional safety buffer (e.g., for germination losses)</p>
+</div>
+<div class="section level3">
+<h3 id="replication-roles">9.2 Replication roles<a class="anchor" aria-label="anchor" href="#replication-roles"></a>
+</h3>
+<p><code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code> evaluates this condition
+for every line and assigns one of three roles:</p>
+<ul>
+<li>
+<strong><code>"p_rep"</code></strong> — sufficient seed for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
+plots; assigned <code>desired_replications</code> plots</li>
+<li>
+<strong><code>"unreplicated"</code></strong> — sufficient seed for
+one plot but not for <code>desired_replications</code> plots
+(downgraded)</li>
+<li>
+<strong><code>"excluded"</code></strong> — insufficient seed even
+for one plot</li>
+</ul>
+<p>Three design modes control how these roles are assigned:</p>
+<table class="table">
+<colgroup>
+<col width="13%">
+<col width="30%">
+<col width="23%">
+<col width="32%">
+</colgroup>
+<thead><tr class="header">
+<th>Mode</th>
+<th><code>"augmented"</code></th>
+<th><code>"p_rep"</code></th>
+<th><code>"rcbd_type"</code></th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Target</td>
+<td>1 plot per line</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+plots for a feasible subset</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+plots for all lines</td>
+</tr>
+<tr class="even">
+<td>Downgrade</td>
+<td>Excluded if seed &lt;
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>e</mi></msub><annotation encoding="application/x-tex">q_e</annotation></semantics></math>
+</td>
+<td>Non-candidates get 1 plot</td>
+<td>Yes, if <code>shortage_action = "downgrade"</code>
+</td>
+</tr>
+<tr class="odd">
+<td>P-rep selection</td>
+<td>—</td>
+<td>By priority (seed, order, random)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">seed_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  Treatment     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  SeedAvailable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">20</span><span class="op">:</span><span class="fl">120</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span><span class="op">)</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">rep_plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed</a></span><span class="op">(</span></span>
+<span>  treatments             <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  seed_available         <span class="op">=</span> <span class="va">seed_df</span>,</span>
+<span>  seed_required_per_plot <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  replication_mode       <span class="op">=</span> <span class="st">"p_rep"</span>,</span>
+<span>  desired_replications   <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  priority               <span class="op">=</span> <span class="st">"seed_available"</span>,</span>
+<span>  max_prep               <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>  minimum_seed_buffer    <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  shortage_action        <span class="op">=</span> <span class="st">"downgrade"</span>,</span>
+<span>  seed                   <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span><span class="op">)</span>        <span class="co"># replicated at 2 reps</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span><span class="op">)</span> <span class="co"># assigned 1 plot (downgraded)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">excluded_treatments</span><span class="op">)</span>     <span class="co"># insufficient seed</span></span>
+<span><span class="va">rep_plan</span><span class="op">$</span><span class="va">seed_summary</span>                    <span class="co"># full per-line feasibility table</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="within-environment-design-engines">10. Within-Environment Design Engines<a class="anchor" aria-label="anchor" href="#within-environment-design-engines"></a>
+</h2>
+<div class="section level3">
+<h3 id="met_prep_famoptg-block-based-repeated-check-designs">10.1 <code>met_prep_famoptg()</code> — block-based repeated-check
+designs<a class="anchor" aria-label="anchor" href="#met_prep_famoptg-block-based-repeated-check-designs"></a>
+</h3>
+<p>This engine constructs repeated-check block designs for environments
+where the primary local control mechanism is blocking (incomplete block
+designs). It supports three design classes:</p>
+<p><strong>Augmented repeated-check design</strong></p>
+<p>All non-check lines are unreplicated. Each block contains the same
+set of check treatments plus a unique subset of experimental lines. This
+design is appropriate for early screening stages when the number of
+candidates far exceeds available resources and seed is very limited. The
+checks allow estimation of block effects, which are subtracted to
+improve comparisons among the unreplicated lines.</p>
+<p><strong>Partially replicated (p-rep) design</strong></p>
+<p>A subset of lines — those with more seed or higher priority — is
+replicated at <code>desired_replications</code> plots, distributed
+across distinct blocks. The remainder appear unreplicated. P-rep designs
+are efficient because they concentrate replication where it provides the
+most information while still including a broad set of candidates.</p>
+<p><strong>RCBD-type repeated-check design</strong></p>
+<p>All non-check lines are replicated at a uniform level. This is the
+closest to a standard RCBD within a single environment, extended to
+include repeated checks in every block.</p>
+<p><strong>Structural guarantees enforced by
+<code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code></strong>:</p>
+<ul>
+<li>Check treatments appear in every block</li>
+<li>Replicated lines appear in distinct blocks (at most once per
+block)</li>
+<li>Unreplicated lines appear exactly once in the design</li>
+</ul>
+<p>Optional features include family-based or GRM/A-based genetic
+dispersion optimization (minimizing the average relatedness of adjacent
+plots) and mixed-model efficiency evaluation (A, D, CDmean).</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">design_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_prep_famoptg.html">met_prep_famoptg</a></span><span class="op">(</span></span>
+<span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  p_rep_treatments        <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  p_rep_reps              <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_reps</span>,</span>
+<span>  p_rep_families          <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  unreplicated_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>  unreplicated_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_blocks     <span class="op">=</span> <span class="fl">4L</span>,</span>
+<span>  n_rows       <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols       <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  order        <span class="op">=</span> <span class="st">"row"</span>,</span>
+<span>  serpentine   <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed         <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">design_E1</span><span class="op">$</span><span class="va">layout_matrix</span>  <span class="co"># plot-level field map</span></span>
+<span><span class="va">design_E1</span><span class="op">$</span><span class="va">field_book</span>     <span class="co"># row-level data frame ready for export</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="met_alpha_rc_stream-row-column-alpha-designs">10.2 <code>met_alpha_rc_stream()</code> — row-column alpha
+designs<a class="anchor" aria-label="anchor" href="#met_alpha_rc_stream-row-column-alpha-designs"></a>
+</h3>
+<p>This engine constructs alpha row-column designs for large fields
+where both row and column gradients are present. It is most appropriate
+when:</p>
+<ul>
+<li>The field is large and rectangular</li>
+<li>Row and column variation is substantial relative to treatment
+differences</li>
+<li>A spatial residual model (AR1 or AR1×AR1) will be used at
+analysis</li>
+</ul>
+<p>The design is built by streaming plots across the field in a
+specified traversal order (row-major, column-major, or serpentine). Each
+replicate occupies a contiguous block of rows or columns. Within each
+replicate, entries are partitioned into incomplete blocks, with check
+treatments inserted at regular intervals within every incomplete
+block.</p>
+<p><strong>Structural guarantees</strong>:</p>
+<ul>
+<li>Each entry appears exactly once per replicate</li>
+<li>Check treatments appear in every incomplete block</li>
+<li>Block sizes are constrained within
+<code>[min_block_size, max_block_size]</code>
+</li>
+</ul>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">design_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream</a></span><span class="op">(</span></span>
+<span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  entry_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  entry_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                             <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_reps         <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>  n_rows         <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols         <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  min_block_size <span class="op">=</span> <span class="fl">8L</span>,</span>
+<span>  max_block_size <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  order          <span class="op">=</span> <span class="st">"row"</span>,</span>
+<span>  serpentine     <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed           <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">design_E2</span><span class="op">$</span><span class="va">layout_matrix</span></span>
+<span><span class="va">design_E2</span><span class="op">$</span><span class="va">field_book</span></span>
+<span><span class="va">design_E2</span><span class="op">$</span><span class="va">design_info</span>   <span class="co"># n_reps, n_blocks_per_rep, total_used_plots</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="design-engine-selection-guide">10.3 Design engine selection guide<a class="anchor" aria-label="anchor" href="#design-engine-selection-guide"></a>
+</h3>
+<p>Use <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> when:</p>
+<ul>
+<li>Repeated check distribution across blocks is a structural
+requirement</li>
+<li>The design needs to support p-rep, augmented, or RCBD-type
+structure</li>
+<li>The field is subdivided into blocks but row-column spatial modeling
+is not the primary concern</li>
+</ul>
+<p>Use <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> when:</p>
+<ul>
+<li>The field is large and continuous, with both row and column
+gradients</li>
+<li>Spatial models (AR1 or AR1×AR1) will be used at analysis</li>
+<li>The design needs fixed-grid compatibility for automated plot
+management</li>
+</ul>
+<p>The engines can be mixed across environments within the same
+trial.</p>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="efficiency-evaluation">11. Efficiency Evaluation<a class="anchor" aria-label="anchor" href="#efficiency-evaluation"></a>
+</h2>
+<div class="section level3">
+<h3 id="block-based-designs-met_evaluate_famoptg_efficiency">11.1 Block-based designs:
+<code>met_evaluate_famoptg_efficiency()</code><a class="anchor" aria-label="anchor" href="#block-based-designs-met_evaluate_famoptg_efficiency"></a>
+</h3>
+<p>For designs produced by <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code>, efficiency
+is evaluated under a model with a block random effect:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>W</mi><mi>b</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + Wb + e</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mi>b</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">b \sim N(0,\, I\sigma_b^2)</annotation></semantics></math>
+is the block effect. The variance components are specified in
+<code>varcomp</code> using <code>sigma_b2</code> for the block variance.
+Note that this model has a <strong>single block variance
+component</strong> — there is no separate replicate or
+incomplete-block-within-replicate structure.</p>
+<p>The function computes A-criterion, D-criterion (for fixed treatment
+effects), and CDmean (for random treatment effects), under any of three
+residual structures: <code>"IID"</code>, <code>"AR1"</code> (along rows
+or columns), or <code>"AR1xAR1"</code> (spatial gradient in both
+dimensions).</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eff_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency</a></span><span class="op">(</span></span>
+<span>  field_book       <span class="op">=</span> <span class="va">design_E1</span><span class="op">$</span><span class="va">field_book</span>,</span>
+<span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols           <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  varcomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    sigma_e2  <span class="op">=</span> <span class="fl">1.0</span>,   <span class="co"># residual variance</span></span>
+<span>    sigma_g2  <span class="op">=</span> <span class="fl">0.5</span>,   <span class="co"># genetic variance (for CDmean)</span></span>
+<span>    sigma_b2  <span class="op">=</span> <span class="fl">0.3</span>,   <span class="co"># block variance</span></span>
+<span>    sigma_r2  <span class="op">=</span> <span class="fl">0.05</span>,  <span class="co"># row variance (for spatial structures)</span></span>
+<span>    sigma_c2  <span class="op">=</span> <span class="fl">0.05</span>   <span class="co"># column variance</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  treatment_effect    <span class="op">=</span> <span class="st">"random"</span>,</span>
+<span>  prediction_type     <span class="op">=</span> <span class="st">"IID"</span>,</span>
+<span>  residual_structure  <span class="op">=</span> <span class="st">"IID"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eff_E1</span><span class="op">$</span><span class="va">CDmean</span>     <span class="co"># in [0, 1]: higher is better</span></span>
+<span><span class="va">eff_E1</span><span class="op">$</span><span class="va">mean_PEV</span>   <span class="co"># mean prediction error variance</span></span>
+<span><span class="va">eff_E1</span><span class="op">$</span><span class="va">A</span>          <span class="co"># A-efficiency (1 / A_criterion): higher is better</span></span>
+<span><span class="va">eff_E1</span><span class="op">$</span><span class="va">D</span>          <span class="co"># D-efficiency: higher is better</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="row-column-designs-met_evaluate_alpha_efficiency">11.2 Row-column designs:
+<code>met_evaluate_alpha_efficiency()</code><a class="anchor" aria-label="anchor" href="#row-column-designs-met_evaluate_alpha_efficiency"></a>
+</h3>
+<p>For designs produced by <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code>,
+efficiency is evaluated under a model with replicate and
+incomplete-block-within-replicate random effects:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><msub><mi>W</mi><mi>r</mi></msub><mi>r</mi><mo>+</mo><msub><mi>W</mi><mi>b</mi></msub><mi>b</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + W_r r + W_{b} b + e</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mtext mathvariant="normal">rep</mtext><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">r \sim N(0,\, I\sigma_{\text{rep}}^2)</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mtext mathvariant="normal">ib</mtext><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">b \sim N(0,\, I\sigma_{\text{ib}}^2)</annotation></semantics></math>
+are the replicate and incomplete block effects respectively. The
+<code>varcomp</code> list must contain <code>sigma_rep2</code> and
+<code>sigma_ib2</code> (not <code>sigma_b2</code>). This two-level
+blocking structure reflects the hierarchical design of alpha row-column
+layouts.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eff_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency</a></span><span class="op">(</span></span>
+<span>  field_book       <span class="op">=</span> <span class="va">design_E2</span><span class="op">$</span><span class="va">field_book</span>,</span>
+<span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols           <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  varcomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    sigma_e2   <span class="op">=</span> <span class="fl">1.0</span>,</span>
+<span>    sigma_g2   <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>    sigma_rep2 <span class="op">=</span> <span class="fl">0.4</span>,   <span class="co"># replicate variance</span></span>
+<span>    sigma_ib2  <span class="op">=</span> <span class="fl">0.2</span>,   <span class="co"># incomplete block within replicate</span></span>
+<span>    sigma_r2   <span class="op">=</span> <span class="fl">0.05</span>,</span>
+<span>    sigma_c2   <span class="op">=</span> <span class="fl">0.05</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  treatment_effect   <span class="op">=</span> <span class="st">"random"</span>,</span>
+<span>  prediction_type    <span class="op">=</span> <span class="st">"IID"</span>,</span>
+<span>  residual_structure <span class="op">=</span> <span class="st">"IID"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eff_E2</span><span class="op">$</span><span class="va">CDmean</span></span>
+<span><span class="va">eff_E2</span><span class="op">$</span><span class="va">mean_PEV</span></span></code></pre></div>
+<blockquote>
+<p><strong>Key distinction</strong>:
+<code><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency()</a></code> uses
+<code>sigma_b2</code> (one block level);
+<code><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency()</a></code> uses
+<code>sigma_rep2</code> + <code>sigma_ib2</code> (two block levels:
+replicate and incomplete block within replicate). Using the wrong
+function for the wrong design will produce an error or incorrect
+results.</p>
+</blockquote>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="design-optimisation">12. Design Optimisation<a class="anchor" aria-label="anchor" href="#design-optimisation"></a>
+</h2>
+<p>Once a base design is constructed and its efficiency evaluated, the
+optimizer functions search for a better arrangement of the same
+treatments within the same blocking structure.</p>
+<div class="section level3">
+<h3 id="met_optimize_famoptg-block-based-optimisation">12.1 <code>met_optimize_famoptg()</code> — block-based
+optimisation<a class="anchor" aria-label="anchor" href="#met_optimize_famoptg-block-based-optimisation"></a>
+</h3>
+<p><code><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg()</a></code> uses Random Restart (RS): it
+generates multiple independent random designs, evaluates each, and
+returns the best. All structural guarantees of
+<code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> are enforced in every candidate
+design.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">opt_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg</a></span><span class="op">(</span></span>
+<span>  <span class="co"># All arguments of met_prep_famoptg(), plus:</span></span>
+<span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  p_rep_treatments        <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  p_rep_reps              <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_reps</span>,</span>
+<span>  p_rep_families          <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  unreplicated_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>  unreplicated_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_blocks            <span class="op">=</span> <span class="fl">4L</span>,</span>
+<span>  n_rows              <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols              <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  <span class="co"># Optimisation arguments:</span></span>
+<span>  treatment_effect    <span class="op">=</span> <span class="st">"random"</span>,</span>
+<span>  prediction_type     <span class="op">=</span> <span class="st">"IID"</span>,</span>
+<span>  criterion           <span class="op">=</span> <span class="st">"CDmean"</span>,</span>
+<span>  varcomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sigma_e2<span class="op">=</span><span class="fl">1</span>, sigma_g2<span class="op">=</span><span class="fl">0.5</span>, sigma_b2<span class="op">=</span><span class="fl">0.3</span>,</span>
+<span>                 sigma_r2<span class="op">=</span><span class="fl">0.05</span>, sigma_c2<span class="op">=</span><span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  n_restarts          <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  seed                <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">opt_E1</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">best_score</span>    <span class="co"># best CDmean found</span></span>
+<span><span class="va">opt_E1</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">score_history</span> <span class="co"># CDmean at each restart</span></span>
+<span><span class="va">opt_E1</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">n_failed</span>      <span class="co"># restarts that produced invalid designs</span></span>
+<span><span class="va">opt_E1</span><span class="op">$</span><span class="va">field_book</span>                 <span class="co"># the best design's field book</span></span>
+<span><span class="va">opt_E1</span><span class="op">$</span><span class="va">efficiency</span>                 <span class="co"># efficiency metrics of the best design</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="met_optimize_alpha_rc-row-column-optimisation">12.2 <code>met_optimize_alpha_rc()</code> — row-column
+optimisation<a class="anchor" aria-label="anchor" href="#met_optimize_alpha_rc-row-column-optimisation"></a>
+</h3>
+<p><code><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc()</a></code> supports three optimisation
+algorithms:</p>
+<p><strong>RS (Random Restart)</strong>: Same as
+<code><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg()</a></code>. Generates multiple independent
+candidates and keeps the best. Simple and parallelizable.</p>
+<p><strong>SA (Simulated Annealing)</strong>: Starts from one design and
+iteratively perturbs it. At each step, a worse design is accepted with
+probability
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mi>Δ</mi><mi>/</mi><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\Delta / T)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Δ</mi><annotation encoding="application/x-tex">\Delta</annotation></semantics></math>
+is the score decrease and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
+is the current temperature. As
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
+decreases from <code>sa_temp_start</code> to <code>sa_temp_end</code>,
+the algorithm transitions from broad exploration to local refinement. SA
+is effective when the fitness landscape has many local optima.</p>
+<p><strong>GA (Genetic Algorithm)</strong>: Maintains a population of
+designs. At each generation, pairs of high-scoring designs are combined
+(“crossover”) and random perturbations are applied (“mutation”). Elite
+designs are carried forward unchanged. GA explores a broader search
+space than RS or SA for the same number of objective function
+evaluations, at the cost of higher implementation complexity.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Simulated Annealing</span></span>
+<span><span class="va">opt_E2_sa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc</a></span><span class="op">(</span></span>
+<span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  entry_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  entry_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                             <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_reps            <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>  n_rows            <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols            <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  method            <span class="op">=</span> <span class="st">"SA"</span>,</span>
+<span>  treatment_effect  <span class="op">=</span> <span class="st">"random"</span>,</span>
+<span>  prediction_type   <span class="op">=</span> <span class="st">"IID"</span>,</span>
+<span>  criterion         <span class="op">=</span> <span class="st">"CDmean"</span>,</span>
+<span>  varcomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sigma_e2<span class="op">=</span><span class="fl">1</span>, sigma_g2<span class="op">=</span><span class="fl">0.5</span>, sigma_rep2<span class="op">=</span><span class="fl">0.4</span>,</span>
+<span>                 sigma_ib2<span class="op">=</span><span class="fl">0.2</span>, sigma_r2<span class="op">=</span><span class="fl">0.05</span>, sigma_c2<span class="op">=</span><span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  sa_max_iter       <span class="op">=</span> <span class="fl">500L</span>,</span>
+<span>  sa_temp_start     <span class="op">=</span> <span class="fl">1.0</span>,</span>
+<span>  sa_temp_end       <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>  seed              <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">opt_E2_sa</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">best_score</span></span>
+<span><span class="va">opt_E2_sa</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">sa_params</span>   <span class="co"># SA-specific settings</span></span>
+<span><span class="va">opt_E2_sa</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">ga_params</span>   <span class="co"># NULL (not used)</span></span>
+<span></span>
+<span><span class="co"># Genetic Algorithm</span></span>
+<span><span class="va">opt_E2_ga</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc</a></span><span class="op">(</span></span>
+<span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  entry_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  entry_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                             <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_reps            <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>  n_rows            <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  n_cols            <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  method            <span class="op">=</span> <span class="st">"GA"</span>,</span>
+<span>  treatment_effect  <span class="op">=</span> <span class="st">"random"</span>,</span>
+<span>  prediction_type   <span class="op">=</span> <span class="st">"IID"</span>,</span>
+<span>  criterion         <span class="op">=</span> <span class="st">"CDmean"</span>,</span>
+<span>  varcomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sigma_e2<span class="op">=</span><span class="fl">1</span>, sigma_g2<span class="op">=</span><span class="fl">0.5</span>, sigma_rep2<span class="op">=</span><span class="fl">0.4</span>,</span>
+<span>                 sigma_ib2<span class="op">=</span><span class="fl">0.2</span>, sigma_r2<span class="op">=</span><span class="fl">0.05</span>, sigma_c2<span class="op">=</span><span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  ga_pop_size       <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  ga_n_generations  <span class="op">=</span> <span class="fl">50L</span>,</span>
+<span>  ga_elitism        <span class="op">=</span> <span class="fl">4L</span>,</span>
+<span>  seed              <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">opt_E2_ga</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">best_score</span></span>
+<span><span class="va">opt_E2_ga</span><span class="op">$</span><span class="va">optimization</span><span class="op">$</span><span class="va">ga_params</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="full-pipeline-example">13. Full Pipeline Example<a class="anchor" aria-label="anchor" href="#full-pipeline-example"></a>
+</h2>
+<div class="section level3">
+<h3 id="step-by-step">13.1 Step-by-step<a class="anchor" aria-label="anchor" href="#step-by-step"></a>
+</h3>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
+<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="va">OptiSparseMET_example_data</span></span>
+<span></span>
+<span><span class="co"># Stage 0: verify capacity</span></span>
+<span><span class="va">k_safe</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/suggest_safe_k.html">suggest_safe_k</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span>, <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>                         common_treatments <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
+<span>                         buffer <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>   <span class="co"># 39</span></span>
+<span></span>
+<span><span class="co"># Stage 1: allocation</span></span>
+<span><span class="co"># k_safe = 39 does not satisfy the slot identity for M4 (112*1=112 ≠ 4*31=124).</span></span>
+<span><span class="co"># Use random_balanced (M3) here, or adjust k for M4 slot identity.</span></span>
+<span><span class="co"># For M4 with r=1: k* = 112/4 = 28, k = 36.</span></span>
+<span><span class="va">alloc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="va">k_safe</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
+<span>  allocation_group_source        <span class="op">=</span> <span class="st">"Family"</span>,</span>
+<span>  treatment_info                 <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span>,</span>
 <span>  seed                           <span class="op">=</span> <span class="fl">123</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">alloc</span><span class="op">$</span><span class="va">summary</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">alloc</span><span class="op">$</span><span class="va">allocation_long</span><span class="op">)</span></span>
-<span><span class="va">alloc</span><span class="op">$</span><span class="va">overlap_matrix</span></span></code></pre></div>
-<hr>
+<span><span class="va">alloc</span><span class="op">$</span><span class="va">overlap_matrix</span>   <span class="co"># environments x environments: how many lines shared</span></span>
+<span></span>
+<span><span class="co"># Stage 2: seed-aware replication</span></span>
+<span><span class="va">rep_plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed</a></span><span class="op">(</span></span>
+<span>  treatments             <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
+<span>  seed_available         <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">seed_info</span>,</span>
+<span>  seed_required_per_plot <span class="op">=</span> <span class="fl">8</span>,</span>
+<span>  replication_mode       <span class="op">=</span> <span class="st">"p_rep"</span>,</span>
+<span>  desired_replications   <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  max_prep               <span class="op">=</span> <span class="fl">15</span>,</span>
+<span>  shortage_action        <span class="op">=</span> <span class="st">"downgrade"</span>,</span>
+<span>  seed                   <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 3: design per environment (example for Env_A)</span></span>
+<span><span class="va">design_A</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_prep_famoptg.html">met_prep_famoptg</a></span><span class="op">(</span></span>
+<span>  check_treatments        <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span><span class="op">$</span><span class="va">Env_A</span><span class="op">$</span><span class="va">check_treatments</span>,</span>
+<span>  check_families          <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span><span class="op">$</span><span class="va">Env_A</span><span class="op">$</span><span class="va">check_families</span>,</span>
+<span>  p_rep_treatments        <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>  p_rep_reps              <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_reps</span>,</span>
+<span>  p_rep_families          <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">p_rep_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  unreplicated_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>  unreplicated_families   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Family</span><span class="op">[</span></span>
+<span>                              <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>                                    <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  n_blocks   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span><span class="op">$</span><span class="va">Env_A</span><span class="op">$</span><span class="va">n_blocks</span>,</span>
+<span>  n_rows     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span><span class="op">$</span><span class="va">Env_A</span><span class="op">$</span><span class="va">n_rows</span>,</span>
+<span>  n_cols     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span><span class="op">$</span><span class="va">Env_A</span><span class="op">$</span><span class="va">n_cols</span>,</span>
+<span>  seed       <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 4: combine field books</span></span>
+<span><span class="va">met_book</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks</a></span><span class="op">(</span></span>
+<span>  field_books       <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Env_A <span class="op">=</span> <span class="va">design_A</span><span class="op">$</span><span class="va">field_book</span><span class="op">)</span>,</span>
+<span>  local_designs     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Env_A <span class="op">=</span> <span class="st">"met_prep_famoptg"</span><span class="op">)</span>,</span>
+<span>  replication_modes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Env_A <span class="op">=</span> <span class="st">"p_rep"</span><span class="op">)</span>,</span>
+<span>  sparse_method     <span class="op">=</span> <span class="st">"balanced_incomplete"</span>,</span>
+<span>  common_treatments <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">met_book</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div class="section level2">
-<h2 id="example-full-pipeline">14. Example: Full Pipeline<a class="anchor" aria-label="anchor" href="#example-full-pipeline"></a>
-</h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="section level3">
+<h3 id="end-to-end-pipeline">13.2 End-to-end pipeline<a class="anchor" aria-label="anchor" href="#end-to-end-pipeline"></a>
+</h3>
+<p><code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code> executes all four stages in a
+single call. Each environment’s local design is controlled by
+<code>env_design_specs</code>, a named list where the
+<code>design</code> field specifies <code>"met_prep_famoptg"</code> or
+<code>"met_alpha_rc_stream"</code>:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
 <span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  common_treatments              <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">common_treatments</span>,</span>
 <span>  env_design_specs               <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span>,</span>
 <span>  treatment_info                 <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span>,</span>
@@ -597,92 +1402,79 @@ spatial residual model is anticipated at analysis.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">out</span><span class="op">)</span></span>
+<span><span class="co"># "sparse_allocation"    "environment_designs"   "combined_field_book"</span></span>
+<span><span class="co"># "environment_summary"  "group_environment_summary"</span></span>
+<span><span class="co"># "efficiency_summary"   "summary"  "seed_used"</span></span>
+<span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">combined_field_book</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">environment_summary</span><span class="op">)</span></span></code></pre></div>
-<hr>
+<span><span class="va">out</span><span class="op">$</span><span class="va">environment_summary</span>         <span class="co"># one row per environment</span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">efficiency_summary</span>          <span class="co"># efficiency metrics per environment</span></span></code></pre></div>
 </div>
-<div class="section level2">
-<h2 id="environment-specific-design-choice">15. Environment-Specific Design Choice<a class="anchor" aria-label="anchor" href="#environment-specific-design-choice"></a>
-</h2>
-<p>One of the main strengths of the package is that the local design
-engine can differ across environments. This is controlled through
-<code>env_design_specs</code>, a named list with one element per
-environment. Each element contains the design arguments for that
-environment plus a <code>design</code> field specifying which engine to
-use.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="section level3">
+<h3 id="environment-specific-design-specifications">13.3 Environment-specific design specifications<a class="anchor" aria-label="anchor" href="#environment-specific-design-specifications"></a>
+</h3>
+<p>The <code>env_design_specs</code> list allows each environment to use
+a different design engine and replication mode. The <code>design</code>
+field routes to the correct constructor. Additional fields are passed
+directly as arguments:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">env_design_specs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span></span>
-<span>  <span class="co"># p-rep repeated-check design</span></span>
-<span>  Env1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    design               <span class="op">=</span> <span class="st">"prep_famoptg"</span>,</span>
+<span>  <span class="co"># p-rep block design</span></span>
+<span>  Env_A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    design               <span class="op">=</span> <span class="st">"met_prep_famoptg"</span>,</span>
 <span>    replication_mode     <span class="op">=</span> <span class="st">"p_rep"</span>,</span>
-<span>    desired_replications <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>    desired_replications <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>    max_prep             <span class="op">=</span> <span class="fl">15L</span>,</span>
+<span>    shortage_action      <span class="op">=</span> <span class="st">"downgrade"</span>,</span>
 <span>    check_treatments     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>    check_families       <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
-<span>    n_blocks             <span class="op">=</span> <span class="fl">4</span>,</span>
-<span>    n_rows               <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    n_cols               <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    cluster_source       <span class="op">=</span> <span class="st">"Family"</span></span>
+<span>    n_blocks             <span class="op">=</span> <span class="fl">4L</span>,</span>
+<span>    n_rows               <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>    n_cols               <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>    cluster_source       <span class="op">=</span> <span class="st">"Family"</span>,</span>
+<span>    eval_efficiency      <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span>  <span class="op">)</span>,</span>
 <span></span>
-<span>  <span class="co"># alpha row-column stream design</span></span>
-<span>  Env2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    design           <span class="op">=</span> <span class="st">"alpha_rc_stream"</span>,</span>
+<span>  <span class="co"># Row-column alpha design</span></span>
+<span>  Env_B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    design                    <span class="op">=</span> <span class="st">"met_alpha_rc_stream"</span>,</span>
+<span>    check_treatments          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>    check_families            <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>    n_reps                    <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>    n_rows                    <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>    n_cols                    <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>    min_entry_slots_per_block <span class="op">=</span> <span class="fl">8L</span>,</span>
+<span>    cluster_source            <span class="op">=</span> <span class="st">"Family"</span>,</span>
+<span>    eval_efficiency           <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  <span class="op">)</span>,</span>
+<span></span>
+<span>  <span class="co"># Augmented repeated-check design</span></span>
+<span>  Env_C <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    design           <span class="op">=</span> <span class="st">"met_prep_famoptg"</span>,</span>
+<span>    replication_mode <span class="op">=</span> <span class="st">"augmented"</span>,</span>
 <span>    check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>    check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
-<span>    n_reps           <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>    n_rows           <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    n_cols           <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    cluster_source   <span class="op">=</span> <span class="st">"Family"</span></span>
-<span>  <span class="op">)</span>,</span>
-<span></span>
-<span>  <span class="co"># augmented repeated-check design</span></span>
-<span>  Env3 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    design               <span class="op">=</span> <span class="st">"prep_famoptg"</span>,</span>
-<span>    replication_mode     <span class="op">=</span> <span class="st">"augmented"</span>,</span>
-<span>    check_treatments     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
-<span>    check_families       <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
-<span>    n_blocks             <span class="op">=</span> <span class="fl">4</span>,</span>
-<span>    n_rows               <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    n_cols               <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>    cluster_source       <span class="op">=</span> <span class="st">"Family"</span></span>
+<span>    n_blocks         <span class="op">=</span> <span class="fl">4L</span>,</span>
+<span>    n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>    n_cols           <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>    cluster_source   <span class="op">=</span> <span class="st">"Family"</span>,</span>
+<span>    eval_efficiency  <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>This allows the MET-level design to adapt to environment-specific
-operational and logistical realities, including different field
-geometries, different check sets, and different replication
-requirements.</p>
 <hr>
 </div>
-<div class="section level2">
-<h2 id="efficiency-evaluation">16. Efficiency Evaluation<a class="anchor" aria-label="anchor" href="#efficiency-evaluation"></a>
-</h2>
-<p>When local designs are built with efficiency evaluation enabled,
-<code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code> extracts the resulting metrics and
-stores them in <code>environment_summary</code>. This makes it possible
-to compare design quality across environments within the same MET before
-committing resources to field deployment.</p>
-<p>Typical metrics include A-optimality-based summaries, D-efficiency,
-mean prediction error variance (PEV), and the residual structure used in
-the evaluation model.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">out</span><span class="op">$</span><span class="va">environment_summary</span></span></code></pre></div>
-<hr>
 </div>
 <div class="section level2">
-<h2 id="connectivity-and-genomic-prediction-simulation-illustration">17. Connectivity and Genomic Prediction: Simulation
+<h2 id="connectivity-and-genomic-prediction-simulation-illustration">14. Connectivity and Genomic Prediction: Simulation
 Illustration<a class="anchor" aria-label="anchor" href="#connectivity-and-genomic-prediction-simulation-illustration"></a>
 </h2>
 <p>The benefit of better cross-environment connectivity can be explored
 through simulation. The following code generates sparse allocations
-under M3 and M4, simulates phenotypic data under a genomic model, and
-fits a GBLUP model to each dataset. In many settings, the more regular
-co-occurrence structure of M4 leads to lower average PEV, more stable
-BLUPs, and stronger cross-environment connectivity. The exact magnitude
-of the advantage depends on the covariance structure and degree of
-imbalance.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+under M3 and M4, simulates phenotypic data under a genomic model, fits a
+GBLUP model to each dataset, and compares the resulting prediction
+quality.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/covaruber/sommer" class="external-link">sommer</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.stats.ox.ac.uk/pub/MASS4/" class="external-link">MASS</a></span><span class="op">)</span></span>
 <span></span>
@@ -691,13 +1483,16 @@ imbalance.</p>
 <span><span class="va">n_geno</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
 <span><span class="va">n_env</span>  <span class="op">&lt;-</span> <span class="fl">4</span></span>
 <span></span>
+<span><span class="co"># Simulate a genomic relationship matrix</span></span>
 <span><span class="va">G0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_geno</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>, <span class="va">n_geno</span><span class="op">)</span></span>
 <span><span class="va">G0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/crossprod.html" class="external-link">tcrossprod</a></span><span class="op">(</span><span class="va">G0</span><span class="op">)</span> <span class="op">/</span> <span class="va">n_geno</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">G0</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">G0</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.5</span></span>
 <span></span>
 <span><span class="va">simulate_MET</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">allocation_matrix</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">geno_ids</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">allocation_matrix</span><span class="op">)</span></span>
 <span>  <span class="va">env_ids</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">allocation_matrix</span><span class="op">)</span></span>
 <span></span>
+<span>  <span class="co"># Simulate genetic values from GRM-based covariance structure</span></span>
 <span>  <span class="va">g_eff</span> <span class="op">&lt;-</span> <span class="fu">MASS</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MASS/man/mvrnorm.html" class="external-link">mvrnorm</a></span><span class="op">(</span><span class="fl">1</span>, mu <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">geno_ids</span><span class="op">)</span><span class="op">)</span>, Sigma <span class="op">=</span> <span class="va">G0</span><span class="op">)</span></span>
 <span>  <span class="va">e_eff</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">env_ids</span><span class="op">)</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
@@ -711,107 +1506,186 @@ imbalance.</p>
 <span>  <span class="va">dat</span></span>
 <span><span class="op">}</span></span>
 <span></span>
+<span><span class="co"># M3 allocation: n=200, I=4, k=80, r~=1.6 (total=320, target=2 but approx)</span></span>
 <span><span class="va">alloc_M3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
-<span>  treatments                     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">n_geno</span><span class="op">)</span>,</span>
-<span>  environments                   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"E"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">n_env</span><span class="op">)</span>,</span>
+<span>  treatments                     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_geno</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"E"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_env</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
-<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">80</span>,</span>
-<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  seed                           <span class="op">=</span> <span class="fl">1</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">alloc_M4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
-<span>  treatments                     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">n_geno</span><span class="op">)</span>,</span>
-<span>  environments                   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"E"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">n_env</span><span class="op">)</span>,</span>
-<span>  allocation_method              <span class="op">=</span> <span class="st">"balanced_incomplete"</span>,</span>
 <span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">80</span>,</span>
 <span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  allow_approximate              <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed                           <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># M4 allocation: equal replication (allow_approximate = FALSE).</span></span>
+<span><span class="co"># J=200, I=4, r=2: k = J*r/I = 200*2/4 = 100. Slot identity: 200*2=4*100=400.</span></span>
+<span><span class="va">alloc_M4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  treatments                     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_geno</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"E"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_env</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  allocation_method              <span class="op">=</span> <span class="st">"balanced_incomplete"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  allow_approximate              <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  seed                           <span class="op">=</span> <span class="fl">1</span></span>
+<span><span class="op">)</span></span>
+<span></span>
 <span><span class="va">dat_M3</span> <span class="op">&lt;-</span> <span class="fu">simulate_MET</span><span class="op">(</span><span class="va">alloc_M3</span><span class="op">$</span><span class="va">allocation_matrix</span><span class="op">)</span></span>
 <span><span class="va">dat_M4</span> <span class="op">&lt;-</span> <span class="fu">simulate_MET</span><span class="op">(</span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">allocation_matrix</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Fit GBLUP model to each dataset</span></span>
 <span><span class="va">fit_M3</span> <span class="op">&lt;-</span> <span class="fu">sommer</span><span class="fu">::</span><span class="fu">mmer</span><span class="op">(</span></span>
 <span>  <span class="va">y</span> <span class="op">~</span> <span class="va">Env</span>,</span>
-<span>  random <span class="op">=</span> <span class="op">~</span> <span class="fu">vsr</span><span class="op">(</span><span class="va">Geno</span>, Gu <span class="op">=</span> <span class="va">G0</span><span class="op">)</span>,</span>
+<span>  random <span class="op">=</span> <span class="op">~</span> <span class="fu">sommer</span><span class="fu">::</span><span class="fu">vsr</span><span class="op">(</span><span class="va">Geno</span>, Gu <span class="op">=</span> <span class="va">G0</span><span class="op">)</span>,</span>
 <span>  data   <span class="op">=</span> <span class="va">dat_M3</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_M4</span> <span class="op">&lt;-</span> <span class="fu">sommer</span><span class="fu">::</span><span class="fu">mmer</span><span class="op">(</span></span>
 <span>  <span class="va">y</span> <span class="op">~</span> <span class="va">Env</span>,</span>
-<span>  random <span class="op">=</span> <span class="op">~</span> <span class="fu">vsr</span><span class="op">(</span><span class="va">Geno</span>, Gu <span class="op">=</span> <span class="va">G0</span><span class="op">)</span>,</span>
+<span>  random <span class="op">=</span> <span class="op">~</span> <span class="fu">sommer</span><span class="fu">::</span><span class="fu">vsr</span><span class="op">(</span><span class="va">Geno</span>, Gu <span class="op">=</span> <span class="va">G0</span><span class="op">)</span>,</span>
 <span>  data   <span class="op">=</span> <span class="va">dat_M4</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Compare mean PEV: lower is better (more precise prediction)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fit_M3</span><span class="op">$</span><span class="va">PevU</span><span class="op">$</span><span class="va">`u:Geno`</span><span class="op">$</span><span class="va">y</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fit_M4</span><span class="op">$</span><span class="va">PevU</span><span class="op">$</span><span class="va">`u:Geno`</span><span class="op">$</span><span class="va">y</span><span class="op">)</span></span></code></pre></div>
+<p>In many settings the more uniform co-occurrence structure of M4 leads
+to lower average PEV and stronger cross-environment connectivity. The
+magnitude of the advantage depends on the degree of imbalance, the
+genetic covariance structure, and the ratio of genetic to residual
+variance.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="design-component-summary">18. Design Component Summary<a class="anchor" aria-label="anchor" href="#design-component-summary"></a>
+<h2 id="design-component-summary">15. Design Component Summary<a class="anchor" aria-label="anchor" href="#design-component-summary"></a>
 </h2>
 <table class="table">
 <colgroup>
-<col width="50%">
-<col width="50%">
+<col width="21%">
+<col width="39%">
+<col width="39%">
 </colgroup>
 <thead><tr class="header">
 <th>Component</th>
 <th>Governing principle</th>
+<th>Package function(s)</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>Across-environment allocation</td>
+<td>Capacity verification</td>
+<td>All treatments must be assignable at least once</td>
+<td>
+<code><a href="../reference/suggest_safe_k.html">suggest_safe_k()</a></code>,
+<code><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>Allocation</td>
 <td>Balance replication depth against coverage breadth</td>
-</tr>
-<tr class="even">
-<td>Genetic connectivity</td>
-<td>Common treatments provide model-free cross-environment linkage</td>
+<td><code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code></td>
 </tr>
 <tr class="odd">
+<td>BIBD feasibility</td>
+<td>Slot identity <span class="math inline">$J^* \\times r = I \\times
+k^*$</span> must hold for equal replication</td>
+<td><code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code></td>
+</tr>
+<tr class="even">
 <td>Genetic structure</td>
-<td>GRM /
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-/ family grouping prevents clustering and supports prediction</td>
-</tr>
-<tr class="even">
-<td>Within-environment design</td>
-<td>Block and spatial structure control local heterogeneity</td>
+<td>Prevent clustering; improve prediction conditions</td>
+<td><code><a href="../reference/derive_allocation_groups.html">derive_allocation_groups()</a></code></td>
 </tr>
 <tr class="odd">
-<td>Replication feasibility</td>
-<td>Seed inventory determines what is deployable</td>
+<td>Connectivity</td>
+<td>Common treatments provide model-free cross-site linkage</td>
+<td>
+<code>common_treatments</code> argument</td>
 </tr>
 <tr class="even">
+<td>Seed feasibility</td>
+<td>Replication must be achievable with available seed</td>
+<td><code><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed()</a></code></td>
+</tr>
+<tr class="odd">
+<td>Block design</td>
+<td>Control local heterogeneity within environments</td>
+<td><code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code></td>
+</tr>
+<tr class="even">
+<td>Row-column design</td>
+<td>Control spatial gradients in large fixed-grid fields</td>
+<td><code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code></td>
+</tr>
+<tr class="odd">
 <td>Efficiency evaluation</td>
-<td>Mixed-model diagnostics quantify design quality prior to
-deployment</td>
+<td>Quantify design quality before field deployment</td>
+<td>
+<code><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency()</a></code>,
+<code><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>Optimisation</td>
+<td>Search for higher-efficiency arrangements</td>
+<td>
+<code><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg()</a></code>,
+<code><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>Assembly</td>
+<td>Produce a unified field book for all environments</td>
+<td>
+<code><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks()</a></code>,
+<code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code>
+</td>
 </tr>
 </tbody>
 </table>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="conclusions">19. Conclusions<a class="anchor" aria-label="anchor" href="#conclusions"></a>
+<h2 id="conclusions">16. Conclusions<a class="anchor" aria-label="anchor" href="#conclusions"></a>
 </h2>
-<p><code>OptiSparseMET</code> treats MET design as a two-level problem
-and provides machinery to solve both levels in a consistent statistical
-framework. Allocation decisions are tied to within-environment design
-through shared constraints on genetic structure and connectivity. Seed
-feasibility is evaluated against replication targets before a design is
-finalized. Efficiency can be evaluated locally and summarized globally
-across environments.</p>
-<p>The result is a pipeline that produces designs which are
-statistically grounded and operationally deployable, rather than
-optimizing one at the expense of the other.</p>
+<p>Sparse MET design is a two-level problem and requires a framework
+that addresses both levels consistently. <code>OptiSparseMET</code>
+provides the following:</p>
+<p><strong>At the allocation level</strong>: two complementary
+strategies (M3 for flexible approximate balance, M4 for design-based
+uniformity), diagnostic tools for verifying feasibility before any
+allocation is attempted, and genetic structure awareness through family,
+GRM, or pedigree-based grouping.</p>
+<p><strong>At the field design level</strong>: two design engines with
+complementary strengths (<code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> for block-based
+repeated-check layouts, <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code> for
+fixed-grid row-column designs), efficiency evaluation under A, D, and
+CDmean criteria, and criterion-driven optimisation via three methods
+(RS, SA, GA).</p>
+<p><strong>Linking both levels</strong>: seed feasibility verification
+ensures designs are operationally deployable; common treatment support
+ensures design-based connectivity; the pipeline functions
+(<code><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design()</a></code>,
+<code><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks()</a></code>) ensure that outputs from both
+levels are consistent and assembled into a unified MET field book.</p>
+<p>The result is a workflow that produces designs that are statistically
+grounded and operationally deployable — rather than optimizing one at
+the expense of the other.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="references">20. References<a class="anchor" aria-label="anchor" href="#references"></a>
+<h2 id="references">17. References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <p>Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
 Montesinos-López, A., &amp; Crossa, J. (2023). Sparse multi-trait
 genomic prediction under balanced incomplete block design. <em>The Plant
-Genome</em>, 16, e20305.</p>
+Genome</em>, 16, e20305. <a href="https://doi.org/10.1002/tpg2.20305" class="external-link uri">https://doi.org/10.1002/tpg2.20305</a></p>
+<p>Rincent, R., Laloe, D., Nicolas, S., Altmann, T., Brunel, D.,
+Revilla, P., Rodriguez, V. M., Moreno-Gonzalez, J., Melchinger, A.,
+Bauer, E., Schoen, C.-C., Meyer, N., Giauffret, C., Bauland, C., Jamin,
+P., Laborde, J., Monod, H., Flament, P., Charcosset, A., &amp; Moreau,
+L. (2012). Maximizing the reliability of genomic selection by optimizing
+the calibration set of reference individuals: Comparison of methods in
+two diverse groups of maize inbreds (<em>Zea mays</em> L.).
+<em>Genetics</em>, 192, 715–728. <a href="https://doi.org/10.1534/genetics.112.141473" class="external-link uri">https://doi.org/10.1534/genetics.112.141473</a></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -820,7 +1694,7 @@ Genome</em>, 16, e20305.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

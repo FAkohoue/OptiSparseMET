@@ -58,6 +58,15 @@ coverage plus a user-defined buffer, making it appropriate for examples,
 tests, and demonstration workflows where a comfortably feasible setting
 is preferred over the exact minimum.
 
+## See also
+
+[`min_k_for_full_coverage()`](https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.md)
+for the strict minimum without a buffer.
+[`warn_if_k_too_small()`](https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.md)
+to check an existing capacity non-fatally.
+[`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
+for the allocation function this feeds into.
+
 ## Examples
 
 ``` r

@@ -1,9 +1,9 @@
 # Combine environment-level field books into a single MET field book
 
 Environment-level field books produced by
-[`prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.md)
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
 or
-[`alpha_rc_stream()`](https://FAkohoue.github.io/OptiSparseMET/reference/alpha_rc_stream.md)
+[`met_alpha_rc_stream()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.md)
 may differ in their column sets depending on the design options used in
 each environment. A direct
 [`rbind()`](https://rdrr.io/r/base/cbind.html) over such a list fails
@@ -60,10 +60,11 @@ combine_met_fieldbooks(
 - local_designs:
 
   Optional named character vector or named list. Gives the local design
-  type used in each environment, e.g. `"augmented"`, `"p_rep"`, or
-  `"alpha_rc"`. Names must match the names of `field_books`.
-  Environments not present in `local_designs` receive `NA` in the
-  `LocalDesign` column. If `NULL`, all environments receive `NA`.
+  type used in each environment, typically `"met_prep_famoptg"` or
+  `"met_alpha_rc_stream"` for built-in engines. Names must match the
+  names of `field_books`. Environments not present in `local_designs`
+  receive `NA` in the `LocalDesign` column. If `NULL`, all environments
+  receive `NA`.
 
 - replication_modes:
 
@@ -113,6 +114,17 @@ causing an error. The result is a single flat data frame suitable for
 export as a field book or as input to downstream mixed-model analysis
 pipelines.
 
+## See also
+
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
+and
+[`met_alpha_rc_stream()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.md)
+which produce the environment-level field books that serve as input to
+this function.
+[`plan_sparse_met_design()`](https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.md)
+which calls this function internally as the final step of the two-stage
+MET pipeline.
+
 ## Examples
 
 ``` r
@@ -139,33 +151,33 @@ fb_E2 <- data.frame(
 
 met <- combine_met_fieldbooks(
   field_books        = list(E1 = fb_E1, E2 = fb_E2),
-  local_designs      = c(E1 = "augmented", E2 = "augmented"),
+  local_designs      = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
   replication_modes  = c(E1 = "augmented", E2 = "augmented"),
   sparse_method      = "balanced_incomplete",
   common_treatments  = "CHK1"
 )
 
-nrow(met)                        # 6 — three plots per environment
+nrow(met)                        # 6 -- three plots per environment
 #> [1] 6
 unique(met$Environment)          # "E1" "E2"
 #> [1] "E1" "E2"
 met$IsCommonTreatment            # TRUE only for CHK1 rows
 #> [1] FALSE FALSE  TRUE FALSE FALSE  TRUE
 head(met[, 1:8])
-#>   Environment LocalDesign ReplicationMode        SparseMethod IsCommonTreatment
-#> 1          E1   augmented       augmented balanced_incomplete             FALSE
-#> 2          E1   augmented       augmented balanced_incomplete             FALSE
-#> 3          E1   augmented       augmented balanced_incomplete              TRUE
-#> 4          E2   augmented       augmented balanced_incomplete             FALSE
-#> 5          E2   augmented       augmented balanced_incomplete             FALSE
-#> 6          E2   augmented       augmented balanced_incomplete              TRUE
-#>   Treatment Family Gcluster
-#> 1      L001     F1       NA
-#> 2      L002     F2       NA
-#> 3      CHK1  CHECK       NA
-#> 4      L003     F3       NA
-#> 5      L004     F4       NA
-#> 6      CHK1  CHECK       NA
+#>   Environment      LocalDesign ReplicationMode        SparseMethod
+#> 1          E1 met_prep_famoptg       augmented balanced_incomplete
+#> 2          E1 met_prep_famoptg       augmented balanced_incomplete
+#> 3          E1 met_prep_famoptg       augmented balanced_incomplete
+#> 4          E2 met_prep_famoptg       augmented balanced_incomplete
+#> 5          E2 met_prep_famoptg       augmented balanced_incomplete
+#> 6          E2 met_prep_famoptg       augmented balanced_incomplete
+#>   IsCommonTreatment Treatment Family Gcluster
+#> 1             FALSE      L001     F1       NA
+#> 2             FALSE      L002     F2       NA
+#> 3              TRUE      CHK1  CHECK       NA
+#> 4             FALSE      L003     F3       NA
+#> 5             FALSE      L004     F4       NA
+#> 6              TRUE      CHK1  CHECK       NA
 
 ## Heterogeneous columns: E2 has an extra column absent in E1.
 ## combine_met_fieldbooks() fills the missing column with NA for E1 rows.
@@ -175,8 +187,8 @@ met2 <- combine_met_fieldbooks(
   field_books = list(E1 = fb_E1, E2 = fb_E2)
 )
 
-"SpatialResidual" %in% names(met2)         # TRUE
+"SpatialResidual" %in% names(met2)                         # TRUE
 #> [1] TRUE
-is.na(met2$SpatialResidual[met2$Environment == "E1"])  # all TRUE
+is.na(met2$SpatialResidual[met2$Environment == "E1"])      # all TRUE
 #> [1] TRUE TRUE TRUE
 ```

@@ -42,13 +42,21 @@ derive_allocation_groups(
 
   Character scalar. Grouping mode. One of:
 
-  - `"none"`: all treatments assigned to a single group `"ALL"`.
+  `"none"`
 
-  - `"Family"`: group labels read from `treatment_info$Family`.
+  :   All treatments assigned to a single group `"ALL"`.
 
-  - `"GRM"`: cluster labels derived from `GRM` via PCA and clustering.
+  `"Family"`
 
-  - `"A"`: cluster labels derived from `A` via PCA and clustering.
+  :   Group labels read from `treatment_info$Family`.
+
+  `"GRM"`
+
+  :   Cluster labels derived from `GRM` via PCA and clustering.
+
+  `"A"`
+
+  :   Cluster labels derived from `A` via PCA and clustering.
 
 - treatment_info:
 
@@ -107,8 +115,7 @@ derive_allocation_groups(
   Integer or `Inf`. Number of leading principal components retained for
   clustering. `Inf` retains all components corresponding to positive
   eigenvalues, up to \\n - 1\\. Smaller integer values retain only the
-  leading components, preserving broad structure and discarding finer
-  differentiation. Must be at least 2. Ignored when
+  leading components. Must be at least 2. Ignored when
   `allocation_group_source %in% c("none", "Family")`.
 
 ## Value
@@ -134,8 +141,8 @@ deduplication) and the following columns:
 prior to sparse allocation across environments. These labels are then
 used by
 [`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
-to guide the incidence structure so that genetic groups — defined by
-family membership or by clusters derived from a relationship matrix —
+to guide the incidence structure so that genetic groups – defined by
+family membership or by clusters derived from a relationship matrix –
 are distributed across environments rather than concentrated in a subset
 of them. The function is called internally by
 [`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
@@ -175,6 +182,13 @@ differ from matrix row names, supply `id_map` with columns `Treatment`
 and `LineID`; the function uses this map to resolve the correspondence
 before extracting the submatrix.
 
+## See also
+
+[`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
+which calls this function internally when `allocation_group_source` is
+not `"none"`. Call `derive_allocation_groups()` directly to inspect or
+audit the group structure before running allocation.
+
 ## Examples
 
 ``` r
@@ -186,7 +200,7 @@ treatment_info <- data.frame(
   stringsAsFactors = FALSE
 )
 
-## Example 1: family-based groups — labels read directly from treatment_info.
+## Example 1: family-based groups
 grp_fam <- derive_allocation_groups(
   treatments              = treatments,
   allocation_group_source = "Family",
@@ -206,11 +220,9 @@ grp_fam
 #> 10      L010              F3
 #> 11      L011              F3
 #> 12      L012              F3
-# 12 rows; AllocationGroup is "F1", "F2", or "F3" according to family
+# AllocationGroup is "F1", "F2", or "F3"
 
-## Example 2: no grouping — all treatments assigned to "ALL".
-## Use this to disable group-guided allocation without changing any other
-## argument in allocate_sparse_met().
+## Example 2: no grouping
 grp_none <- derive_allocation_groups(
   treatments              = treatments,
   allocation_group_source = "none"
@@ -218,11 +230,9 @@ grp_none <- derive_allocation_groups(
 unique(grp_none$AllocationGroup)  # "ALL"
 #> [1] "ALL"
 
-## Example 3: GRM-based clustering — groups derived from eigenstructure
-## of a genomic relationship matrix. Number of clusters anchored to the
-## number of families in treatment_info when supplied.
+## Example 3: GRM-based clustering
 set.seed(1)
-n <- length(treatments)
+n   <- length(treatments)
 raw <- matrix(rnorm(n * n), n, n)
 GRM <- crossprod(raw) / n
 diag(GRM) <- diag(GRM) + 0.1
@@ -253,5 +263,4 @@ grp_grm
 #> 11      L011          GRP_G2
 #> 12      L012          GRP_G3
 # AllocationGroup values are "GRP_G1", "GRP_G2", "GRP_G3"
-# (3 clusters, anchored to 3 families in treatment_info)
 ```

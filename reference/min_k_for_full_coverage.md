@@ -66,21 +66,18 @@ A named list with three components:
 
 - `n_sparse_treatments`:
 
-  Integer. Number of non-common treatments \\J^\* = J - C\\. These are
-  the treatments subject to sparse allocation.
+  Integer. Number of non-common treatments \\J^\* = J - C\\.
 
 - `min_sparse_slots_per_environment`:
 
   Integer. Minimum number of sparse-allocatable slots required per
-  environment under equal capacities: \\\lceil J^\* / I \rceil\\. This
-  is the minimum value of \\k_e^\* = k_e - C\\.
+  environment: \\\lceil J^\* / I \rceil\\.
 
 - `min_total_entries_per_environment`:
 
   Integer. Minimum total entries per environment including common
   treatments: \\\lceil J^\* / I \rceil + C\\. Pass this as
-  `n_test_entries_per_environment` to guarantee that every non-common
-  treatment can be assigned at least once.
+  `n_test_entries_per_environment` to guarantee full coverage.
 
 ## Details
 
@@ -88,6 +85,15 @@ Returns the minimum value of `n_test_entries_per_environment` under a
 uniform capacity assumption that guarantees every non-common treatment
 can be assigned to at least one environment. This is the floor below
 which any sparse allocation must leave some treatments unassigned.
+
+## See also
+
+[`suggest_safe_k()`](https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.md)
+which adds a buffer on top of this minimum.
+[`warn_if_k_too_small()`](https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.md)
+for a non-fatal feasibility check.
+[`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
+for the allocation function this feeds into.
 
 ## Examples
 
@@ -108,8 +114,7 @@ min_k_for_full_coverage(
 #> [1] 27
 #> 
 
-## With 5 common treatments: J* = 75, minimum sparse k = ceil(75 / 3) = 25,
-## minimum total k = 25 + 5 = 30
+## With 5 common treatments: J* = 75, minimum total k = 25 + 5 = 30
 min_k_for_full_coverage(
   n_treatments_total  = 80,
   n_environments      = 3,

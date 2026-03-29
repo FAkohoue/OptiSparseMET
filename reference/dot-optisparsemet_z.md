@@ -1,6 +1,7 @@
-# Internal z-score helper
+# Internal z-score normalisation helper
 
-Internal z-score helper
+Computes the z-score of a numeric vector. If the standard deviation is
+zero or non-finite, returns a zero vector of the same length.
 
 ## Usage
 
@@ -16,4 +17,4 @@ Internal z-score helper
 
 ## Value
 
-Numeric vector.
+Numeric vector of z-scores, or zeros if `sd(x) == 0`.

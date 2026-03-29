@@ -72,17 +72,22 @@ assign_replication_by_seed(
   Character. Design mode controlling how the function partitions
   treatments into roles. One of:
 
-  - `"augmented"`: targets one unreplicated plot per treatment.
+  `"augmented"`
 
-  - `"p_rep"`: targets replication for a feasible subset, unreplicated
-    for the remainder.
+  :   Targets one unreplicated plot per treatment.
 
-  - `"rcbd_type"`: targets `desired_replications` plots for all
-    treatments.
+  `"p_rep"`
+
+  :   Targets replication for a feasible subset; unreplicated for the
+      remainder.
+
+  `"rcbd_type"`
+
+  :   Targets `desired_replications` plots for all treatments.
 
   The selected mode must be consistent with the field design intended
   for the environment.
-  [`prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.md)
+  [`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
   interprets the output roles directly.
 
 - desired_replications:
@@ -106,12 +111,18 @@ assign_replication_by_seed(
   are replicated in `"p_rep"` mode when the feasible candidate pool
   exceeds `max_prep`. One of:
 
-  - `"seed_available"`: ranks by descending seed quantity, breaking ties
-    by position in `treatments`.
+  `"seed_available"`
 
-  - `"input_order"`: follows the order of `treatments` as supplied.
+  :   Ranks by descending seed quantity, breaking ties by position in
+      `treatments`.
 
-  - `"random"`: draws uniformly at random from feasible candidates.
+  `"input_order"`
+
+  :   Follows the order of `treatments` as supplied.
+
+  `"random"`
+
+  :   Draws uniformly at random from feasible candidates.
 
   Ignored in `"augmented"` and `"rcbd_type"` modes.
 
@@ -138,14 +149,20 @@ assign_replication_by_seed(
   Character. Action taken when a treatment has insufficient seed for its
   target role. One of:
 
-  - `"error"`: stops immediately with an informative message listing the
-    affected treatments.
+  `"error"`
 
-  - `"downgrade"`: reduces the role to `"unreplicated"` if the
-    single-plot feasibility condition is met; otherwise assigns
-    `"excluded"`. Applies in `"rcbd_type"` mode only.
+  :   Stops immediately with an informative message listing the affected
+      treatments.
 
-  - `"exclude"`: removes the treatment from the design.
+  `"downgrade"`
+
+  :   Reduces the role to `"unreplicated"` if the single-plot
+      feasibility condition is met; otherwise assigns `"excluded"`.
+      Applies in `"rcbd_type"` mode only.
+
+  `"exclude"`
+
+  :   Removes the treatment from the design.
 
 - seed:
 
@@ -200,10 +217,10 @@ A named list with the following components:
 
 `assign_replication_by_seed()` evaluates seed feasibility for each
 non-check treatment assigned to a single environment and partitions
-those treatments into replication roles — replicated, unreplicated, or
-excluded — according to the requested design mode and the available seed
+those treatments into replication roles – replicated, unreplicated, or
+excluded – according to the requested design mode and the available seed
 quantity per treatment. The output is intended as direct input to
-[`prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/prep_famoptg.md),
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md),
 which constructs the within-environment field layout from the resulting
 role assignments.
 
@@ -264,6 +281,15 @@ The function assigns each treatment one of four roles, stored in the
 - `"unused"`: treatment not matched in the seed data frame (internal
   flag).
 
+## See also
+
+[`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md)
+to construct the within-environment field layout using the role
+assignments produced by this function.
+[`plan_sparse_met_design()`](https://FAkohoue.github.io/OptiSparseMET/reference/plan_sparse_met_design.md)
+for the end-to-end pipeline which calls this function internally when
+seed-aware replication is requested.
+
 ## Examples
 
 ``` r
@@ -275,7 +301,7 @@ seed_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-## Example 1: p_rep mode — replicate the 4 best-seeded candidates
+## Example 1: p_rep mode -- replicate the 4 best-seeded candidates
 ## at 2 reps; remaining feasible treatments receive one plot.
 out1 <- assign_replication_by_seed(
   treatments             = treatments,
@@ -287,7 +313,7 @@ out1 <- assign_replication_by_seed(
   max_prep               = 4
 )
 
-out1$p_rep_treatments       # L001–L004: sufficient seed for 2 plots each
+out1$p_rep_treatments       # L001-L004: sufficient seed for 2 plots each
 #> [1] "L001" "L002" "L003" "L004"
 out1$unreplicated_treatments # remaining feasible treatments
 #> [1] "L005" "L006" "L007" "L008" "L009" "L010"
@@ -317,7 +343,7 @@ out1$seed_summary
 #> 9  unreplicated
 #> 10 unreplicated
 
-## Example 2: rcbd_type mode with downgrade — all treatments targeted for
+## Example 2: rcbd_type mode with downgrade -- all treatments targeted for
 ## 3 reps; those below threshold are downgraded to 1 rep or excluded.
 out2 <- assign_replication_by_seed(
   treatments             = treatments,
@@ -358,7 +384,7 @@ out2$seed_summary
 #> 9  unreplicated
 #> 10 unreplicated
 
-## Example 3: augmented mode with a seed buffer — each treatment gets one
+## Example 3: augmented mode with a seed buffer -- each treatment gets one
 ## plot; a buffer of 5 seeds is reserved per treatment before feasibility
 ## is assessed.
 out3 <- assign_replication_by_seed(

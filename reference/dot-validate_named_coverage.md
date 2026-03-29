@@ -1,6 +1,7 @@
-# Validate that a named vector covers all required names
+# Internal named vector coverage validator
 
-Validate that a named vector covers all required names
+Checks that a named vector or list contains all required names. Used
+internally to validate that `env_design_specs` covers all environments.
 
 ## Usage
 
@@ -20,4 +21,8 @@ Validate that a named vector covers all required names
 
 - nm:
 
-  Object name for messages.
+  Character scalar. Object name used in error messages.
+
+## Value
+
+Invisibly returns `TRUE` if validation passes.

@@ -1,6 +1,7 @@
-# Validate that a data frame or data.table contains required columns
+# Internal data frame column validator
 
-Validate that a data frame or data.table contains required columns
+Checks that a data frame contains all required column names. Used
+internally across allocation and seed-planning functions.
 
 ## Usage
 
@@ -12,7 +13,7 @@ Validate that a data frame or data.table contains required columns
 
 - dt:
 
-  A data.frame or data.table.
+  A data frame.
 
 - cols:
 
@@ -20,4 +21,8 @@ Validate that a data frame or data.table contains required columns
 
 - nm:
 
-  Object name for messages.
+  Character scalar. Object name used in error messages.
+
+## Value
+
+Invisibly returns `TRUE` if validation passes.
