@@ -31,20 +31,62 @@ Standard MET tools typically address one of these problems at a time.
 
 Sparse MET design is a two-level problem and should be treated as such.
 
-**Level 1 -- Across-environment allocation** determines which treatments
+**Level 1 — Across-environment allocation** determines which treatments
 appear in which environments, how many times each treatment is replicated
 across the trial, and whether the resulting incidence structure preserves
 sufficient genetic connectivity for valid cross-environment inference.
 
-**Level 2 -- Within-environment design** determines blocking structure,
+**Level 2 — Within-environment design** determines blocking structure,
 spatial layout, replication within each environment, and local control of
 field heterogeneity.
 
-These two levels are statistically linked. Allocation decisions constrain
-which field layouts are feasible within environments; field layout choices
-affect the precision with which allocation-level effects can be estimated.
-Optimizing each level in isolation is not equivalent to joint optimization.
-`OptiSparseMET` formalizes the link between them.
+These two levels are not merely sequential steps — they are statistically
+coupled, and optimizing them independently produces inferior designs. The
+linkage operates through four mechanisms:
+
+**1. The incidence matrix couples both levels inside the information matrix.**
+In the linear mixed model $y = X\beta + Zg + e$, the precision of all
+genetic value estimates is governed by the coefficient matrix
+$C = Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1} X^\top V^{-1} Z$,
+where $V = ZKZ^\top \sigma_g^2 + R\sigma_e^2$. The allocation decision
+determines the sparsity pattern of $Z$ (which lines appear where);
+the within-environment blocking structure determines $R$ (the residual
+covariance). Both enter $V$ and therefore $C^{-1}$. Neither can be optimized
+in isolation because they interact inside the inversion of $V$.
+
+**2. Allocation fixes which within-environment designs are feasible.**
+Once allocation assigns $k_e$ lines to environment $e$, the within-environment
+design must arrange exactly those $k_e$ treatments across the available
+$n_{\text{rows}} \times n_{\text{cols}}$ field. If $k_e$ is incompatible
+with the blocking structure — for example, not a multiple of the target block
+size, or exceeding field capacity — the design is infeasible regardless of
+how statistically ideal the allocation was. Allocation and field geometry must
+be co-designed.
+
+**3. Block efficiency propagates into cross-environment inference.**
+The precision of a genetic value estimate for line $j$ in environment $e$
+is proportional to $e_j \, r_j^{(e)}$, where $r_j^{(e)}$ is the number of
+plots and $e_j \in (0, 1]$ is the efficiency factor of the within-environment
+design relative to a completely randomized layout. A poor block design reduces
+$e_j$, inflating the variance of each BLUP. These inflated variances propagate
+into cross-environment covariance estimates, degrading G×E inference and
+genetic correlation estimation even when the allocation incidence structure is
+perfectly balanced.
+
+**4. CDmean — the genomic prediction criterion — depends on both levels.**
+The CDmean criterion,
+$\text{CDmean} = 1 - \overline{\text{PEV}} / \sigma_g^2$,
+where PEV depends on both $Z$ (allocation) and $R^{-1}$ (blocking), cannot
+be maximized by fixing either level independently. Spreading genetically
+diverse lines across environments improves the genomic connectivity captured
+in $Z^\top R^{-1} Z$; efficient blocking sharpens $R^{-1}$. Both
+contributions are necessary.
+
+`OptiSparseMET` formalizes the link between the two levels: the allocation
+output specifies exactly which lines enter each environment, and the
+within-environment design engine receives precisely that set, ensuring that
+the incidence structure and the blocking structure are optimized consistently
+within the same statistical framework.
 
 ---
 
@@ -192,6 +234,169 @@ STEP 4  Assemble the combined MET field book
 ```
 
 Or run the entire pipeline in one call: `plan_sparse_met_design()`.
+
+---
+
+## 5.5 Pipeline inputs: required and optional
+
+Before running any pipeline function, it helps to know exactly what each
+function needs. The tables below list every input for the four main pipeline
+functions, distinguishing what is strictly required from what is optional.
+
+### `allocate_sparse_met()` — across-environment allocation
+
+**Required inputs**
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `treatments` | character vector | All candidate line IDs (J total) |
+| `environments` | character vector | Environment names (≥ 2) |
+| `allocation_method` | character | `"random_balanced"` (M3) or `"balanced_incomplete"` (M4) |
+| `n_test_entries_per_environment` | integer | Total entries per environment including common treatments (k) |
+
+**Optional inputs**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `target_replications` | inferred | Target environments per sparse line (r); computed from slot identity if NULL |
+| `common_treatments` | none | Lines forced into every environment before sparse allocation |
+| `allow_approximate` | `FALSE` | `FALSE` = strict equal replication; `TRUE` = relaxed fallback |
+| `allocation_group_source` | `"none"` | Genetic grouping: `"Family"`, `"GRM"`, or `"A"` |
+| `treatment_info` | NULL | Data frame with `Treatment` and `Family` columns (required when `allocation_group_source = "Family"`) |
+| `GRM` | NULL | Genomic relationship matrix (required when `allocation_group_source = "GRM"`) |
+| `A` | NULL | Pedigree relationship matrix (required when `allocation_group_source = "A"`) |
+| `min_groups_per_environment` | NULL | Minimum genetic groups per environment |
+| `min_env_per_group` | NULL | Minimum environments per genetic group |
+| `seed` | NULL | Integer seed for reproducibility |
+
+### `assign_replication_by_seed()` — seed-aware replication
+
+**Required inputs**
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `treatments` | character vector | All candidate line IDs |
+| `seed_available` | data frame | Must contain `Treatment` and `SeedAvailable` columns |
+| `seed_required_per_plot` | integer | Seeds needed per plot (scalar or named vector per environment) |
+| `replication_mode` | character | `"augmented"`, `"p_rep"`, or `"rcbd_type"` |
+
+**Optional inputs**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `desired_replications` | 2 | Target number of plots per replicated line |
+| `shortage_action` | `"downgrade"` | What to do when seed is insufficient: `"downgrade"`, `"exclude"`, or `"error"` |
+| `max_prep` | NULL | Maximum number of p-rep treatments (p-rep mode only) |
+| `priority` | `"seed_available"` | Selection criterion for p-rep candidates |
+| `minimum_seed_buffer` | 0 | Extra seeds reserved per line beyond the plot requirement |
+| `seed` | NULL | Integer seed for reproducibility |
+
+### `met_prep_famoptg()` — block-based field design
+
+**Required inputs**
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `check_treatments` | character vector | Check (control) treatment IDs; appear in every block |
+| `check_families` | character vector | Family labels for checks; same length as `check_treatments` |
+| `n_blocks` | integer | Number of incomplete blocks |
+| `n_rows` | integer | Number of field rows |
+| `n_cols` | integer | Number of field columns |
+
+At least one of `p_rep_treatments` or `unreplicated_treatments` must be
+supplied.
+
+**Optional inputs**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `p_rep_treatments` | NULL | Treatments to replicate; typically `rep_plan$p_rep_treatments` |
+| `p_rep_reps` | NULL | Replication count per p-rep line; typically `rep_plan$p_rep_reps` |
+| `p_rep_families` | NULL | Family labels for p-rep treatments |
+| `unreplicated_treatments` | NULL | Treatments to appear once; typically `rep_plan$unreplicated_treatments` |
+| `unreplicated_families` | NULL | Family labels for unreplicated treatments |
+| `replication_mode` | `"p_rep"` | `"p_rep"`, `"augmented"`, or `"rcbd_type"` |
+| `cluster_source` | `"none"` | Genetic dispersion grouping: `"none"`, `"Family"`, `"GRM"`, `"A"` |
+| `eval_efficiency` | `FALSE` | Compute A, D, CDmean efficiency metrics |
+| `order` | `"row"` | Plot traversal order: `"row"`, `"col"`, or `"serpentine"` |
+| `seed` | NULL | Integer seed for reproducibility |
+
+### `met_alpha_rc_stream()` — row-column alpha design
+
+**Required inputs**
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `check_treatments` | character vector | Check treatment IDs; appear in every incomplete block |
+| `check_families` | character vector | Family labels for checks |
+| `entry_treatments` | character vector | Entry (non-check) treatment IDs |
+| `entry_families` | character vector | Family labels for entries |
+| `n_reps` | integer | Number of field replicates |
+| `n_rows` | integer | Number of field rows |
+| `n_cols` | integer | Number of field columns |
+
+**Optional inputs**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `min_block_size` | 6 | Minimum entries (excluding checks) per incomplete block |
+| `max_block_size` | NULL | Maximum entries per incomplete block |
+| `cluster_source` | `"none"` | Genetic dispersion grouping: `"none"`, `"Family"`, `"GRM"`, `"A"` |
+| `eval_efficiency` | `FALSE` | Compute A, D, CDmean efficiency metrics |
+| `order` | `"row"` | Plot traversal order: `"row"`, `"col"`, or `"serpentine"` |
+| `serpentine` | `FALSE` | Reverse alternating rows/columns for physical continuity |
+| `seed` | NULL | Integer seed for reproducibility |
+
+### Minimum working example
+
+The absolute minimum to run the full pipeline from allocation to field book:
+
+```r
+library(OptiSparseMET)
+
+## Minimum inputs: just lines, environments, and field dimensions
+treatments <- paste0("L", sprintf("%03d", 1:120))
+envs       <- c("E1", "E2", "E3", "E4")
+
+## Stage 0: verify k
+k <- suggest_safe_k(treatments, envs, buffer = 3)  # 33
+
+## Stage 1: M3 allocation (no common treatments, no grouping)
+alloc <- allocate_sparse_met(
+  treatments                     = treatments,
+  environments                   = envs,
+  allocation_method              = "random_balanced",
+  n_test_entries_per_environment = k,
+  seed                           = 1
+)
+
+## Stage 2: seed plan (uniform seed, no shortage)
+seed_df <- data.frame(
+  Treatment     = treatments,
+  SeedAvailable = 100L
+)
+rep_plan <- assign_replication_by_seed(
+  treatments             = treatments,
+  seed_available         = seed_df,
+  seed_required_per_plot = 10L,
+  replication_mode       = "augmented"
+)
+
+## Stage 3: within-environment design (checks + unreplicated entries)
+design <- met_prep_famoptg(
+  check_treatments        = c("CHK1", "CHK2"),
+  check_families          = c("CHECK", "CHECK"),
+  unreplicated_treatments = rep_plan$unreplicated_treatments,
+  unreplicated_families   = rep("F1", length(rep_plan$unreplicated_treatments)),
+  n_blocks = 4L, n_rows = 10L, n_cols = 12L,
+  seed     = 1
+)
+
+## Stage 4: combine
+met_book <- combine_met_fieldbooks(
+  field_books = list(E1 = design$field_book)
+)
+```
 
 ---
 
@@ -357,6 +562,111 @@ out <- plan_sparse_met_design(
 out$combined_field_book  # full MET field book
 out$environment_summary  # per-environment design summary
 out$efficiency_summary   # efficiency metrics (when eval_efficiency = TRUE)
+```
+
+---
+
+## 6.4 Slot identity feasibility by J\*, I, and r
+
+The slot identity $J^* \times r = I \times k^*$ requires that $J^* \times r$
+be exactly divisible by $I$. Whether this is achievable for a given
+combination of sparse treatments ($J^*$), environments ($I$), and replication
+($r$) depends on the shared factors of these three numbers.
+
+### The divisibility rule
+
+For the slot identity to hold, $I$ must divide $J^* \times r$ exactly.
+Every prime factor of $I$ that is absent from $J^*$ must be supplied by $r$.
+This has a practical consequence for the most common case in plant breeding:
+
+- **$I = 4$ environments, $J^*$ odd**: $J^* \times 1 = \text{odd}$ (not
+  divisible by 4); $J^* \times 2 = 2 \times \text{odd}$ (divisible by 2
+  but not by 4 for odd $J^*$); only $r = 4$ guarantees divisibility. But
+  $r = 4$ gives $k^* = J^*$ — full replication — which defeats the purpose
+  of sparse testing. **Practical fix**: adjust $C$ by 1 so that $J^* = J - C$
+  becomes even.
+
+- **$I = 4$ environments, $J^*$ even but not divisible by 4**: $r = 2$
+  always works (e.g. $J^* = 110$: $110 \times 2 / 4 = 55$).
+
+- **$I = 3$ environments**: feasibility depends on divisibility by 3. If
+  $J^*$ is divisible by 3, any $r$ works. Otherwise $r$ must be a multiple
+  of 3.
+
+- **$I = 6$ environments**: requires divisibility by $2 \times 3 = 6$.
+  Odd $J^*$ not divisible by 3 requires $r$ divisible by 6.
+
+### Feasibility table: $r = 2$
+
+The table shows $k^*$ when the slot identity holds, and `--` when it does
+not for that combination. Add $C$ (common treatments) to $k^*$ to get the
+`n_test_entries_per_environment` argument.
+
+| $J^*$ | $I=3$ | $I=4$ | $I=5$ | $I=6$ | $I=7$ | $I=8$ | $I=9$ | $I=10$ |
+|------:|------:|------:|------:|------:|------:|------:|------:|-------:|
+| 60 | 40 | 30 | 24 | 20 | -- | 15 | -- | 12 |
+| 70 | -- | 35 | 28 | -- | 20 | -- | -- | 14 |
+| 75 | 50 | -- | 30 | 25 | -- | -- | -- | 15 |
+| 80 | -- | 40 | 32 | -- | -- | 20 | -- | 16 |
+| 90 | 60 | 45 | 36 | 30 | -- | -- | 20 | 18 |
+| 100 | -- | 50 | 40 | -- | -- | 25 | -- | 20 |
+| 110 | -- | 55 | 44 | -- | -- | -- | -- | 22 |
+| 112 | -- | 56 | -- | -- | 32 | 28 | -- | -- |
+| 120 | 80 | 60 | 48 | 40 | -- | 30 | -- | 24 |
+| 150 | 100 | 75 | 60 | 50 | -- | -- | -- | 30 |
+| 200 | -- | 100 | 80 | -- | -- | 50 | -- | 40 |
+
+### Feasibility table: $r = 3$
+
+| $J^*$ | $I=3$ | $I=4$ | $I=5$ | $I=6$ | $I=7$ | $I=8$ | $I=9$ | $I=10$ |
+|------:|------:|------:|------:|------:|------:|------:|------:|-------:|
+| 60 | 60 | 45 | 36 | 30 | -- | -- | 20 | 18 |
+| 70 | 70 | -- | 42 | 35 | 30 | -- | -- | 21 |
+| 75 | 75 | -- | 45 | -- | -- | -- | 25 | -- |
+| 80 | 80 | 60 | 48 | 40 | -- | 30 | -- | 24 |
+| 90 | 90 | -- | 54 | 45 | -- | -- | 30 | 27 |
+| 100 | 100 | 75 | 60 | 50 | -- | -- | -- | 30 |
+| 110 | 110 | -- | 66 | 55 | -- | -- | -- | 33 |
+| 112 | 112 | 84 | -- | 56 | 48 | 42 | -- | -- |
+| 120 | 120 | 90 | 72 | 60 | -- | 45 | 40 | 36 |
+| 150 | 150 | -- | 90 | 75 | -- | -- | 50 | 45 |
+| 200 | 200 | 150 | 120 | 100 | -- | 75 | -- | 60 |
+
+### What to do when your combination gives `--`
+
+Use `check_balanced_incomplete_feasibility()` to diagnose the problem and
+try one of these adjustments:
+
+1. **Adjust $C$ by 1**: adding or removing one common treatment changes $J^*$
+   by 1, which may make it divisible by $I$ for the chosen $r$.
+2. **Try $r = 2$ instead of $r = 1$**, or $r = 3$ instead of $r = 2$ — the
+   extra factor may resolve the divisibility.
+3. **Use `random_balanced` (M3)** if exact equal replication is not essential.
+   M3 does not require the slot identity and tolerates odd $J^*$ freely.
+4. **Use `allow_approximate = TRUE`** as a fallback — the allocation proceeds
+   with the closest possible balance, accepting minor replication differences.
+
+```r
+## Quick check: is your combination feasible?
+## J* = 75 (odd), I = 4, r = 2 -- should give --
+check_balanced_incomplete_feasibility(
+  n_treatments_total             = 83,   # J = J* + C = 75 + 8
+  n_environments                 = 4,
+  n_test_entries_per_environment = 30,   # k* guess: 30 - 8 = 22, 4*22=88 != 75*2=150
+  target_replications            = 2,
+  n_common_treatments            = 8
+)
+## feasible = FALSE -> adjust
+
+## Fix: change C from 8 to 9 -> J* = 74 (even), r=2: 74*2/4 = 37
+check_balanced_incomplete_feasibility(
+  n_treatments_total             = 83,
+  n_environments                 = 4,
+  n_test_entries_per_environment = 46,   # k* = 37, k = 37+9 = 46
+  target_replications            = 2,
+  n_common_treatments            = 9
+)
+## feasible = TRUE
 ```
 
 ---

@@ -125,11 +125,141 @@ assigned to each environment are arranged in the field, how checks are
 distributed, how blocks control local heterogeneity, and how spatial
 gradients are managed.</p></li>
 </ol>
-<p>Standard tools optimize each level separately.
-<code>OptiSparseMET</code> treats them jointly: the allocation output
-constrains the within-environment layout, and the within-environment
-design targets match what the allocation delivers.</p>
+<p>These two levels are not independent. They are linked through the
+statistical model, through the information matrix that governs
+estimation precision, and through the physical constraint that
+allocation decisions determine what within-environment designs are even
+possible.</p>
+<div class="section level4">
+<h4 id="how-the-two-levels-are-linked">How the two levels are linked<a class="anchor" aria-label="anchor" href="#how-the-two-levels-are-linked"></a>
+</h4>
+<p><strong>Link 1 — The incidence matrix couples allocation to
+estimation.</strong> In the linear mixed model
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + e</annotation></semantics></math>,
+the design matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+has entry
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Z</mi><mrow><mi>p</mi><mi>j</mi></mrow></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Z_{pj} = 1</annotation></semantics></math>
+if plot
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
+is assigned to line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+otherwise. The coefficient matrix for line effects is:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi><mo>=</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi><mo>−</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>X</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><msup><mi>X</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi></mrow><annotation encoding="application/x-tex">C = Z^\top V^{-1} Z - Z^\top V^{-1} X (X^\top V^{-1} X)^{-1} X^\top V^{-1} Z</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo>=</mo><mi>Z</mi><mi>K</mi><msup><mi>Z</mi><mi>⊤</mi></msup><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><mo>+</mo><mi>R</mi><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">V = ZKZ^\top \sigma_g^2 + R\sigma_e^2</annotation></semantics></math>
+is the phenotypic variance matrix,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+is the genomic relationship matrix, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+encodes the residual covariance structure. The precision of every
+genetic value estimate — and therefore every selection decision —
+depends on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>.
+The allocation decision (which lines appear where) determines the
+sparsity pattern of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>,
+which directly shapes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>.
+The within-environment blocking structure determines
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>,
+which enters
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
+and therefore
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>C</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><annotation encoding="application/x-tex">C^{-1}</annotation></semantics></math>
+as well. <strong>You cannot optimize
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+by fixing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+independently: they interact inside
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>.</strong></p>
+<p><strong>Link 2 — Allocation fixes which within-environment designs
+are feasible.</strong> The number of lines assigned to environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>k</mi><mi>e</mi></msub><mo>=</mo><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>Z</mi><mrow><mi>p</mi><mi>j</mi></mrow></msub></mrow><annotation encoding="application/x-tex">k_e = \sum_j Z_{pj}</annotation></semantics></math>
+summed over plots
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
+in environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>.
+Once allocation is complete,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
+is fixed. The within-environment design must then arrange exactly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
+treatments across the available
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mtext mathvariant="normal">rows</mtext></msub><mo>×</mo><msub><mi>n</mi><mtext mathvariant="normal">cols</mtext></msub></mrow><annotation encoding="application/x-tex">n_{\text{rows}} \times n_{\text{cols}}</annotation></semantics></math>
+plots. If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
+is incompatible with the blocking structure — for example, if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
+is not a multiple of the block size, or if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
+exceeds field capacity — the within-environment design is infeasible
+regardless of how good the allocation was. <strong>Allocation and field
+geometry must be co-designed.</strong></p>
+<p><strong>Link 3 — Block structure affects cross-environment
+inference.</strong> Consider two environments sharing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mtext mathvariant="normal">shared</mtext></msub><annotation encoding="application/x-tex">n_{\text{shared}}</annotation></semantics></math>
+lines. The precision of the cross-environment genetic correlation
+estimate depends on how well those shared lines are estimated within
+each environment, which in turn depends on the block efficiency within
+each environment. Formally, the effective replication of a shared line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+across environments is modulated by the efficiency factor
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>e</mi><mi>j</mi></msub><annotation encoding="application/x-tex">e_j</annotation></semantics></math>
+of the within-environment design:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">Var</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>g</mi><mo accent="true">̂</mo></mover><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mrow><msub><mi>e</mi><mi>j</mi></msub><mspace width="0.167em"></mspace><msubsup><mi>r</mi><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup></mrow></mfrac></mrow><annotation encoding="application/x-tex">\text{Var}(\hat{g}_j^{(e)}) = \frac{\sigma_e^2}{e_j \, r_j^{(e)}}</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>r</mi><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><annotation encoding="application/x-tex">r_j^{(e)}</annotation></semantics></math>
+is the number of plots for line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+in environment
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>j</mi></msub><mo>∈</mo><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">e_j \in (0, 1]</annotation></semantics></math>
+is the efficiency factor relative to a completely randomized design. A
+poor within-environment design (low
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>e</mi><mi>j</mi></msub><annotation encoding="application/x-tex">e_j</annotation></semantics></math>)
+inflates the variance of each BLUP, which propagates into the
+cross-environment covariance estimates and degrades G×E inference even
+when the allocation incidence structure is ideal. <strong>The block
+design within each environment affects the quality of cross-environment
+comparisons.</strong></p>
+<p><strong>Link 4 — CDmean depends on both levels
+simultaneously.</strong> The CDmean criterion for genomic selection,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDmean</mtext><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mn>1</mn><mi>J</mi></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>J</mi></munderover><mfrac><msub><mtext mathvariant="normal">PEV</mtext><mi>j</mi></msub><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup></mfrac></mrow><annotation encoding="application/x-tex">\text{CDmean} = 1 - \frac{1}{J} \sum_{j=1}^{J} \frac{\text{PEV}_j}{\sigma_g^2}</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">PEV</mtext><mi>j</mi></msub><mo>=</mo><msub><mrow><mo stretchy="true" form="prefix">[</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>K</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo>+</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>R</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi><mspace width="0.167em"></mspace><mi>/</mi><mspace width="0.167em"></mspace><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="true" form="postfix">]</mo></mrow><mrow><mi>j</mi><mi>j</mi></mrow></msub><msubsup><mi>σ</mi><mi>g</mi><mrow><mi>−</mi><mn>2</mn></mrow></msubsup></mrow><annotation encoding="application/x-tex">\text{PEV}_j = \left[(K^{-1} + Z^\top R^{-1} Z \, / \, \sigma_e^2)^{-1}\right]_{jj} \sigma_g^{-2}</annotation></semantics></math>,
+depends on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+through allocation (which environments each line enters) and on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+through within-environment design (how plots are blocked and arranged).
+A sparse allocation that spreads diverse lines across environments
+improves the genomic connectivity encoded in the numerator
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>-weighted
+terms, while efficient blocking reduces the residual variance
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+that appears in the denominator. Neither level can substitute for the
+other.</p>
+<p>Standard MET tools address one level at a time: either choosing an
+allocation strategy without regard to field feasibility, or constructing
+within-environment designs without regard to how many lines the
+allocation will deliver. This leads to inconsistencies — for example, an
+allocation that requires a non-integer number of blocks per replicate,
+or a field design that assumes more lines than the allocation provides.
+<code>OptiSparseMET</code> makes both levels explicit and coordinates
+them: the allocation output specifies exactly which lines enter each
+environment, and the within-environment engine receives precisely that
+set, ensuring that both the incidence structure and the blocking
+structure are optimized consistently within the same statistical
+framework.</p>
 <hr>
+</div>
 </div>
 </div>
 <div class="section level2">
@@ -469,6 +599,511 @@ plus a user-defined buffer</td>
 <hr>
 </div>
 <div class="section level2">
+<h2 id="pipeline-inputs-required-and-optional">5.5 Pipeline inputs: required and optional<a class="anchor" aria-label="anchor" href="#pipeline-inputs-required-and-optional"></a>
+</h2>
+<p>Before running any pipeline function, it helps to know exactly what
+each function needs. The tables below list every input for the four main
+pipeline functions, distinguishing what is strictly required from what
+is optional.</p>
+<div class="section level3">
+<h3 id="allocate_sparse_met-across-environment-allocation">
+<code>allocate_sparse_met()</code> — across-environment
+allocation<a class="anchor" aria-label="anchor" href="#allocate_sparse_met-across-environment-allocation"></a>
+</h3>
+<p><strong>Required inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="34%">
+<col width="20%">
+<col width="44%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>treatments</code></td>
+<td>character vector</td>
+<td>All candidate line IDs (J total)</td>
+</tr>
+<tr class="even">
+<td><code>environments</code></td>
+<td>character vector</td>
+<td>Environment names (≥ 2)</td>
+</tr>
+<tr class="odd">
+<td><code>allocation_method</code></td>
+<td>character</td>
+<td>
+<code>"random_balanced"</code> (M3) or
+<code>"balanced_incomplete"</code> (M4)</td>
+</tr>
+<tr class="even">
+<td><code>n_test_entries_per_environment</code></td>
+<td>integer</td>
+<td>Total entries per environment including common treatments (k)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Optional inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="31%">
+<col width="28%">
+<col width="40%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>target_replications</code></td>
+<td>inferred</td>
+<td>Target environments per sparse line (r); computed from slot identity
+if NULL</td>
+</tr>
+<tr class="even">
+<td><code>common_treatments</code></td>
+<td>none</td>
+<td>Lines forced into every environment before sparse allocation</td>
+</tr>
+<tr class="odd">
+<td><code>allow_approximate</code></td>
+<td><code>FALSE</code></td>
+<td>
+<code>FALSE</code> = strict equal replication; <code>TRUE</code> =
+relaxed fallback</td>
+</tr>
+<tr class="even">
+<td><code>allocation_group_source</code></td>
+<td><code>"none"</code></td>
+<td>Genetic grouping: <code>"Family"</code>, <code>"GRM"</code>, or
+<code>"A"</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>treatment_info</code></td>
+<td>NULL</td>
+<td>Data frame with <code>Treatment</code> and <code>Family</code>
+columns (required when
+<code>allocation_group_source = "Family"</code>)</td>
+</tr>
+<tr class="even">
+<td><code>GRM</code></td>
+<td>NULL</td>
+<td>Genomic relationship matrix (required when
+<code>allocation_group_source = "GRM"</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>A</code></td>
+<td>NULL</td>
+<td>Pedigree relationship matrix (required when
+<code>allocation_group_source = "A"</code>)</td>
+</tr>
+<tr class="even">
+<td><code>min_groups_per_environment</code></td>
+<td>NULL</td>
+<td>Minimum genetic groups per environment</td>
+</tr>
+<tr class="odd">
+<td><code>min_env_per_group</code></td>
+<td>NULL</td>
+<td>Minimum environments per genetic group</td>
+</tr>
+<tr class="even">
+<td><code>seed</code></td>
+<td>NULL</td>
+<td>Integer seed for reproducibility</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="assign_replication_by_seed-seed-aware-replication">
+<code>assign_replication_by_seed()</code> — seed-aware
+replication<a class="anchor" aria-label="anchor" href="#assign_replication_by_seed-seed-aware-replication"></a>
+</h3>
+<p><strong>Required inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="34%">
+<col width="20%">
+<col width="44%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>treatments</code></td>
+<td>character vector</td>
+<td>All candidate line IDs</td>
+</tr>
+<tr class="even">
+<td><code>seed_available</code></td>
+<td>data frame</td>
+<td>Must contain <code>Treatment</code> and <code>SeedAvailable</code>
+columns</td>
+</tr>
+<tr class="odd">
+<td><code>seed_required_per_plot</code></td>
+<td>integer</td>
+<td>Seeds needed per plot (scalar or named vector per environment)</td>
+</tr>
+<tr class="even">
+<td><code>replication_mode</code></td>
+<td>character</td>
+<td>
+<code>"augmented"</code>, <code>"p_rep"</code>, or
+<code>"rcbd_type"</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Optional inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="31%">
+<col width="28%">
+<col width="40%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>desired_replications</code></td>
+<td>2</td>
+<td>Target number of plots per replicated line</td>
+</tr>
+<tr class="even">
+<td><code>shortage_action</code></td>
+<td><code>"downgrade"</code></td>
+<td>What to do when seed is insufficient: <code>"downgrade"</code>,
+<code>"exclude"</code>, or <code>"error"</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>max_prep</code></td>
+<td>NULL</td>
+<td>Maximum number of p-rep treatments (p-rep mode only)</td>
+</tr>
+<tr class="even">
+<td><code>priority</code></td>
+<td><code>"seed_available"</code></td>
+<td>Selection criterion for p-rep candidates</td>
+</tr>
+<tr class="odd">
+<td><code>minimum_seed_buffer</code></td>
+<td>0</td>
+<td>Extra seeds reserved per line beyond the plot requirement</td>
+</tr>
+<tr class="even">
+<td><code>seed</code></td>
+<td>NULL</td>
+<td>Integer seed for reproducibility</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="met_prep_famoptg-block-based-field-design">
+<code>met_prep_famoptg()</code> — block-based field design<a class="anchor" aria-label="anchor" href="#met_prep_famoptg-block-based-field-design"></a>
+</h3>
+<p><strong>Required inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="34%">
+<col width="20%">
+<col width="44%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>check_treatments</code></td>
+<td>character vector</td>
+<td>Check (control) treatment IDs; appear in every block</td>
+</tr>
+<tr class="even">
+<td><code>check_families</code></td>
+<td>character vector</td>
+<td>Family labels for checks; same length as
+<code>check_treatments</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>n_blocks</code></td>
+<td>integer</td>
+<td>Number of incomplete blocks</td>
+</tr>
+<tr class="even">
+<td><code>n_rows</code></td>
+<td>integer</td>
+<td>Number of field rows</td>
+</tr>
+<tr class="odd">
+<td><code>n_cols</code></td>
+<td>integer</td>
+<td>Number of field columns</td>
+</tr>
+</tbody>
+</table>
+<p>At least one of <code>p_rep_treatments</code> or
+<code>unreplicated_treatments</code> must be supplied.</p>
+<p><strong>Optional inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="31%">
+<col width="28%">
+<col width="40%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>p_rep_treatments</code></td>
+<td>NULL</td>
+<td>Treatments to replicate; typically
+<code>rep_plan$p_rep_treatments</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>p_rep_reps</code></td>
+<td>NULL</td>
+<td>Replication count per p-rep line; typically
+<code>rep_plan$p_rep_reps</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>p_rep_families</code></td>
+<td>NULL</td>
+<td>Family labels for p-rep treatments</td>
+</tr>
+<tr class="even">
+<td><code>unreplicated_treatments</code></td>
+<td>NULL</td>
+<td>Treatments to appear once; typically
+<code>rep_plan$unreplicated_treatments</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>unreplicated_families</code></td>
+<td>NULL</td>
+<td>Family labels for unreplicated treatments</td>
+</tr>
+<tr class="even">
+<td><code>replication_mode</code></td>
+<td><code>"p_rep"</code></td>
+<td>
+<code>"p_rep"</code>, <code>"augmented"</code>, or
+<code>"rcbd_type"</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>cluster_source</code></td>
+<td><code>"none"</code></td>
+<td>Genetic dispersion grouping: <code>"none"</code>,
+<code>"Family"</code>, <code>"GRM"</code>, <code>"A"</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>eval_efficiency</code></td>
+<td><code>FALSE</code></td>
+<td>Compute A, D, CDmean efficiency metrics</td>
+</tr>
+<tr class="odd">
+<td><code>order</code></td>
+<td><code>"row"</code></td>
+<td>Plot traversal order: <code>"row"</code>, <code>"col"</code>, or
+<code>"serpentine"</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>seed</code></td>
+<td>NULL</td>
+<td>Integer seed for reproducibility</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="met_alpha_rc_stream-row-column-alpha-design">
+<code>met_alpha_rc_stream()</code> — row-column alpha design<a class="anchor" aria-label="anchor" href="#met_alpha_rc_stream-row-column-alpha-design"></a>
+</h3>
+<p><strong>Required inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="34%">
+<col width="20%">
+<col width="44%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>check_treatments</code></td>
+<td>character vector</td>
+<td>Check treatment IDs; appear in every incomplete block</td>
+</tr>
+<tr class="even">
+<td><code>check_families</code></td>
+<td>character vector</td>
+<td>Family labels for checks</td>
+</tr>
+<tr class="odd">
+<td><code>entry_treatments</code></td>
+<td>character vector</td>
+<td>Entry (non-check) treatment IDs</td>
+</tr>
+<tr class="even">
+<td><code>entry_families</code></td>
+<td>character vector</td>
+<td>Family labels for entries</td>
+</tr>
+<tr class="odd">
+<td><code>n_reps</code></td>
+<td>integer</td>
+<td>Number of field replicates</td>
+</tr>
+<tr class="even">
+<td><code>n_rows</code></td>
+<td>integer</td>
+<td>Number of field rows</td>
+</tr>
+<tr class="odd">
+<td><code>n_cols</code></td>
+<td>integer</td>
+<td>Number of field columns</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Optional inputs</strong></p>
+<table class="table">
+<colgroup>
+<col width="31%">
+<col width="28%">
+<col width="40%">
+</colgroup>
+<thead><tr class="header">
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>min_block_size</code></td>
+<td>6</td>
+<td>Minimum entries (excluding checks) per incomplete block</td>
+</tr>
+<tr class="even">
+<td><code>max_block_size</code></td>
+<td>NULL</td>
+<td>Maximum entries per incomplete block</td>
+</tr>
+<tr class="odd">
+<td><code>cluster_source</code></td>
+<td><code>"none"</code></td>
+<td>Genetic dispersion grouping: <code>"none"</code>,
+<code>"Family"</code>, <code>"GRM"</code>, <code>"A"</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>eval_efficiency</code></td>
+<td><code>FALSE</code></td>
+<td>Compute A, D, CDmean efficiency metrics</td>
+</tr>
+<tr class="odd">
+<td><code>order</code></td>
+<td><code>"row"</code></td>
+<td>Plot traversal order: <code>"row"</code>, <code>"col"</code>, or
+<code>"serpentine"</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>serpentine</code></td>
+<td><code>FALSE</code></td>
+<td>Reverse alternating rows/columns for physical continuity</td>
+</tr>
+<tr class="odd">
+<td><code>seed</code></td>
+<td>NULL</td>
+<td>Integer seed for reproducibility</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="minimum-working-example">Minimum working example<a class="anchor" aria-label="anchor" href="#minimum-working-example"></a>
+</h3>
+<p>The absolute minimum to run the full pipeline from allocation to
+field book:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Minimum inputs: just lines, environments, and field dimensions</span></span>
+<span><span class="va">treatments</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"L"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%03d"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">120</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">envs</span>       <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"E1"</span>, <span class="st">"E2"</span>, <span class="st">"E3"</span>, <span class="st">"E4"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 0: verify k</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/suggest_safe_k.html">suggest_safe_k</a></span><span class="op">(</span><span class="va">treatments</span>, <span class="va">envs</span>, buffer <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>  <span class="co"># 33</span></span>
+<span></span>
+<span><span class="co"># Stage 1: M3 allocation (no common treatments, no grouping)</span></span>
+<span><span class="va">alloc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  treatments                     <span class="op">=</span> <span class="va">treatments</span>,</span>
+<span>  environments                   <span class="op">=</span> <span class="va">envs</span>,</span>
+<span>  allocation_method              <span class="op">=</span> <span class="st">"random_balanced"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="va">k</span>,</span>
+<span>  seed                           <span class="op">=</span> <span class="fl">1</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 2: seed plan (uniform seed, no shortage)</span></span>
+<span><span class="va">seed_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  Treatment     <span class="op">=</span> <span class="va">treatments</span>,</span>
+<span>  SeedAvailable <span class="op">=</span> <span class="fl">100L</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">rep_plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assign_replication_by_seed.html">assign_replication_by_seed</a></span><span class="op">(</span></span>
+<span>  treatments             <span class="op">=</span> <span class="va">treatments</span>,</span>
+<span>  seed_available         <span class="op">=</span> <span class="va">seed_df</span>,</span>
+<span>  seed_required_per_plot <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  replication_mode       <span class="op">=</span> <span class="st">"augmented"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 3: within-environment design (checks + unreplicated entries)</span></span>
+<span><span class="va">design</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_prep_famoptg.html">met_prep_famoptg</a></span><span class="op">(</span></span>
+<span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
+<span>  check_families          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
+<span>  unreplicated_treatments <span class="op">=</span> <span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span>,</span>
+<span>  unreplicated_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"F1"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">rep_plan</span><span class="op">$</span><span class="va">unreplicated_treatments</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  n_blocks <span class="op">=</span> <span class="fl">4L</span>, n_rows <span class="op">=</span> <span class="fl">10L</span>, n_cols <span class="op">=</span> <span class="fl">12L</span>,</span>
+<span>  seed     <span class="op">=</span> <span class="fl">1</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Stage 4: combine</span></span>
+<span><span class="va">met_book</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/combine_met_fieldbooks.html">combine_met_fieldbooks</a></span><span class="op">(</span></span>
+<span>  field_books <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>E1 <span class="op">=</span> <span class="va">design</span><span class="op">$</span><span class="va">field_book</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
 <h2 id="allocation-strategies">6. Allocation Strategies<a class="anchor" aria-label="anchor" href="#allocation-strategies"></a>
 </h2>
 <div class="section level3">
@@ -531,7 +1166,7 @@ conditions strictly. The slot identity
 must hold exactly, and the function stops with a clear error if it does
 not. Use <code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify
 the slot identity before allocating:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># With k=39, J*=112, I=4, r=1: available slots = 4*(39-8) = 124,</span></span>
 <span><span class="co"># required slots = 112*1 = 112. 124 ≠ 112 -&gt; slot identity fails.</span></span>
 <span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
@@ -633,7 +1268,7 @@ so that
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
 holds. M4 with <code>allow_approximate = TRUE</code> is a fallback when
 the slot identity cannot be satisfied.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
@@ -672,6 +1307,457 @@ the slot identity cannot be satisfied.</p>
 <span><span class="va">alloc_M3</span><span class="op">$</span><span class="va">summary</span>  <span class="co"># allocation_method, min/max/mean replication, etc.</span></span>
 <span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">summary</span>  <span class="co"># min_sparse_replication = max_sparse_replication = 1 (equal)</span></span>
 <span><span class="va">alloc_M4</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">max_sparse_replication</span>  <span class="co"># equals min_sparse_replication: equal replication confirmed</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="slot-identity-feasibility-by-j-i-and-r">6.4 Slot identity feasibility by J*, I, and r<a class="anchor" aria-label="anchor" href="#slot-identity-feasibility-by-j-i-and-r"></a>
+</h2>
+<p>The slot identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
+requires that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J^* \times r</annotation></semantics></math>
+be exactly divisible by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>.
+Whether this is achievable for a given combination of sparse treatments
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>),
+environments
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>),
+and replication
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>)
+depends on the shared factors of these three numbers.</p>
+<div class="section level3">
+<h3 id="the-divisibility-rule">The divisibility rule<a class="anchor" aria-label="anchor" href="#the-divisibility-rule"></a>
+</h3>
+<p>For the slot identity to hold,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
+must divide
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J^* \times r</annotation></semantics></math>
+exactly. Every prime factor of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
+that is absent from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+must be supplied by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>.
+This has a practical consequence for the most common case in plant
+breeding:</p>
+<ul>
+<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I = 4</annotation></semantics></math>
+environments,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+odd</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mn>1</mn><mo>=</mo><mtext mathvariant="normal">odd</mtext></mrow><annotation encoding="application/x-tex">J^* \times 1 = \text{odd}</annotation></semantics></math>
+(not divisible by 4);
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mn>2</mn><mo>=</mo><mn>2</mn><mo>×</mo><mtext mathvariant="normal">odd</mtext></mrow><annotation encoding="application/x-tex">J^* \times 2 = 2 \times \text{odd}</annotation></semantics></math>
+(divisible by 2 but not by 4 for odd
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>);
+only
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">r = 4</annotation></semantics></math>
+guarantees divisibility. But
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">r = 4</annotation></semantics></math>
+gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>k</mi><mo>*</mo></msup><mo>=</mo><msup><mi>J</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">k^* = J^*</annotation></semantics></math>
+— full replication — which defeats the purpose of sparse testing.
+<strong>Practical fix</strong>: adjust
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+by 1 so that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math>
+becomes even.</p></li>
+<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I = 4</annotation></semantics></math>
+environments,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+even but not divisible by 4</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
+always works
+(e.g. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mn>110</mn></mrow><annotation encoding="application/x-tex">J^* = 110</annotation></semantics></math>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>110</mn><mo>×</mo><mn>2</mn><mi>/</mi><mn>4</mn><mo>=</mo><mn>55</mn></mrow><annotation encoding="application/x-tex">110 \times 2 / 4 = 55</annotation></semantics></math>).</p></li>
+<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I = 3</annotation></semantics></math>
+environments</strong>: feasibility depends on divisibility by 3. If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+is divisible by 3, any
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+works. Otherwise
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+must be a multiple of 3.</p></li>
+<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I = 6</annotation></semantics></math>
+environments</strong>: requires divisibility by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mn>3</mn><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">2 \times 3 = 6</annotation></semantics></math>.
+Odd
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+not divisible by 3 requires
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+divisible by 6.</p></li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="feasibility-table-r-2">Feasibility table:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math><a class="anchor" aria-label="anchor" href="#feasibility-table-r-2"></a>
+</h3>
+<p>The table shows
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
+when the slot identity holds, and <code>--</code> when it does not for
+that combination. Add
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+(common treatments) to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
+to get the <code>n_test_entries_per_environment</code> argument.</p>
+<table class="table">
+<colgroup>
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="12%">
+</colgroup>
+<thead><tr class="header">
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I=3</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I=4</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">I=5</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I=6</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>7</mn></mrow><annotation encoding="application/x-tex">I=7</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">I=8</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">I=9</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>10</mn></mrow><annotation encoding="application/x-tex">I=10</annotation></semantics></math></th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="right">60</td>
+<td align="right">40</td>
+<td align="right">30</td>
+<td align="right">24</td>
+<td align="right">20</td>
+<td align="right">–</td>
+<td align="right">15</td>
+<td align="right">–</td>
+<td align="right">12</td>
+</tr>
+<tr class="even">
+<td align="right">70</td>
+<td align="right">–</td>
+<td align="right">35</td>
+<td align="right">28</td>
+<td align="right">–</td>
+<td align="right">20</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">14</td>
+</tr>
+<tr class="odd">
+<td align="right">75</td>
+<td align="right">50</td>
+<td align="right">–</td>
+<td align="right">30</td>
+<td align="right">25</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">15</td>
+</tr>
+<tr class="even">
+<td align="right">80</td>
+<td align="right">–</td>
+<td align="right">40</td>
+<td align="right">32</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">20</td>
+<td align="right">–</td>
+<td align="right">16</td>
+</tr>
+<tr class="odd">
+<td align="right">90</td>
+<td align="right">60</td>
+<td align="right">45</td>
+<td align="right">36</td>
+<td align="right">30</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">20</td>
+<td align="right">18</td>
+</tr>
+<tr class="even">
+<td align="right">100</td>
+<td align="right">–</td>
+<td align="right">50</td>
+<td align="right">40</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">25</td>
+<td align="right">–</td>
+<td align="right">20</td>
+</tr>
+<tr class="odd">
+<td align="right">110</td>
+<td align="right">–</td>
+<td align="right">55</td>
+<td align="right">44</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">22</td>
+</tr>
+<tr class="even">
+<td align="right">112</td>
+<td align="right">–</td>
+<td align="right">56</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">32</td>
+<td align="right">28</td>
+<td align="right">–</td>
+<td align="right">–</td>
+</tr>
+<tr class="odd">
+<td align="right">120</td>
+<td align="right">80</td>
+<td align="right">60</td>
+<td align="right">48</td>
+<td align="right">40</td>
+<td align="right">–</td>
+<td align="right">30</td>
+<td align="right">–</td>
+<td align="right">24</td>
+</tr>
+<tr class="even">
+<td align="right">150</td>
+<td align="right">100</td>
+<td align="right">75</td>
+<td align="right">60</td>
+<td align="right">50</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">30</td>
+</tr>
+<tr class="odd">
+<td align="right">200</td>
+<td align="right">–</td>
+<td align="right">100</td>
+<td align="right">80</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">50</td>
+<td align="right">–</td>
+<td align="right">40</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="feasibility-table-r-3">Feasibility table:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">r = 3</annotation></semantics></math><a class="anchor" aria-label="anchor" href="#feasibility-table-r-3"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="10%">
+<col width="12%">
+</colgroup>
+<thead><tr class="header">
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I=3</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I=4</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">I=5</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I=6</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>7</mn></mrow><annotation encoding="application/x-tex">I=7</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">I=8</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">I=9</annotation></semantics></math></th>
+<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>10</mn></mrow><annotation encoding="application/x-tex">I=10</annotation></semantics></math></th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="right">60</td>
+<td align="right">60</td>
+<td align="right">45</td>
+<td align="right">36</td>
+<td align="right">30</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">20</td>
+<td align="right">18</td>
+</tr>
+<tr class="even">
+<td align="right">70</td>
+<td align="right">70</td>
+<td align="right">–</td>
+<td align="right">42</td>
+<td align="right">35</td>
+<td align="right">30</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">21</td>
+</tr>
+<tr class="odd">
+<td align="right">75</td>
+<td align="right">75</td>
+<td align="right">–</td>
+<td align="right">45</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">25</td>
+<td align="right">–</td>
+</tr>
+<tr class="even">
+<td align="right">80</td>
+<td align="right">80</td>
+<td align="right">60</td>
+<td align="right">48</td>
+<td align="right">40</td>
+<td align="right">–</td>
+<td align="right">30</td>
+<td align="right">–</td>
+<td align="right">24</td>
+</tr>
+<tr class="odd">
+<td align="right">90</td>
+<td align="right">90</td>
+<td align="right">–</td>
+<td align="right">54</td>
+<td align="right">45</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">30</td>
+<td align="right">27</td>
+</tr>
+<tr class="even">
+<td align="right">100</td>
+<td align="right">100</td>
+<td align="right">75</td>
+<td align="right">60</td>
+<td align="right">50</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">30</td>
+</tr>
+<tr class="odd">
+<td align="right">110</td>
+<td align="right">110</td>
+<td align="right">–</td>
+<td align="right">66</td>
+<td align="right">55</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">33</td>
+</tr>
+<tr class="even">
+<td align="right">112</td>
+<td align="right">112</td>
+<td align="right">84</td>
+<td align="right">–</td>
+<td align="right">56</td>
+<td align="right">48</td>
+<td align="right">42</td>
+<td align="right">–</td>
+<td align="right">–</td>
+</tr>
+<tr class="odd">
+<td align="right">120</td>
+<td align="right">120</td>
+<td align="right">90</td>
+<td align="right">72</td>
+<td align="right">60</td>
+<td align="right">–</td>
+<td align="right">45</td>
+<td align="right">40</td>
+<td align="right">36</td>
+</tr>
+<tr class="even">
+<td align="right">150</td>
+<td align="right">150</td>
+<td align="right">–</td>
+<td align="right">90</td>
+<td align="right">75</td>
+<td align="right">–</td>
+<td align="right">–</td>
+<td align="right">50</td>
+<td align="right">45</td>
+</tr>
+<tr class="odd">
+<td align="right">200</td>
+<td align="right">200</td>
+<td align="right">150</td>
+<td align="right">120</td>
+<td align="right">100</td>
+<td align="right">–</td>
+<td align="right">75</td>
+<td align="right">–</td>
+<td align="right">60</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="what-to-do-when-your-combination-gives---">What to do when your combination gives <code>--</code><a class="anchor" aria-label="anchor" href="#what-to-do-when-your-combination-gives---"></a>
+</h3>
+<p>Use <code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to diagnose
+the problem and try one of these adjustments:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Adjust
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+by 1</strong>: adding or removing one common treatment changes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+by 1, which may make it divisible by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
+for the chosen
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>.</li>
+<li>
+<strong>Try
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
+instead of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">r = 1</annotation></semantics></math></strong>,
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">r = 3</annotation></semantics></math>
+instead of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
+— the extra factor may resolve the divisibility.</li>
+<li>
+<strong>Use <code>random_balanced</code> (M3)</strong> if exact
+equal replication is not essential. M3 does not require the slot
+identity and tolerates odd
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+freely.</li>
+<li>
+<strong>Use <code>allow_approximate = TRUE</code></strong> as a
+fallback — the allocation proceeds with the closest possible balance,
+accepting minor replication differences.</li>
+</ol>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Quick check: is your combination feasible?</span></span>
+<span><span class="co"># J* = 75 (odd), I = 4, r = 2 -- should give --</span></span>
+<span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
+<span>  n_treatments_total             <span class="op">=</span> <span class="fl">83</span>,   <span class="co"># J = J* + C = 75 + 8</span></span>
+<span>  n_environments                 <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">30</span>,   <span class="co"># k* guess: 30 - 8 = 22, 4*22=88 != 75*2=150</span></span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  n_common_treatments            <span class="op">=</span> <span class="fl">8</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># feasible = FALSE -&gt; adjust</span></span>
+<span></span>
+<span><span class="co"># Fix: change C from 8 to 9 -&gt; J* = 74 (even), r=2: 74*2/4 = 37</span></span>
+<span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
+<span>  n_treatments_total             <span class="op">=</span> <span class="fl">83</span>,</span>
+<span>  n_environments                 <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">46</span>,   <span class="co"># k* = 37, k = 37+9 = 46</span></span>
+<span>  target_replications            <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  n_common_treatments            <span class="op">=</span> <span class="fl">9</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># feasible = TRUE</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -740,7 +1826,7 @@ unobserved. Spreading related lines across environments ensures the full
 genetic diversity of the candidate set is represented at each site,
 maximizing the amount of novel genetic information available for
 calibrating the prediction model.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alloc_grm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
@@ -909,7 +1995,7 @@ plots for all lines</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">seed_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Treatment     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  SeedAvailable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">20</span><span class="op">:</span><span class="fl">120</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span><span class="op">)</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -973,7 +2059,7 @@ block)</li>
 <p>Optional features include family-based or GRM/A-based genetic
 dispersion optimization (minimizing the average relatedness of adjacent
 plots) and mixed-model efficiency evaluation (A, D, CDmean).</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">design_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_prep_famoptg.html">met_prep_famoptg</a></span><span class="op">(</span></span>
 <span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>  check_families          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
@@ -1025,7 +2111,7 @@ block.</p>
 <code>[min_block_size, max_block_size]</code>
 </li>
 </ul>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">design_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream</a></span><span class="op">(</span></span>
 <span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>  check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
@@ -1094,7 +2180,7 @@ effects), and CDmean (for random treatment effects), under any of three
 residual structures: <code>"IID"</code>, <code>"AR1"</code> (along rows
 or columns), or <code>"AR1xAR1"</code> (spatial gradient in both
 dimensions).</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eff_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency</a></span><span class="op">(</span></span>
 <span>  field_book       <span class="op">=</span> <span class="va">design_E1</span><span class="op">$</span><span class="va">field_book</span>,</span>
 <span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
@@ -1134,7 +2220,7 @@ are the replicate and incomplete block effects respectively. The
 <code>sigma_ib2</code> (not <code>sigma_b2</code>). This two-level
 blocking structure reflects the hierarchical design of alpha row-column
 layouts.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eff_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency</a></span><span class="op">(</span></span>
 <span>  field_book       <span class="op">=</span> <span class="va">design_E2</span><span class="op">$</span><span class="va">field_book</span>,</span>
 <span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
@@ -1183,7 +2269,7 @@ generates multiple independent random designs, evaluates each, and
 returns the best. All structural guarantees of
 <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> are enforced in every candidate
 design.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">opt_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg</a></span><span class="op">(</span></span>
 <span>  <span class="co"># All arguments of met_prep_famoptg(), plus:</span></span>
 <span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
@@ -1244,7 +2330,7 @@ designs. At each generation, pairs of high-scoring designs are combined
 designs are carried forward unchanged. GA explores a broader search
 space than RS or SA for the same number of objective function
 evaluations, at the cost of higher implementation complexity.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Simulated Annealing</span></span>
 <span><span class="va">opt_E2_sa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc</a></span><span class="op">(</span></span>
 <span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
@@ -1306,7 +2392,7 @@ evaluations, at the cost of higher implementation complexity.</p>
 <div class="section level3">
 <h3 id="step-by-step">13.1 Step-by-step<a class="anchor" aria-label="anchor" href="#step-by-step"></a>
 </h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
@@ -1386,7 +2472,7 @@ single call. Each environment’s local design is controlled by
 <code>env_design_specs</code>, a named list where the
 <code>design</code> field specifies <code>"met_prep_famoptg"</code> or
 <code>"met_alpha_rc_stream"</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
@@ -1417,7 +2503,7 @@ single call. Each environment’s local design is controlled by
 a different design engine and replication mode. The <code>design</code>
 field routes to the correct constructor. Additional fields are passed
 directly as arguments:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">env_design_specs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span></span>
 <span>  <span class="co"># p-rep block design</span></span>
@@ -1474,7 +2560,7 @@ through simulation. The following code generates sparse allocations
 under M3 and M4, simulates phenotypic data under a genomic model, fits a
 GBLUP model to each dataset, and compares the resulting prediction
 quality.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/covaruber/sommer" class="external-link">sommer</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.stats.ox.ac.uk/pub/MASS4/" class="external-link">MASS</a></span><span class="op">)</span></span>
 <span></span>
