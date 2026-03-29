@@ -1,126 +1,95 @@
-# Helper function for unit tests: generate a self-consistent minimal dataset
-# that exercises the full OptiSparseMET pipeline without the runtime cost of
-# the full 120-treatment example data. All components share the same treatment
-# IDs, environments, and check set so they can be passed to any package
-# function in combination without modification.
+# ==============================================================================
+# helper-test-data.R
+# Shared fixtures for the OptiSparseMET test suite.
 #
-# Usage: call make_example_sparsemet_data() at the top of each test file
-# that needs a realistic but lightweight dataset.
+# All make_* functions return minimal valid inputs for their respective
+# function. Tests modify copies rather than duplicating boilerplate.
+# This file is auto-sourced by testthat before each test file.
+# ==============================================================================
 
-make_example_sparsemet_data <- function(seed = 123) {
-  set.seed(seed)
-  
-  # 80 treatments across 3 environments keeps test runtime short while still
-  # producing non-trivial allocation and field layouts.
-  n_treatments <- 80L
-  treatments   <- paste0("L", sprintf("%03d", seq_len(n_treatments)))
-  environments <- c("Env1", "Env2", "Env3")
-  
-  # 10 families with random unequal group sizes — sufficient to test
-  # family-guided allocation and within-block adjacency control without
-  # requiring the larger 16-family structure of the production example data.
-  treatment_info <- data.frame(
-    Treatment = treatments,
-    Family    = paste0("F", sprintf("%02d", sample(1:10, n_treatments, replace = TRUE))),
-    stringsAsFactors = FALSE
-  )
-  
-  # 5 common treatments — small enough to leave meaningful sparse allocation
-  # capacity in each environment after they are removed from the pool.
-  common_treatments <- treatments[1:5]
-  
-  # Seed range chosen to produce all three replication outcomes
-  # (replicated, unreplicated, excluded) at the per-plot requirements below.
-  # Even spacing avoids ties in seed-priority ranking under "seed_available"
-  # priority mode.
-  seed_info <- data.frame(
-    Treatment     = treatments,
-    SeedAvailable = sample(seq(20, 120, by = 2), n_treatments, replace = TRUE),
-    stringsAsFactors = FALSE
-  )
-  
-  # Env2 has the highest per-plot requirement (10), so it will produce the
-  # most excluded treatments when seed_info is passed to
-  # assign_replication_by_seed(). Env3 has the lowest (6), useful for
-  # testing the downgrade path with a larger feasible pool.
-  seed_required_per_plot <- data.frame(
-    Environment         = environments,
-    SeedRequiredPerPlot = c(8, 10, 6),
-    stringsAsFactors = FALSE
-  )
-  
-  env_design_specs <- list(
-    
-    # Env1: p-rep design via prep_famoptg().
-    # Up to 8 treatments replicated twice; remainder unreplicated or
-    # downgraded if seed is insufficient for 2 plots. Grid 6 x 6 = 36 cells
-    # accommodates 2 checks x 4 blocks + 8 x 2 + remaining single-plot entries.
-    Env1 = list(
-      design               = "prep_famoptg",
-      replication_mode     = "p_rep",
-      desired_replications = 2L,
-      max_prep             = 8L,
-      shortage_action      = "downgrade",
-      check_treatments     = c("CHK1", "CHK2"),
-      check_families       = c("CHECK", "CHECK"),
-      n_blocks             = 4L,
-      n_rows               = 6L,
-      n_cols               = 6L,
-      order                = "row",
-      serpentine           = TRUE,
-      cluster_source       = "Family",
-      eval_efficiency      = FALSE,
-      use_dispersion       = FALSE
-    ),
-    
-    # Env2: alpha row-column stream design via alpha_rc_stream().
-    # n_reps = 2 on an 8 x 10 grid. min_entry_slots_per_block = 6 ensures
-    # incomplete blocks are not too small after inserting 2 checks per block.
-    # entry_treatments and entry_families are injected internally by
-    # plan_sparse_met_design() and must not appear in this spec.
-    Env2 = list(
-      design                    = "alpha_rc_stream",
-      check_treatments          = c("CHK1", "CHK2"),
-      check_families            = c("CHECK", "CHECK"),
-      n_reps                    = 2L,
-      n_rows                    = 8L,
-      n_cols                    = 10L,
-      order                     = "row",
-      serpentine                = TRUE,
-      min_entry_slots_per_block = 6L,
-      cluster_source            = "Family",
-      eval_efficiency           = FALSE,
-      use_dispersion            = FALSE,
-      verbose                   = FALSE
-    ),
-    
-    # Env3: augmented repeated-check design via prep_famoptg().
-    # All allocated entries unreplicated — exercises the augmented path
-    # and the column-major non-serpentine traversal branch.
-    # 5 x 6 = 30 cells fits 2 checks x 4 blocks + remaining single-plot entries.
-    Env3 = list(
-      design           = "prep_famoptg",
-      replication_mode = "augmented",
-      check_treatments = c("CHK1", "CHK2"),
-      check_families   = c("CHECK", "CHECK"),
-      n_blocks         = 4L,
-      n_rows           = 5L,
-      n_cols           = 6L,
-      order            = "column",
-      serpentine       = FALSE,
-      cluster_source   = "Family",
-      eval_efficiency  = FALSE,
-      use_dispersion   = FALSE
-    )
-  )
-  
+# -- Allocation fixture --------------------------------------------------------
+make_alloc_args <- function(seed = 1L) {
   list(
-    treatments             = treatments,
-    environments           = environments,
-    treatment_info         = treatment_info,
-    common_treatments      = common_treatments,
-    seed_info              = seed_info,
-    seed_required_per_plot = seed_required_per_plot,
-    env_design_specs       = env_design_specs
+    treatments   = paste0("L", sprintf("%03d", 1:30)),
+    environments = c("E1", "E2", "E3"),
+    allocation_method              = "random_balanced",
+    n_test_entries_per_environment = 12L,
+    target_replications            = 1L,
+    seed                           = seed
   )
+}
+
+# -- Seed replication fixture --------------------------------------------------
+make_seed_args <- function() {
+  trt <- paste0("L", sprintf("%03d", 1:10))
+  list(
+    treatments = trt,
+    seed_available = data.frame(
+      Treatment     = trt,
+      SeedAvailable = c(50, 45, 40, 35, 30, 20, 18, 15, 12, 10),
+      stringsAsFactors = FALSE
+    ),
+    seed_required_per_plot = 10
+  )
+}
+
+# -- met_prep_famoptg fixture --------------------------------------------------
+# 2 checks x 3 blocks = 6 check plots
+# 6 p-rep treatments x 2 reps   = 12 p-rep plots
+# 18 unreplicated treatments x 1 = 18 unrep plots
+# Total = 36 plots -> 6 x 6 field
+make_famoptg_args <- function(seed = 1L) {
+  list(
+    check_treatments        = c("CHK1", "CHK2"),
+    check_families          = c("CHECK", "CHECK"),
+    p_rep_treatments        = paste0("P", 1:6),
+    p_rep_reps              = rep(2L, 6L),
+    p_rep_families          = rep(c("F1", "F2"), 3),
+    unreplicated_treatments = paste0("U", 1:18),
+    unreplicated_families   = rep(c("F1", "F2", "F3"), 6),
+    n_blocks                = 3L,
+    n_rows                  = 6L,
+    n_cols                  = 6L,
+    seed                    = seed,
+    verbose                 = FALSE
+  )
+}
+
+# -- met_alpha_rc_stream fixture -----------------------------------------------
+# 3 checks, 20 entries, 2 reps
+# min/max block size 10/12 -> block sizes 10-11 entries + 3 checks = 13-14 total
+# used plots = 2 * (20 + b*3); auto b ~ ceil(20/9)=3 -> 2*(20+9)=58 plots in 6x10=60
+make_alpha_args <- function(seed = 1L) {
+  list(
+    check_treatments = c("CHK1", "CHK2", "CHK3"),
+    check_families   = c("CHECK", "CHECK", "CHECK"),
+    entry_treatments = paste0("G", 1:20),
+    entry_families   = rep(c("F1", "F2"), 10),
+    n_reps           = 2L,
+    n_rows           = 6L,
+    n_cols           = 10L,
+    min_block_size   = 8L,
+    max_block_size   = 12L,
+    seed             = seed,
+    verbose          = FALSE
+  )
+}
+
+# -- Efficiency varcomp helpers ------------------------------------------------
+famoptg_varcomp <- function() {
+  list(sigma_e2 = 1, sigma_g2 = 1, sigma_b2 = 1, sigma_r2 = 0.1, sigma_c2 = 0.1)
+}
+
+alpha_varcomp <- function() {
+  list(sigma_e2 = 1, sigma_g2 = 1, sigma_rep2 = 0.5,
+       sigma_ib2 = 0.3, sigma_r2 = 0.1, sigma_c2 = 0.1)
+}
+
+# -- Relationship matrix helper ------------------------------------------------
+make_sym_pd <- function(n, seed = 99L) {
+  set.seed(seed)
+  raw <- matrix(rnorm(n * n), n, n)
+  K   <- crossprod(raw) / n
+  diag(K) <- diag(K) + 0.5
+  K
 }

@@ -18,22 +18,19 @@
 
 \item{n_test_entries_per_environment}{Integer scalar or integer vector.}
 
-\item{common_treatments}{Character vector of common treatment IDs. Values
-not in \code{treatments} are silently dropped.}
+\item{common_treatments}{Character vector of common treatment IDs.}
 }
 \value{
-Invisibly returns \code{TRUE} when the condition is satisfied. Stops with
-an error otherwise.
+Invisibly returns \code{TRUE} when the condition is satisfied.
 }
 \description{
 Internal function called by \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} to verify that the
 supplied \code{n_test_entries_per_environment} provides enough sparse slots to
 assign every non-common treatment at least once. Stops with an informative
-error when the condition is not met, naming the deficit and the minimum
-uniform capacity that would resolve it.
+error when the condition is not met.
 }
 \details{
 Unlike \code{\link[=warn_if_k_too_small]{warn_if_k_too_small()}}, this function stops rather than warns and is
-not intended for direct use. It is documented here for package maintainers.
+not intended for direct use.
 }
 \keyword{internal}

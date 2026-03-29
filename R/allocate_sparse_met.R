@@ -11,25 +11,34 @@
 #'
 #' @description
 #' Two allocation strategies are available. `"random_balanced"` implements an
-#' M3-type stochastic allocation that approximates balance without requiring
-#' exact BIBD parameters to be satisfiable — appropriate when environment
+#' M3-inspired stochastic allocation that approximates balance without requiring
+#' exact BIBD parameters to be satisfiable -- appropriate when environment
 #' capacities differ or when the trial dimensions do not admit an exact balanced
-#' solution. `"balanced_incomplete"` implements an M4-type allocation following
-#' BIBD principles at the MET level. When `allow_approximate = FALSE` and the
-#' slot identity is satisfied, the function uses an exact constructor that
-#' enforces equal replication of all non-common treatments. When
-#' `allow_approximate = TRUE`, it relaxes exact balance and constructs the
-#' closest feasible allocation.
+#' solution. Unlike the original M3 of Montesinos-Lopez et al. (2023), which
+#' allocates location by location and may silently leave some lines with fewer
+#' than \eqn{r} replications, this implementation uses a two-phase
+#' coverage-first strategy that additionally guarantees every non-common
+#' treatment appears in at least one environment before replication filling
+#' begins.
 #'
-#' Allocation proceeds in two phases for `"random_balanced"` and approximate
-#' `"balanced_incomplete"`. Phase one guarantees that every non-common
-#' treatment appears in at least one environment, distributing treatments across
-#' environments with awareness of genetic group structure when
-#' `allocation_group_source` is not `"none"`. Phase two fills the remaining
-#' capacity in each environment up to `n_test_entries_per_environment`, guided
-#' by replication targets and group-balance penalties. For strict
-#' `"balanced_incomplete"` (`allow_approximate = FALSE`), allocation is carried
-#' out by a separate exact constructor rather than the two-phase heuristic.
+#' The \code{"balanced_incomplete"} method implements the M4 allocation of
+#' Montesinos-Lopez et al. (2023): every non-common treatment appears in
+#' exactly \eqn{r} environments (equal replication) and every environment
+#' receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
+#' so the resource identity \eqn{J^* \times r = I \times k^*} holds exactly.
+#' This equal-replication, equal-environment-size guarantee is what
+#' distinguishes M4 from M3 in the paper, and is always the goal in plant
+#' breeding programs where thousands of lines are tested across a few
+#' environments.
+#'
+#' `allow_approximate = FALSE` (the default) is the standard M4 path: the
+#' slot identity must hold exactly, and the function stops with an informative
+#' error if it cannot be met, so the caller always knows whether equal
+#' replication was achieved. Construction first tries `crossdes::find.BIB()`
+#' (if \pkg{crossdes} is installed), then falls back to a greedy
+#' load-balanced constructor. `allow_approximate = TRUE` relaxes the slot
+#' identity and allows minor replication imbalances across lines; it is a
+#' fallback for exploratory use, not the intended primary path.
 #'
 #' Before allocation begins, the function calls
 #' `.check_full_coverage_feasibility()` to verify that the total number of
@@ -43,7 +52,7 @@
 #' ## Relation to sparse testing theory
 #'
 #' The allocation strategies implemented here correspond to M3 and M4 in
-#' Montesinos-López et al. (2023). The underlying resource identity is:
+#' Montesinos-Lopez et al. (2023). The underlying resource identity is:
 #'
 #' \deqn{N = J \times r = I \times k}
 #'
@@ -79,6 +88,17 @@
 #' fills each to its target, guided by line-level replication deficit scores and
 #' group-balance penalties.
 #'
+#' ## Within-environment layout
+#'
+#' Once allocation is complete, the set of treatments assigned to each
+#' environment is passed to the within-environment design function.
+#' [met_prep_famoptg()] constructs repeated-check augmented, partially
+#' replicated (p-rep), and RCBD-type block designs. [met_alpha_rc_stream()]
+#' constructs stream-based alpha row-column designs for fixed-grid field
+#' geometry. Both accept output from [assign_replication_by_seed()] directly.
+#' The end-to-end pipeline that coordinates allocation and local design
+#' construction is [plan_sparse_met_design()].
+#'
 #' ## Allocation groups
 #'
 #' When `allocation_group_source` is not `"none"`, both phases use genetic
@@ -91,20 +111,34 @@
 #' (`force_group_connectivity`). Line-level replication targets are preserved
 #' within these group-level constraints.
 #'
-#' ## Feasibility of balanced incomplete allocation
+#' ## M4 allocation and the role of allow_approximate
 #'
-#' For a fully balanced incomplete allocation, the total number of sparse slots
-#' must satisfy:
+#' The M4 method (Montesinos-Lopez et al., 2023) enforces two conditions:
 #'
-#' \deqn{\sum_{e=1}^{I} k_e^* = J^* \times r}
+#' \enumerate{
+#'   \item Equal replication: every non-common treatment appears in exactly
+#'         \eqn{r} environments.
+#'   \item Equal environment sizes: every environment receives exactly
+#'         \eqn{k^*} sparse treatments, so \eqn{J^* \times r = I \times k^*}.
+#' }
 #'
-#' where \eqn{J^*} is the number of non-common treatments and \eqn{r} is the
-#' target replication. When this equality does not hold and
-#' `allow_approximate = FALSE`, the function stops. When the equality holds and
-#' `allow_approximate = FALSE`, the function attempts an exact constructor that
-#' enforces equal replication for all non-common treatments. When
-#' `allow_approximate = TRUE`, the function constructs the closest feasible
-#' allocation, accepting minor deviations from perfect balance.
+#' `allow_approximate = FALSE` (the default) enforces both conditions strictly.
+#' If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
+#' the chosen `n_test_entries_per_environment` and `target_replications`, the
+#' function stops with an informative error. Use
+#' [check_balanced_incomplete_feasibility()] to verify the slot identity before
+#' calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
+#' I \times k^*}. Construction first tries `crossdes::find.BIB()` (if
+#' \pkg{crossdes} is installed), then falls back to a greedy load-balanced
+#' constructor that guarantees equal replication even when \pkg{crossdes} is
+#' absent.
+#'
+#' `allow_approximate = TRUE` relaxes the slot identity: the function
+#' constructs the most balanced allocation it can without stopping on
+#' infeasibility, accepting that some lines may receive more or fewer
+#' replications than \eqn{r}. This mode is useful for exploratory analysis
+#' but does not provide the equal-replication guarantee that is the defining
+#' property of M4.
 #'
 #' @param treatments Character vector of test treatment IDs to allocate across
 #'   environments. Check treatments should not be included here; they are
@@ -115,8 +149,8 @@
 #'   least two elements. Duplicate values are silently removed.
 #'
 #' @param allocation_method Character scalar. Sparse allocation strategy.
-#'   Accepted values are `"random_balanced"` (M3-type stochastic allocation)
-#'   and `"balanced_incomplete"` (M4-type BIBD-inspired allocation). The
+#'   Accepted values are `"random_balanced"` (M3-inspired stochastic
+#'   allocation) and `"balanced_incomplete"` (M4-type BIBD allocation). The
 #'   aliases `"M3"` and `"M4"` are also accepted and translated internally to
 #'   their canonical names before any further processing.
 #'
@@ -199,11 +233,14 @@
 #'   `min_env_per_group` environments. Active when `allocation_group_source` is
 #'   not `"none"` and `min_env_per_group` is not `NULL`.
 #'
-#' @param allow_approximate Logical, default `FALSE`. When `FALSE`, an
-#'   infeasible exact balanced incomplete allocation triggers an error. When
-#'   `TRUE`, the function falls back to the closest feasible approximate
-#'   allocation. For `"random_balanced"`, this argument has no effect on the
-#'   error behaviour since that strategy never requires exact balance.
+#' @param allow_approximate Logical, default `FALSE`. When `FALSE` and
+#'   `allocation_method = "balanced_incomplete"`, the slot identity
+#'   \eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
+#'   with an error if it does not. This is the standard M4 path and guarantees
+#'   equal replication for every non-common treatment. When `TRUE`, the slot
+#'   identity is not enforced and minor replication imbalances are accepted; this
+#'   is a relaxed fallback for exploratory use, not the primary mode. For
+#'   `"random_balanced"`, this argument has no effect.
 #'
 #' @param seed Optional integer. Random seed for reproducibility. Controls
 #'   the random order in which sparse treatments are processed in phase one
@@ -251,10 +288,7 @@
 #'     `environment_sizes`, `min_replication`, `max_replication`,
 #'     `mean_replication`, `min_sparse_replication`, `max_sparse_replication`,
 #'     `mean_sparse_replication`, `min_common_replication`,
-#'     `max_common_replication`, `mean_common_replication`, and `n_groups`.
-#'     The overall replication summaries include common treatments, whereas the
-#'     sparse-only summaries reflect the quantities relevant for strict M4
-#'     equality checks.}
+#'     `max_common_replication`, and `mean_common_replication`.}
 #'   \item{`seed_used`}{The integer seed passed to `set.seed()` internally, or
 #'     `NULL` if no seed was supplied.}
 #' }
@@ -266,12 +300,15 @@
 #' before attempting a `"balanced_incomplete"` allocation.
 #' [derive_allocation_groups()] for inspecting the group structure that guides
 #' allocation when `allocation_group_source` is not `"none"`.
+#' [met_prep_famoptg()] and [met_alpha_rc_stream()] for the within-environment
+#' design functions that consume the allocation output.
+#' [plan_sparse_met_design()] for the end-to-end two-stage MET pipeline.
 #'
 #' @references
-#' Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
-#' Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic
-#' prediction under balanced incomplete block design. *The Plant Genome*,
-#' 16, e20305.
+#' Montesinos-Lopez, O. A., Mosqueda-Gonzalez, B. A., Salinas-Ruiz, J.,
+#' Montesinos-Lopez, A., & Crossa, J. (2023). Sparse multi-trait genomic
+#' prediction under balanced incomplete block design. \emph{The Plant Genome},
+#' 16, e20305. \doi{10.1002/tpg2.20305}
 #'
 #' @examples
 #' treatments <- paste0("L", sprintf("%03d", 1:120))
@@ -305,9 +342,11 @@
 #' head(out1$allocation_long)
 #' head(out1$group_by_environment)
 #'
-#' ## Example 2: strict balanced incomplete allocation with common treatments.
-#' ## Here the sparse slot totals are exactly feasible, so all non-common
-#' ## treatments are replicated exactly `target_replications` times.
+#' ## Example 2: M4 balanced incomplete allocation (paper method).
+#' ## Equal replication (r=2) and equal environment sizes (k*=55 per env).
+#' ## Slot identity: J* x r = I x k* => 110 x 2 = 4 x 55 = 220. Valid.
+#' ## allow_approximate = FALSE enforces the slot identity strictly, stopping
+#' ## with an error if it is not met (the default safe behaviour).
 #' out2 <- allocate_sparse_met(
 #'   treatments                     = treatments,
 #'   environments                   = envs,
@@ -320,6 +359,9 @@
 #' )
 #'
 #' out2$summary
+#' # Every sparse line appears in exactly 2 environments
+#' range(out2$line_replications[!(names(out2$line_replications) %in%
+#'                                 treatments[1:10])])
 #'
 #' @export
 allocate_sparse_met <- function(
@@ -350,29 +392,23 @@ allocate_sparse_met <- function(
   # 0. RNG
   # ============================================================
   seed_used <- seed
-  if (!is.null(seed_used)) {
-    set.seed(seed_used)
-  }
+  if (!is.null(seed_used)) set.seed(seed_used)
   
   allocation_method <- match.arg(allocation_method)
   if (allocation_method == "M3") allocation_method <- "random_balanced"
   if (allocation_method == "M4") allocation_method <- "balanced_incomplete"
   
   allocation_group_source <- match.arg(allocation_group_source)
-  group_method <- match.arg(group_method)
+  group_method            <- match.arg(group_method)
   
   # ============================================================
-  # 1. Basic validation and normalization
+  # 1. Basic validation and normalisation
   # ============================================================
   treatments   <- unique(as.character(treatments))
   environments <- unique(as.character(environments))
   
-  if (length(treatments) < 1L) {
-    stop("`treatments` must contain at least one treatment ID.")
-  }
-  if (length(environments) < 2L) {
-    stop("`environments` must contain at least two environment names.")
-  }
+  if (length(treatments) < 1L)   stop("`treatments` must contain at least one treatment ID.")
+  if (length(environments) < 2L) stop("`environments` must contain at least two environment names.")
   
   n_treat <- length(treatments)
   n_env   <- length(environments)
@@ -383,33 +419,28 @@ allocate_sparse_met <- function(
     k_vec <- as.integer(n_test_entries_per_environment)
   }
   
-  if (length(k_vec) != n_env) {
+  if (length(k_vec) != n_env)
     stop("`n_test_entries_per_environment` must have length 1 or length(environments).")
-  }
-  if (any(is.na(k_vec)) || any(k_vec < 1L)) {
+  if (any(is.na(k_vec)) || any(k_vec < 1L))
     stop("All values of `n_test_entries_per_environment` must be positive integers.")
-  }
   
   if (!is.null(min_groups_per_environment)) {
     if (!is.numeric(min_groups_per_environment) || length(min_groups_per_environment) != 1L ||
-        is.na(min_groups_per_environment) || min_groups_per_environment < 1L) {
+        is.na(min_groups_per_environment) || min_groups_per_environment < 1L)
       stop("`min_groups_per_environment` must be NULL or a single positive integer.")
-    }
     min_groups_per_environment <- as.integer(min_groups_per_environment)
   }
   
   if (!is.null(min_env_per_group)) {
     if (!is.numeric(min_env_per_group) || length(min_env_per_group) != 1L ||
-        is.na(min_env_per_group) || min_env_per_group < 1L) {
+        is.na(min_env_per_group) || min_env_per_group < 1L)
       stop("`min_env_per_group` must be NULL or a single positive integer.")
-    }
     min_env_per_group <- as.integer(min_env_per_group)
   }
   
   if (!(is.numeric(n_pcs_use) && length(n_pcs_use) == 1L &&
-        (is.finite(n_pcs_use) || is.infinite(n_pcs_use)) && n_pcs_use > 0)) {
+        (is.finite(n_pcs_use) || is.infinite(n_pcs_use)) && n_pcs_use > 0))
     stop("`n_pcs_use` must be a single positive number or Inf.")
-  }
   
   # ============================================================
   # 2. Common treatments
@@ -420,149 +451,131 @@ allocate_sparse_met <- function(
     common_treatments <- intersect(treatments, unique(as.character(common_treatments)))
   }
   
-  n_common <- length(common_treatments)
+  n_common          <- length(common_treatments)
   sparse_treatments <- setdiff(treatments, common_treatments)
-  n_sparse <- length(sparse_treatments)
+  n_sparse          <- length(sparse_treatments)
   
   .check_full_coverage_feasibility(
-    treatments = treatments,
-    environments = environments,
+    treatments                     = treatments,
+    environments                   = environments,
     n_test_entries_per_environment = k_vec,
-    common_treatments = common_treatments
+    common_treatments              = common_treatments
   )
   
-  k_sparse <- k_vec - n_common
+  k_sparse           <- k_vec - n_common
   total_sparse_slots <- sum(k_sparse)
   
   # ============================================================
   # 3. Replication target
   # ============================================================
   if (is.null(target_replications)) {
-    if (n_sparse == 0L) {
-      target_replications <- 0L
-    } else {
-      target_replications <- floor(total_sparse_slots / n_sparse)
-      if (target_replications < 1L) target_replications <- 1L
-    }
+    target_replications <- if (n_sparse == 0L) 0L else max(1L, floor(total_sparse_slots / n_sparse))
   } else {
     if (!is.numeric(target_replications) || length(target_replications) != 1L ||
-        is.na(target_replications) || target_replications < 1L) {
+        is.na(target_replications) || target_replications < 1L)
       stop("`target_replications` must be NULL or a single positive integer.")
-    }
     target_replications <- as.integer(target_replications)
   }
   
   # ============================================================
-  # 4. Strict M4 slot feasibility
+  # 4. M4 feasibility checks
   # ============================================================
   if (allocation_method == "balanced_incomplete") {
+    
     required_slots <- n_sparse * target_replications
     
     if (!allow_approximate && required_slots != total_sparse_slots) {
-      stop(
-        paste0(
-          "Exact balanced incomplete allocation infeasible. ",
-          "Required sparse slots = ", required_slots,
-          ", available sparse slots = ", total_sparse_slots, "."
-        )
-      )
+      stop(paste0(
+        "Exact balanced incomplete allocation infeasible. ",
+        "Required sparse slots = ", required_slots,
+        ", available sparse slots = ", total_sparse_slots, ". ",
+        "Adjust n_test_entries_per_environment, target_replications, or set ",
+        "allow_approximate = TRUE."
+      ))
     }
   }
   
   # ============================================================
   # 5. Optional group derivation
   # ============================================================
-  group_assignment <- NULL
-  sparse_groups <- NULL
+  group_assignment     <- NULL
+  sparse_groups        <- NULL
   unique_sparse_groups <- character(0)
-  n_groups <- 0L
+  n_groups             <- 0L
   
   if (allocation_group_source != "none") {
+    
     group_assignment_sparse <- derive_allocation_groups(
-      treatments = sparse_treatments,
+      treatments              = sparse_treatments,
       allocation_group_source = allocation_group_source,
-      treatment_info = treatment_info,
-      GRM = GRM,
-      A = A,
-      id_map = id_map,
-      group_method = group_method,
-      group_seed = group_seed,
-      group_attempts = group_attempts,
-      n_pcs_use = n_pcs_use
+      treatment_info          = treatment_info,
+      GRM                     = GRM,
+      A                       = A,
+      id_map                  = id_map,
+      group_method            = group_method,
+      group_seed              = group_seed,
+      group_attempts          = group_attempts,
+      n_pcs_use               = n_pcs_use
     )
     
     if (!is.data.frame(group_assignment_sparse) ||
-        !all(c("Treatment", "AllocationGroup") %in% names(group_assignment_sparse))) {
+        !all(c("Treatment", "AllocationGroup") %in% names(group_assignment_sparse)))
       stop("`derive_allocation_groups()` must return a data frame with `Treatment` and `AllocationGroup`.")
-    }
-    
-    if (nrow(group_assignment_sparse) != n_sparse) {
+    if (nrow(group_assignment_sparse) != n_sparse)
       stop("`derive_allocation_groups()` did not return one row per sparse treatment.")
-    }
-    
-    if (any(is.na(group_assignment_sparse$AllocationGroup))) {
+    if (any(is.na(group_assignment_sparse$AllocationGroup)))
       stop("Missing allocation groups detected for sparse treatments.")
-    }
     
     group_assignment <- data.frame(
-      Treatment = treatments,
+      Treatment       = treatments,
       AllocationGroup = NA_character_,
       stringsAsFactors = FALSE
     )
-    
     group_assignment$AllocationGroup[
       match(group_assignment_sparse$Treatment, group_assignment$Treatment)
     ] <- as.character(group_assignment_sparse$AllocationGroup)
     
     if (n_common > 0L) {
-      if (!is.null(treatment_info) &&
-          is.data.frame(treatment_info) &&
-          allocation_group_source == "Family" &&
-          all(c("Treatment", "Family") %in% names(treatment_info))) {
-        common_group <- treatment_info$Family[match(common_treatments, treatment_info$Treatment)]
-        common_group[is.na(common_group)] <- "COMMON"
-        group_assignment$AllocationGroup[
-          match(common_treatments, group_assignment$Treatment)
-        ] <- common_group
+      common_grp <- if (!is.null(treatment_info) && is.data.frame(treatment_info) &&
+                        allocation_group_source == "Family" &&
+                        all(c("Treatment", "Family") %in% names(treatment_info))) {
+        grp <- treatment_info$Family[match(common_treatments, treatment_info$Treatment)]
+        grp[is.na(grp)] <- "COMMON"
+        grp
       } else {
-        group_assignment$AllocationGroup[
-          match(common_treatments, group_assignment$Treatment)
-        ] <- "COMMON"
+        rep("COMMON", n_common)
       }
+      group_assignment$AllocationGroup[
+        match(common_treatments, group_assignment$Treatment)
+      ] <- common_grp
     }
     
-    sparse_groups <- stats::setNames(
+    sparse_groups        <- stats::setNames(
       group_assignment$AllocationGroup[match(sparse_treatments, group_assignment$Treatment)],
       sparse_treatments
     )
     unique_sparse_groups <- unique(unname(sparse_groups))
-    n_groups <- length(unique_sparse_groups)
+    n_groups             <- length(unique_sparse_groups)
   }
   
   # ============================================================
-  # 6. Initialize allocation matrix
+  # 6. Initialise allocation matrix
   # ============================================================
-  alloc <- matrix(
-    0L,
-    nrow = n_treat,
-    ncol = n_env,
-    dimnames = list(treatments, environments)
-  )
-  
-  if (n_common > 0L) {
-    alloc[common_treatments, ] <- 1L
-  }
+  alloc <- matrix(0L, nrow = n_treat, ncol = n_env,
+                  dimnames = list(treatments, environments))
+  if (n_common > 0L) alloc[common_treatments, ] <- 1L
   
   # ============================================================
   # 7. Allocation
   # ============================================================
-  
-  # ---- 7A. Strict exact M4 constructor ----
+  # ------------------------------------------------------------------
+  # 7A. Strict exact M4 constructor (allow_approximate = FALSE)
+  # ------------------------------------------------------------------
   if (allocation_method == "balanced_incomplete" && !allow_approximate) {
     
     sparse_env_load <- stats::setNames(integer(n_env), environments)
     target_env_load <- stats::setNames(as.integer(k_sparse), environments)
-    line_rep <- stats::setNames(integer(n_sparse), sparse_treatments)
+    line_rep        <- stats::setNames(integer(n_sparse), sparse_treatments)
     
     group_env_current <- if (n_groups > 0L) {
       matrix(
@@ -598,22 +611,22 @@ allocate_sparse_met <- function(
         }
         
         if (n_groups > 0L) {
-          grp <- sparse_groups[[trt]]
+          grp         <- sparse_groups[[trt]]
           grp_presence <- group_env_current[grp, candidate_envs]
-          pref <- ifelse(grp_presence == 0L, 1L, 0L)
-          ord <- order(-pref, sparse_env_load[candidate_envs], candidate_envs)
-          chosen_env <- candidate_envs[ord][1L]
+          pref        <- ifelse(grp_presence == 0L, 1L, 0L)
+          ord         <- order(-pref, sparse_env_load[candidate_envs], candidate_envs)
+          chosen_env  <- candidate_envs[ord][1L]
           group_env_current[grp, chosen_env] <- 1L
         } else {
-          min_load <- min(sparse_env_load[candidate_envs])
-          best_envs <- candidate_envs[sparse_env_load[candidate_envs] == min_load]
+          min_load   <- min(sparse_env_load[candidate_envs])
+          best_envs  <- candidate_envs[sparse_env_load[candidate_envs] == min_load]
           chosen_env <- sample(best_envs, 1L)
         }
         
-        chosen_envs <- c(chosen_envs, chosen_env)
-        alloc[trt, chosen_env] <- 1L
-        sparse_env_load[chosen_env] <- sparse_env_load[chosen_env] + 1L
-        line_rep[trt] <- line_rep[trt] + 1L
+        chosen_envs                     <- c(chosen_envs, chosen_env)
+        alloc[trt, chosen_env]          <- 1L
+        sparse_env_load[chosen_env]     <- sparse_env_load[chosen_env] + 1L
+        line_rep[trt]                   <- line_rep[trt] + 1L
       }
     }
     
@@ -633,79 +646,66 @@ allocate_sparse_met <- function(
     
   } else {
     
-    # ---- 7B. Coverage-first + greedy fill for M3 and approximate M4 ----
-    
+    # ------------------------------------------------------------------
+    # 7B. Coverage-first + greedy fill (M3 and approximate M4)
+    # ------------------------------------------------------------------
     env_load <- colSums(alloc)
     
     if (n_sparse > 0L) {
-      group_env_current <- if (n_groups > 0L) {
-        matrix(
-          0L,
-          nrow = n_groups,
-          ncol = n_env,
-          dimnames = list(unique_sparse_groups, environments)
-        )
-      } else {
-        NULL
-      }
+      
+      group_env_current <- if (n_groups > 0L)
+        matrix(0L, nrow = n_groups, ncol = n_env,
+               dimnames = list(unique_sparse_groups, environments))
+      else NULL
       
       line_rep <- stats::setNames(integer(n_sparse), sparse_treatments)
       
       # Phase 1: force minimum coverage
       for (trt in sample(sparse_treatments)) {
-        spare <- k_vec - env_load
+        spare          <- k_vec - env_load
         candidate_envs <- environments[spare > 0L]
         
-        if (length(candidate_envs) == 0L) {
+        if (length(candidate_envs) == 0L)
           stop("Internal allocation error: insufficient capacity during forced minimum coverage.")
-        }
         
         if (n_groups > 0L) {
-          grp <- sparse_groups[[trt]]
+          grp          <- sparse_groups[[trt]]
           grp_presence <- group_env_current[grp, candidate_envs]
-          pref <- ifelse(grp_presence == 0L, 1L, 0L)
-          ord <- order(-pref, env_load[candidate_envs], candidate_envs)
-          chosen_env <- candidate_envs[ord][1L]
+          pref         <- ifelse(grp_presence == 0L, 1L, 0L)
+          ord          <- order(-pref, env_load[candidate_envs], candidate_envs)
+          chosen_env   <- candidate_envs[ord][1L]
           group_env_current[grp, chosen_env] <- 1L
         } else {
           chosen_env <- candidate_envs[which.min(env_load[candidate_envs])]
         }
         
         alloc[trt, chosen_env] <- 1L
-        env_load[chosen_env] <- env_load[chosen_env] + 1L
-        line_rep[trt] <- 1L
+        env_load[chosen_env]   <- env_load[chosen_env] + 1L
+        line_rep[trt]          <- 1L
       }
+      
     } else {
-      line_rep <- setNames(integer(0), character(0))
+      line_rep          <- stats::setNames(integer(0), character(0))
       group_env_current <- NULL
     }
     
     remaining_slots <- k_vec - env_load
-    env_order <- order(remaining_slots, decreasing = TRUE)
+    env_order       <- order(remaining_slots, decreasing = TRUE)
     
     group_current <- if (n_groups > 0L) {
-      gc <- stats::setNames(integer(n_groups), unique_sparse_groups)
+      gc             <- stats::setNames(integer(n_groups), unique_sparse_groups)
       sparse_assigned <- sparse_treatments[line_rep[sparse_treatments] > 0L]
       if (length(sparse_assigned) > 0L) {
         tt <- table(sparse_groups[sparse_assigned])
         gc[names(tt)] <- as.integer(tt)
       }
       gc
-    } else {
-      integer(0)
-    }
+    } else integer(0)
     
-    group_sizes <- if (n_groups > 0L) {
-      as.integer(table(sparse_groups))
-    } else {
-      integer(0)
-    }
-    
-    group_target <- if (n_groups > 0L) {
+    group_sizes  <- if (n_groups > 0L) as.integer(table(sparse_groups)) else integer(0)
+    group_target <- if (n_groups > 0L)
       stats::setNames(group_sizes * target_replications, names(table(sparse_groups)))
-    } else {
-      integer(0)
-    }
+    else integer(0)
     
     # Phase 2: fill remaining capacity
     for (e in env_order) {
@@ -716,62 +716,61 @@ allocate_sparse_met <- function(
         if (length(candidates) == 0L) break
         
         deficit <- target_replications - line_rep[candidates]
-        score <- as.numeric(deficit)
+        score   <- as.numeric(deficit)
         names(score) <- candidates
         
         if (n_groups > 0L && balance_groups_across_env) {
           cand_groups <- sparse_groups[candidates]
           size_lookup <- stats::setNames(group_sizes, names(group_target))
-          grp_term <- pmax(0, as.numeric(group_target[cand_groups] - group_current[cand_groups])) /
-            pmax(1, as.numeric(size_lookup[cand_groups]))
+          grp_term    <- pmax(0, as.numeric(
+            group_target[cand_groups] - group_current[cand_groups]
+          )) / pmax(1, as.numeric(size_lookup[cand_groups]))
           grp_term[is.na(grp_term)] <- 0
           score <- score + grp_term
         }
         
         if (n_groups > 0L && !is.null(min_groups_per_environment)) {
-          env_groups_now <- unique(
-            sparse_groups[sparse_treatments[alloc[sparse_treatments, env_name] == 1L]]
-          )
+          env_groups_now   <- unique(sparse_groups[sparse_treatments[
+            alloc[sparse_treatments, env_name] == 1L
+          ]])
           n_env_groups_now <- sum(!is.na(env_groups_now) & nzchar(env_groups_now))
-          cand_groups <- sparse_groups[candidates]
-          lacking_group_bonus <- ifelse(!(cand_groups %in% env_groups_now), 1, 0)
-          
-          if (n_env_groups_now < min(min_groups_per_environment, n_groups)) {
-            score <- score + 100 * lacking_group_bonus
-          } else {
-            score <- score + 5 * lacking_group_bonus
-          }
+          cand_groups      <- sparse_groups[candidates]
+          lacking_bonus    <- ifelse(!(cand_groups %in% env_groups_now), 1, 0)
+          bonus_weight     <- if (n_env_groups_now < min(min_groups_per_environment, n_groups))
+            100 else 5
+          score <- score + bonus_weight * lacking_bonus
         }
         
         if (n_groups > 0L && force_group_connectivity && !is.null(min_env_per_group)) {
           env_count_group <- rowSums(group_env_current > 0L)
-          cand_groups <- sparse_groups[candidates]
-          conn_term <- 50 * pmax(0, as.numeric(min_env_per_group - env_count_group[cand_groups]))
+          cand_groups     <- sparse_groups[candidates]
+          conn_term       <- 50 * pmax(0, as.numeric(
+            min_env_per_group - env_count_group[cand_groups]
+          ))
           conn_term[is.na(conn_term)] <- 0
           score <- score + conn_term
         }
         
-        if (allocation_method == "balanced_incomplete" && allow_approximate) {
+        if (allocation_method == "balanced_incomplete" && allow_approximate)
           score[deficit[names(score)] < 0] <- score[deficit[names(score)] < 0] - 1000
-        }
         
         max_score <- max(score)
-        best <- names(score)[score >= (max_score - 1e-8)]
+        best      <- names(score)[score >= (max_score - 1e-8)]
         
-        if (allocation_method == "random_balanced") {
-          chosen <- sample(best, 1L)
+        chosen <- if (allocation_method == "random_balanced") {
+          sample(best, 1L)
         } else {
           ord <- order(-score[best], line_rep[best], best)
-          chosen <- best[ord][1L]
+          best[ord][1L]
         }
         
         alloc[chosen, env_name] <- 1L
-        line_rep[chosen] <- line_rep[chosen] + 1L
-        env_load[env_name] <- env_load[env_name] + 1L
+        line_rep[chosen]        <- line_rep[chosen] + 1L
+        env_load[env_name]      <- env_load[env_name] + 1L
         
         if (n_groups > 0L) {
-          gp <- sparse_groups[[chosen]]
-          group_current[gp] <- group_current[gp] + 1L
+          gp                             <- sparse_groups[[chosen]]
+          group_current[gp]              <- group_current[gp] + 1L
           group_env_current[gp, env_name] <- 1L
         }
       }
@@ -781,16 +780,12 @@ allocate_sparse_met <- function(
   # ============================================================
   # 8. Outputs
   # ============================================================
-  allocation_long <- expand.grid(
-    Treatment = treatments,
-    Environment = environments,
-    stringsAsFactors = FALSE
-  )
-  
+  allocation_long <- expand.grid(Treatment   = treatments,
+                                 Environment = environments,
+                                 stringsAsFactors = FALSE)
   allocation_long$Assigned <- as.integer(
     alloc[cbind(allocation_long$Treatment, allocation_long$Environment)]
   )
-  
   allocation_long$IsCommonTreatment <- allocation_long$Treatment %in% common_treatments
   
   if (!is.null(group_assignment)) {
@@ -801,7 +796,7 @@ allocate_sparse_met <- function(
   
   line_replications <- rowSums(alloc)
   environment_sizes <- colSums(alloc)
-  overlap_matrix <- t(alloc) %*% alloc
+  overlap_matrix    <- t(alloc) %*% alloc
   
   group_by_environment <- NULL
   group_overlap_matrix <- NULL
@@ -815,91 +810,74 @@ allocate_sparse_met <- function(
     
     if (nrow(gbe) > 0L) {
       group_by_environment <- stats::aggregate(
-        Treatment ~ Environment + AllocationGroup,
-        data = gbe,
-        FUN = length
+        Treatment ~ Environment + AllocationGroup, data = gbe, FUN = length
       )
-      names(group_by_environment)[names(group_by_environment) == "Treatment"] <- "n_treatments"
+      names(group_by_environment)[
+        names(group_by_environment) == "Treatment"
+      ] <- "n_treatments"
       
-      all_groups <- unique(group_assignment$AllocationGroup[!is.na(group_assignment$AllocationGroup)])
-      group_env_incidence <- matrix(
-        0L,
-        nrow = n_env,
-        ncol = length(all_groups),
+      all_groups       <- unique(group_assignment$AllocationGroup[
+        !is.na(group_assignment$AllocationGroup)
+      ])
+      grp_env_incidence <- matrix(
+        0L, nrow = n_env, ncol = length(all_groups),
         dimnames = list(environments, all_groups)
       )
-      
-      for (i in seq_len(nrow(group_by_environment))) {
-        group_env_incidence[
+      for (i in seq_len(nrow(group_by_environment)))
+        grp_env_incidence[
           group_by_environment$Environment[i],
           group_by_environment$AllocationGroup[i]
         ] <- 1L
-      }
       
-      group_overlap_matrix <- group_env_incidence %*% t(group_env_incidence)
+      group_overlap_matrix <- grp_env_incidence %*% t(grp_env_incidence)
+      
     } else {
       group_by_environment <- data.frame(
-        Environment = character(0),
-        AllocationGroup = character(0),
-        n_treatments = integer(0),
-        stringsAsFactors = FALSE
+        Environment = character(0), AllocationGroup = character(0),
+        n_treatments = integer(0), stringsAsFactors = FALSE
       )
       group_overlap_matrix <- matrix(
-        0L,
-        nrow = n_env,
-        ncol = n_env,
+        0L, nrow = n_env, ncol = n_env,
         dimnames = list(environments, environments)
       )
     }
   }
   
-  sparse_replications <- if (n_sparse > 0L) {
-    line_replications[sparse_treatments]
-  } else {
-    integer(0)
-  }
+  sparse_replications <- if (n_sparse > 0L) line_replications[sparse_treatments] else integer(0)
+  common_replications <- if (n_common > 0L) line_replications[common_treatments] else integer(0)
   
-  common_replications <- if (n_common > 0L) {
-    line_replications[common_treatments]
-  } else {
-    integer(0)
-  }
   
-  summary <- list(
-    allocation_method = allocation_method,
-    allocation_group_source = allocation_group_source,
-    target_replications = target_replications,
-    n_treatments_total = n_treat,
-    n_sparse_treatments = n_sparse,
-    n_common_treatments = n_common,
-    total_sparse_slots = total_sparse_slots,
-    environment_sizes = environment_sizes,
-    
-    min_replication = if (length(line_replications)) min(line_replications) else NA_integer_,
-    max_replication = if (length(line_replications)) max(line_replications) else NA_integer_,
-    mean_replication = if (length(line_replications)) mean(line_replications) else NA_real_,
-    
-    min_sparse_replication = if (length(sparse_replications)) min(sparse_replications) else NA_integer_,
-    max_sparse_replication = if (length(sparse_replications)) max(sparse_replications) else NA_integer_,
-    mean_sparse_replication = if (length(sparse_replications)) mean(sparse_replications) else NA_real_,
-    
-    min_common_replication = if (length(common_replications)) min(common_replications) else NA_integer_,
-    max_common_replication = if (length(common_replications)) max(common_replications) else NA_integer_,
-    mean_common_replication = if (length(common_replications)) mean(common_replications) else NA_real_,
-    
-    n_groups = n_groups
+  summary_out <- list(
+    allocation_method        = allocation_method,
+    allocation_group_source  = allocation_group_source,
+    target_replications      = target_replications,
+    n_treatments_total       = n_treat,
+    n_sparse_treatments      = n_sparse,
+    n_common_treatments      = n_common,
+    total_sparse_slots       = total_sparse_slots,
+    environment_sizes        = environment_sizes,
+    min_replication          = if (length(line_replications))  min(line_replications)  else NA_integer_,
+    max_replication          = if (length(line_replications))  max(line_replications)  else NA_integer_,
+    mean_replication         = if (length(line_replications))  mean(line_replications) else NA_real_,
+    min_sparse_replication   = if (length(sparse_replications)) min(sparse_replications)  else NA_integer_,
+    max_sparse_replication   = if (length(sparse_replications)) max(sparse_replications)  else NA_integer_,
+    mean_sparse_replication  = if (length(sparse_replications)) mean(sparse_replications) else NA_real_,
+    min_common_replication   = if (length(common_replications)) min(common_replications)  else NA_integer_,
+    max_common_replication   = if (length(common_replications)) max(common_replications)  else NA_integer_,
+    mean_common_replication  = if (length(common_replications)) mean(common_replications) else NA_real_,
+    n_groups                 = n_groups
   )
   
   list(
-    allocation_matrix = alloc,
-    allocation_long = allocation_long,
-    overlap_matrix = overlap_matrix,
-    line_replications = line_replications,
-    environment_sizes = environment_sizes,
-    group_assignment = group_assignment,
+    allocation_matrix    = alloc,
+    allocation_long      = allocation_long,
+    overlap_matrix       = overlap_matrix,
+    line_replications    = line_replications,
+    environment_sizes    = environment_sizes,
+    group_assignment     = group_assignment,
     group_by_environment = group_by_environment,
     group_overlap_matrix = group_overlap_matrix,
-    summary = summary,
-    seed_used = seed_used
+    summary              = summary_out,
+    seed_used            = seed_used
   )
 }

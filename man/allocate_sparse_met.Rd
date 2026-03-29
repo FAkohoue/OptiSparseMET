@@ -38,8 +38,8 @@ values are silently removed.}
 least two elements. Duplicate values are silently removed.}
 
 \item{allocation_method}{Character scalar. Sparse allocation strategy.
-Accepted values are \code{"random_balanced"} (M3-type stochastic allocation)
-and \code{"balanced_incomplete"} (M4-type BIBD-inspired allocation). The
+Accepted values are \code{"random_balanced"} (M3-inspired stochastic
+allocation) and \code{"balanced_incomplete"} (M4-type BIBD allocation). The
 aliases \code{"M3"} and \code{"M4"} are also accepted and translated internally to
 their canonical names before any further processing.}
 
@@ -122,11 +122,14 @@ assigns treatments from groups that have not yet appeared in
 \code{min_env_per_group} environments. Active when \code{allocation_group_source} is
 not \code{"none"} and \code{min_env_per_group} is not \code{NULL}.}
 
-\item{allow_approximate}{Logical, default \code{FALSE}. When \code{FALSE}, an
-infeasible exact balanced incomplete allocation triggers an error. When
-\code{TRUE}, the function falls back to the closest feasible approximate
-allocation. For \code{"random_balanced"}, this argument has no effect on the
-error behaviour since that strategy never requires exact balance.}
+\item{allow_approximate}{Logical, default \code{FALSE}. When \code{FALSE} and
+\code{allocation_method = "balanced_incomplete"}, the slot identity
+\eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
+with an error if it does not. This is the standard M4 path and guarantees
+equal replication for every non-common treatment. When \code{TRUE}, the slot
+identity is not enforced and minor replication imbalances are accepted; this
+is a relaxed fallback for exploratory use, not the primary mode. For
+\code{"random_balanced"}, this argument has no effect.}
 
 \item{seed}{Optional integer. Random seed for reproducibility. Controls
 the random order in which sparse treatments are processed in phase one
@@ -175,35 +178,41 @@ groups between each pair of environments. \code{NULL} when
 \code{environment_sizes}, \code{min_replication}, \code{max_replication},
 \code{mean_replication}, \code{min_sparse_replication}, \code{max_sparse_replication},
 \code{mean_sparse_replication}, \code{min_common_replication},
-\code{max_common_replication}, \code{mean_common_replication}, and \code{n_groups}.
-The overall replication summaries include common treatments, whereas the
-sparse-only summaries reflect the quantities relevant for strict M4
-equality checks.}
+\code{max_common_replication}, and \code{mean_common_replication}.}
 \item{\code{seed_used}}{The integer seed passed to \code{set.seed()} internally, or
 \code{NULL} if no seed was supplied.}
 }
 }
 \description{
 Two allocation strategies are available. \code{"random_balanced"} implements an
-M3-type stochastic allocation that approximates balance without requiring
-exact BIBD parameters to be satisfiable — appropriate when environment
+M3-inspired stochastic allocation that approximates balance without requiring
+exact BIBD parameters to be satisfiable -- appropriate when environment
 capacities differ or when the trial dimensions do not admit an exact balanced
-solution. \code{"balanced_incomplete"} implements an M4-type allocation following
-BIBD principles at the MET level. When \code{allow_approximate = FALSE} and the
-slot identity is satisfied, the function uses an exact constructor that
-enforces equal replication of all non-common treatments. When
-\code{allow_approximate = TRUE}, it relaxes exact balance and constructs the
-closest feasible allocation.
+solution. Unlike the original M3 of Montesinos-Lopez et al. (2023), which
+allocates location by location and may silently leave some lines with fewer
+than \eqn{r} replications, this implementation uses a two-phase
+coverage-first strategy that additionally guarantees every non-common
+treatment appears in at least one environment before replication filling
+begins.
 
-Allocation proceeds in two phases for \code{"random_balanced"} and approximate
-\code{"balanced_incomplete"}. Phase one guarantees that every non-common
-treatment appears in at least one environment, distributing treatments across
-environments with awareness of genetic group structure when
-\code{allocation_group_source} is not \code{"none"}. Phase two fills the remaining
-capacity in each environment up to \code{n_test_entries_per_environment}, guided
-by replication targets and group-balance penalties. For strict
-\code{"balanced_incomplete"} (\code{allow_approximate = FALSE}), allocation is carried
-out by a separate exact constructor rather than the two-phase heuristic.
+The \code{"balanced_incomplete"} method implements the M4 allocation of
+Montesinos-Lopez et al. (2023): every non-common treatment appears in
+exactly \eqn{r} environments (equal replication) and every environment
+receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
+so the resource identity \eqn{J^* \times r = I \times k^*} holds exactly.
+This equal-replication, equal-environment-size guarantee is what
+distinguishes M4 from M3 in the paper, and is always the goal in plant
+breeding programs where thousands of lines are tested across a few
+environments.
+
+\code{allow_approximate = FALSE} (the default) is the standard M4 path: the
+slot identity must hold exactly, and the function stops with an informative
+error if it cannot be met, so the caller always knows whether equal
+replication was achieved. Construction first tries \code{crossdes::find.BIB()}
+(if \pkg{crossdes} is installed), then falls back to a greedy
+load-balanced constructor. \code{allow_approximate = TRUE} relaxes the slot
+identity and allows minor replication imbalances across lines; it is a
+fallback for exploratory use, not the intended primary path.
 
 Before allocation begins, the function calls
 \code{.check_full_coverage_feasibility()} to verify that the total number of
@@ -225,7 +234,7 @@ replication slots.
 \subsection{Relation to sparse testing theory}{
 
 The allocation strategies implemented here correspond to M3 and M4 in
-Montesinos-López et al. (2023). The underlying resource identity is:
+Montesinos-Lopez et al. (2023). The underlying resource identity is:
 
 \deqn{N = J \times r = I \times k}
 
@@ -264,6 +273,18 @@ fills each to its target, guided by line-level replication deficit scores and
 group-balance penalties.
 }
 
+\subsection{Within-environment layout}{
+
+Once allocation is complete, the set of treatments assigned to each
+environment is passed to the within-environment design function.
+\code{\link[=met_prep_famoptg]{met_prep_famoptg()}} constructs repeated-check augmented, partially
+replicated (p-rep), and RCBD-type block designs. \code{\link[=met_alpha_rc_stream]{met_alpha_rc_stream()}}
+constructs stream-based alpha row-column designs for fixed-grid field
+geometry. Both accept output from \code{\link[=assign_replication_by_seed]{assign_replication_by_seed()}} directly.
+The end-to-end pipeline that coordinates allocation and local design
+construction is \code{\link[=plan_sparse_met_design]{plan_sparse_met_design()}}.
+}
+
 \subsection{Allocation groups}{
 
 When \code{allocation_group_source} is not \code{"none"}, both phases use genetic
@@ -277,20 +298,34 @@ groups that have not yet reached \code{min_env_per_group}
 within these group-level constraints.
 }
 
-\subsection{Feasibility of balanced incomplete allocation}{
+\subsection{M4 allocation and the role of allow_approximate}{
 
-For a fully balanced incomplete allocation, the total number of sparse slots
-must satisfy:
+The M4 method (Montesinos-Lopez et al., 2023) enforces two conditions:
 
-\deqn{\sum_{e=1}^{I} k_e^* = J^* \times r}
+\enumerate{
+\item Equal replication: every non-common treatment appears in exactly
+\eqn{r} environments.
+\item Equal environment sizes: every environment receives exactly
+\eqn{k^*} sparse treatments, so \eqn{J^* \times r = I \times k^*}.
+}
 
-where \eqn{J^*} is the number of non-common treatments and \eqn{r} is the
-target replication. When this equality does not hold and
-\code{allow_approximate = FALSE}, the function stops. When the equality holds and
-\code{allow_approximate = FALSE}, the function attempts an exact constructor that
-enforces equal replication for all non-common treatments. When
-\code{allow_approximate = TRUE}, the function constructs the closest feasible
-allocation, accepting minor deviations from perfect balance.
+\code{allow_approximate = FALSE} (the default) enforces both conditions strictly.
+If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
+the chosen \code{n_test_entries_per_environment} and \code{target_replications}, the
+function stops with an informative error. Use
+\code{\link[=check_balanced_incomplete_feasibility]{check_balanced_incomplete_feasibility()}} to verify the slot identity before
+calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
+I \times k^*}. Construction first tries \code{crossdes::find.BIB()} (if
+\pkg{crossdes} is installed), then falls back to a greedy load-balanced
+constructor that guarantees equal replication even when \pkg{crossdes} is
+absent.
+
+\code{allow_approximate = TRUE} relaxes the slot identity: the function
+constructs the most balanced allocation it can without stopping on
+infeasibility, accepting that some lines may receive more or fewer
+replications than \eqn{r}. This mode is useful for exploratory analysis
+but does not provide the equal-replication guarantee that is the defining
+property of M4.
 }
 }
 \examples{
@@ -325,9 +360,11 @@ out1$summary
 head(out1$allocation_long)
 head(out1$group_by_environment)
 
-## Example 2: strict balanced incomplete allocation with common treatments.
-## Here the sparse slot totals are exactly feasible, so all non-common
-## treatments are replicated exactly `target_replications` times.
+## Example 2: M4 balanced incomplete allocation (paper method).
+## Equal replication (r=2) and equal environment sizes (k*=55 per env).
+## Slot identity: J* x r = I x k* => 110 x 2 = 4 x 55 = 220. Valid.
+## allow_approximate = FALSE enforces the slot identity strictly, stopping
+## with an error if it is not met (the default safe behaviour).
 out2 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
@@ -340,13 +377,16 @@ out2 <- allocate_sparse_met(
 )
 
 out2$summary
+# Every sparse line appears in exactly 2 environments
+range(out2$line_replications[!(names(out2$line_replications) \%in\%
+                                treatments[1:10])])
 
 }
 \references{
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
-Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic
+Montesinos-Lopez, O. A., Mosqueda-Gonzalez, B. A., Salinas-Ruiz, J.,
+Montesinos-Lopez, A., & Crossa, J. (2023). Sparse multi-trait genomic
 prediction under balanced incomplete block design. \emph{The Plant Genome},
-16, e20305.
+16, e20305. \doi{10.1002/tpg2.20305}
 }
 \seealso{
 \code{\link[=suggest_safe_k]{suggest_safe_k()}} and \code{\link[=min_k_for_full_coverage]{min_k_for_full_coverage()}} for choosing a feasible
@@ -355,4 +395,7 @@ prediction under balanced incomplete block design. \emph{The Plant Genome},
 before attempting a \code{"balanced_incomplete"} allocation.
 \code{\link[=derive_allocation_groups]{derive_allocation_groups()}} for inspecting the group structure that guides
 allocation when \code{allocation_group_source} is not \code{"none"}.
+\code{\link[=met_prep_famoptg]{met_prep_famoptg()}} and \code{\link[=met_alpha_rc_stream]{met_alpha_rc_stream()}} for the within-environment
+design functions that consume the allocation output.
+\code{\link[=plan_sparse_met_design]{plan_sparse_met_design()}} for the end-to-end two-stage MET pipeline.
 }

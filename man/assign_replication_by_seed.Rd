@@ -41,15 +41,15 @@ feasibility thresholds.}
 
 \item{replication_mode}{Character. Design mode controlling how the function
 partitions treatments into roles. One of:
-\itemize{
-\item \code{"augmented"}: targets one unreplicated plot per treatment.
-\item \code{"p_rep"}: targets replication for a feasible subset, unreplicated for
-the remainder.
-\item \code{"rcbd_type"}: targets \code{desired_replications} plots for all treatments.
+\describe{
+\item{\code{"augmented"}}{Targets one unreplicated plot per treatment.}
+\item{\code{"p_rep"}}{Targets replication for a feasible subset; unreplicated
+for the remainder.}
+\item{\code{"rcbd_type"}}{Targets \code{desired_replications} plots for all
+treatments.}
 }
-
 The selected mode must be consistent with the field design intended for the
-environment. \code{prep_famoptg()} interprets the output roles directly.}
+environment. \code{\link[=met_prep_famoptg]{met_prep_famoptg()}} interprets the output roles directly.}
 
 \item{desired_replications}{Positive integer. Number of plots requested for
 replicated treatments. In \code{"augmented"} mode this value is not used for
@@ -66,13 +66,12 @@ modes.}
 \item{priority}{Character. Selection rule for determining which candidate
 treatments are replicated in \code{"p_rep"} mode when the feasible candidate
 pool exceeds \code{max_prep}. One of:
-\itemize{
-\item \code{"seed_available"}: ranks by descending seed quantity, breaking ties by
-position in \code{treatments}.
-\item \code{"input_order"}: follows the order of \code{treatments} as supplied.
-\item \code{"random"}: draws uniformly at random from feasible candidates.
+\describe{
+\item{\code{"seed_available"}}{Ranks by descending seed quantity, breaking ties
+by position in \code{treatments}.}
+\item{\code{"input_order"}}{Follows the order of \code{treatments} as supplied.}
+\item{\code{"random"}}{Draws uniformly at random from feasible candidates.}
 }
-
 Ignored in \code{"augmented"} and \code{"rcbd_type"} modes.}
 
 \item{minimum_seed_buffer}{Non-negative numeric scalar. Additional seed
@@ -90,13 +89,13 @@ availability. Ignored in \code{"augmented"} and \code{"rcbd_type"} modes.}
 
 \item{shortage_action}{Character. Action taken when a treatment has
 insufficient seed for its target role. One of:
-\itemize{
-\item \code{"error"}: stops immediately with an informative message listing the
-affected treatments.
-\item \code{"downgrade"}: reduces the role to \code{"unreplicated"} if the single-plot
-feasibility condition is met; otherwise assigns \code{"excluded"}. Applies in
-\code{"rcbd_type"} mode only.
-\item \code{"exclude"}: removes the treatment from the design.
+\describe{
+\item{\code{"error"}}{Stops immediately with an informative message listing the
+affected treatments.}
+\item{\code{"downgrade"}}{Reduces the role to \code{"unreplicated"} if the
+single-plot feasibility condition is met; otherwise assigns \code{"excluded"}.
+Applies in \code{"rcbd_type"} mode only.}
+\item{\code{"exclude"}}{Removes the treatment from the design.}
 }}
 
 \item{seed}{Optional integer. Random seed for reproducibility. Affects
@@ -150,10 +149,10 @@ insufficient seed are handled according to \code{shortage_action}.
 \details{
 \code{assign_replication_by_seed()} evaluates seed feasibility for each
 non-check treatment assigned to a single environment and partitions those
-treatments into replication roles — replicated, unreplicated, or excluded —
+treatments into replication roles -- replicated, unreplicated, or excluded --
 according to the requested design mode and the available seed quantity per
-treatment. The output is intended as direct input to \code{prep_famoptg()}, which
-constructs the within-environment field layout from the resulting role
+treatment. The output is intended as direct input to \code{\link[=met_prep_famoptg]{met_prep_famoptg()}},
+which constructs the within-environment field layout from the resulting role
 assignments.
 
 Let \eqn{s_i} be the seed available for treatment \eqn{i}, \eqn{q} the seed
@@ -217,7 +216,7 @@ seed_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-## Example 1: p_rep mode — replicate the 4 best-seeded candidates
+## Example 1: p_rep mode -- replicate the 4 best-seeded candidates
 ## at 2 reps; remaining feasible treatments receive one plot.
 out1 <- assign_replication_by_seed(
   treatments             = treatments,
@@ -229,12 +228,12 @@ out1 <- assign_replication_by_seed(
   max_prep               = 4
 )
 
-out1$p_rep_treatments       # L001–L004: sufficient seed for 2 plots each
+out1$p_rep_treatments       # L001-L004: sufficient seed for 2 plots each
 out1$unreplicated_treatments # remaining feasible treatments
 out1$excluded_treatments     # treatments with seed < 10
 out1$seed_summary
 
-## Example 2: rcbd_type mode with downgrade — all treatments targeted for
+## Example 2: rcbd_type mode with downgrade -- all treatments targeted for
 ## 3 reps; those below threshold are downgraded to 1 rep or excluded.
 out2 <- assign_replication_by_seed(
   treatments             = treatments,
@@ -250,7 +249,7 @@ out2$unreplicated_treatments # treatments with 10 <= seed < 30
 out2$excluded_treatments     # treatments with seed < 10
 out2$seed_summary
 
-## Example 3: augmented mode with a seed buffer — each treatment gets one
+## Example 3: augmented mode with a seed buffer -- each treatment gets one
 ## plot; a buffer of 5 seeds is reserved per treatment before feasibility
 ## is assessed.
 out3 <- assign_replication_by_seed(
@@ -265,4 +264,10 @@ out3$unreplicated_treatments # treatments with seed >= 15
 out3$excluded_treatments     # treatments with seed < 15
 out3$seed_summary
 
+}
+\seealso{
+\code{\link[=met_prep_famoptg]{met_prep_famoptg()}} to construct the within-environment field
+layout using the role assignments produced by this function.
+\code{\link[=plan_sparse_met_design]{plan_sparse_met_design()}} for the end-to-end pipeline which calls this
+function internally when seed-aware replication is requested.
 }

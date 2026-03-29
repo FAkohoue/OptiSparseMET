@@ -45,11 +45,11 @@ insufficient seed are handled according to shortage_action.'><meta property="og:
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,6 +59,7 @@ insufficient seed are handled according to shortage_action.'><meta property="og:
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Vignettes</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
       </ul></div>
 
@@ -141,12 +142,20 @@ feasibility thresholds.</p></dd>
 
 <dt id="arg-replication-mode">replication_mode<a class="anchor" aria-label="anchor" href="#arg-replication-mode"></a></dt>
 <dd><p>Character. Design mode controlling how the function
-partitions treatments into roles. One of:</p><ul><li><p><code>"augmented"</code>: targets one unreplicated plot per treatment.</p></li>
-<li><p><code>"p_rep"</code>: targets replication for a feasible subset, unreplicated for
-the remainder.</p></li>
-<li><p><code>"rcbd_type"</code>: targets <code>desired_replications</code> plots for all treatments.</p></li>
-</ul><p>The selected mode must be consistent with the field design intended for the
-environment. <code><a href="prep_famoptg.html">prep_famoptg()</a></code> interprets the output roles directly.</p></dd>
+partitions treatments into roles. One of:</p><dl><dt><code>"augmented"</code></dt>
+<dd><p>Targets one unreplicated plot per treatment.</p></dd>
+
+<dt><code>"p_rep"</code></dt>
+<dd><p>Targets replication for a feasible subset; unreplicated
+for the remainder.</p></dd>
+
+<dt><code>"rcbd_type"</code></dt>
+<dd><p>Targets <code>desired_replications</code> plots for all
+treatments.</p></dd>
+
+
+</dl><p>The selected mode must be consistent with the field design intended for the
+environment. <code><a href="met_prep_famoptg.html">met_prep_famoptg()</a></code> interprets the output roles directly.</p></dd>
 
 
 <dt id="arg-desired-replications">desired_replications<a class="anchor" aria-label="anchor" href="#arg-desired-replications"></a></dt>
@@ -168,11 +177,18 @@ modes.</p></dd>
 <dt id="arg-priority">priority<a class="anchor" aria-label="anchor" href="#arg-priority"></a></dt>
 <dd><p>Character. Selection rule for determining which candidate
 treatments are replicated in <code>"p_rep"</code> mode when the feasible candidate
-pool exceeds <code>max_prep</code>. One of:</p><ul><li><p><code>"seed_available"</code>: ranks by descending seed quantity, breaking ties by
-position in <code>treatments</code>.</p></li>
-<li><p><code>"input_order"</code>: follows the order of <code>treatments</code> as supplied.</p></li>
-<li><p><code>"random"</code>: draws uniformly at random from feasible candidates.</p></li>
-</ul><p>Ignored in <code>"augmented"</code> and <code>"rcbd_type"</code> modes.</p></dd>
+pool exceeds <code>max_prep</code>. One of:</p><dl><dt><code>"seed_available"</code></dt>
+<dd><p>Ranks by descending seed quantity, breaking ties
+by position in <code>treatments</code>.</p></dd>
+
+<dt><code>"input_order"</code></dt>
+<dd><p>Follows the order of <code>treatments</code> as supplied.</p></dd>
+
+<dt><code>"random"</code></dt>
+<dd><p>Draws uniformly at random from feasible candidates.</p></dd>
+
+
+</dl><p>Ignored in <code>"augmented"</code> and <code>"rcbd_type"</code> modes.</p></dd>
 
 
 <dt id="arg-minimum-seed-buffer">minimum_seed_buffer<a class="anchor" aria-label="anchor" href="#arg-minimum-seed-buffer"></a></dt>
@@ -194,13 +210,20 @@ availability. Ignored in <code>"augmented"</code> and <code>"rcbd_type"</code> m
 
 <dt id="arg-shortage-action">shortage_action<a class="anchor" aria-label="anchor" href="#arg-shortage-action"></a></dt>
 <dd><p>Character. Action taken when a treatment has
-insufficient seed for its target role. One of:</p><ul><li><p><code>"error"</code>: stops immediately with an informative message listing the
-affected treatments.</p></li>
-<li><p><code>"downgrade"</code>: reduces the role to <code>"unreplicated"</code> if the single-plot
-feasibility condition is met; otherwise assigns <code>"excluded"</code>. Applies in
-<code>"rcbd_type"</code> mode only.</p></li>
-<li><p><code>"exclude"</code>: removes the treatment from the design.</p></li>
-</ul></dd>
+insufficient seed for its target role. One of:</p><dl><dt><code>"error"</code></dt>
+<dd><p>Stops immediately with an informative message listing the
+affected treatments.</p></dd>
+
+<dt><code>"downgrade"</code></dt>
+<dd><p>Reduces the role to <code>"unreplicated"</code> if the
+single-plot feasibility condition is met; otherwise assigns <code>"excluded"</code>.
+Applies in <code>"rcbd_type"</code> mode only.</p></dd>
+
+<dt><code>"exclude"</code></dt>
+<dd><p>Removes the treatment from the design.</p></dd>
+
+
+</dl></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -252,10 +275,10 @@ none was supplied.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><code>assign_replication_by_seed()</code> evaluates seed feasibility for each
 non-check treatment assigned to a single environment and partitions those
-treatments into replication roles — replicated, unreplicated, or excluded —
+treatments into replication roles – replicated, unreplicated, or excluded –
 according to the requested design mode and the available seed quantity per
-treatment. The output is intended as direct input to <code><a href="prep_famoptg.html">prep_famoptg()</a></code>, which
-constructs the within-environment field layout from the resulting role
+treatment. The output is intended as direct input to <code><a href="met_prep_famoptg.html">met_prep_famoptg()</a></code>,
+which constructs the within-environment field layout from the resulting role
 assignments.</p>
 <p>Let \(s_i\) be the seed available for treatment \(i\), \(q\) the seed
 required per plot, \(r\) the requested replication count
@@ -306,6 +329,13 @@ condition is met, or excludes it otherwise.</p>
 </ul></div>
 
     </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="met_prep_famoptg.html">met_prep_famoptg()</a></code> to construct the within-environment field
+layout using the role assignments produced by this function.
+<code><a href="plan_sparse_met_design.html">plan_sparse_met_design()</a></code> for the end-to-end pipeline which calls this
+function internally when seed-aware replication is requested.</p></div>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -317,7 +347,7 @@ condition is met, or excludes it otherwise.</p>
 <span class="r-in"><span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 1: p_rep mode — replicate the 4 best-seeded candidates</span></span></span>
+<span class="r-in"><span><span class="co">## Example 1: p_rep mode -- replicate the 4 best-seeded candidates</span></span></span>
 <span class="r-in"><span><span class="co">## at 2 reps; remaining feasible treatments receive one plot.</span></span></span>
 <span class="r-in"><span><span class="va">out1</span> <span class="op">&lt;-</span> <span class="fu">assign_replication_by_seed</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  treatments             <span class="op">=</span> <span class="va">treatments</span>,</span></span>
@@ -329,7 +359,7 @@ condition is met, or excludes it otherwise.</p>
 <span class="r-in"><span>  max_prep               <span class="op">=</span> <span class="fl">4</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">out1</span><span class="op">$</span><span class="va">p_rep_treatments</span>       <span class="co"># L001–L004: sufficient seed for 2 plots each</span></span></span>
+<span class="r-in"><span><span class="va">out1</span><span class="op">$</span><span class="va">p_rep_treatments</span>       <span class="co"># L001-L004: sufficient seed for 2 plots each</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "L001" "L002" "L003" "L004"</span>
 <span class="r-in"><span><span class="va">out1</span><span class="op">$</span><span class="va">unreplicated_treatments</span> <span class="co"># remaining feasible treatments</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "L005" "L006" "L007" "L008" "L009" "L010"</span>
@@ -359,7 +389,7 @@ condition is met, or excludes it otherwise.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9  unreplicated</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10 unreplicated</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 2: rcbd_type mode with downgrade — all treatments targeted for</span></span></span>
+<span class="r-in"><span><span class="co">## Example 2: rcbd_type mode with downgrade -- all treatments targeted for</span></span></span>
 <span class="r-in"><span><span class="co">## 3 reps; those below threshold are downgraded to 1 rep or excluded.</span></span></span>
 <span class="r-in"><span><span class="va">out2</span> <span class="op">&lt;-</span> <span class="fu">assign_replication_by_seed</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  treatments             <span class="op">=</span> <span class="va">treatments</span>,</span></span>
@@ -400,7 +430,7 @@ condition is met, or excludes it otherwise.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9  unreplicated</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10 unreplicated</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co">## Example 3: augmented mode with a seed buffer — each treatment gets one</span></span></span>
+<span class="r-in"><span><span class="co">## Example 3: augmented mode with a seed buffer -- each treatment gets one</span></span></span>
 <span class="r-in"><span><span class="co">## plot; a buffer of 5 seeds is reserved per treatment before feasibility</span></span></span>
 <span class="r-in"><span><span class="co">## is assessed.</span></span></span>
 <span class="r-in"><span><span class="va">out3</span> <span class="op">&lt;-</span> <span class="fu">assign_replication_by_seed</span><span class="op">(</span></span></span>
@@ -446,7 +476,7 @@ condition is met, or excludes it otherwise.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

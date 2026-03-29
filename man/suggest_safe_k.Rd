@@ -68,3 +68,8 @@ suggest_safe_k(
 )
 
 }
+\seealso{
+\code{\link[=min_k_for_full_coverage]{min_k_for_full_coverage()}} for the strict minimum without a buffer.
+\code{\link[=warn_if_k_too_small]{warn_if_k_too_small()}} to check an existing capacity non-fatally.
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} for the allocation function this feeds into.
+}

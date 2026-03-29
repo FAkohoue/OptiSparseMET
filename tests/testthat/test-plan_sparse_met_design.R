@@ -3,17 +3,14 @@
 # Compatible with automatic replication detection + efficiency capture
 # ============================================================
 
-library(testthat)
-library(OptiSparseMET)
-
 # ============================================================
 # plan_sparse_met_design(): output structure
 # ============================================================
 
 test_that("plan_sparse_met_design returns a correctly structured list", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -27,9 +24,9 @@ test_that("plan_sparse_met_design returns a correctly structured list", {
     seed_required_per_plot         = x$seed_required_per_plot,
     seed                           = 123
   )
-  
+
   expect_true(is.list(out))
-  
+
   expected_keys <- c(
     "sparse_allocation",
     "environment_designs",
@@ -40,9 +37,9 @@ test_that("plan_sparse_met_design returns a correctly structured list", {
     "summary",
     "seed_used"
   )
-  
+
   expect_setequal(names(out), expected_keys)
-  
+
   expect_true(is.list(out$environment_designs))
   expect_true(is.data.frame(out$combined_field_book))
   expect_true(is.data.frame(out$environment_summary))
@@ -55,9 +52,9 @@ test_that("plan_sparse_met_design returns a correctly structured list", {
 # ============================================================
 
 test_that("plan_sparse_met_design produces a design for every environment", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -69,12 +66,12 @@ test_that("plan_sparse_met_design produces a design for every environment", {
     treatment_info                 = x$treatment_info,
     seed                           = 123
   )
-  
+
   expect_setequal(
     names(out$environment_designs),
     x$environments
   )
-  
+
   expect_setequal(
     out$environment_summary$Environment,
     x$environments
@@ -87,9 +84,9 @@ test_that("plan_sparse_met_design produces a design for every environment", {
 # ============================================================
 
 test_that("combined_field_book contains required MET-level columns", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -103,9 +100,9 @@ test_that("combined_field_book contains required MET-level columns", {
     seed_required_per_plot         = x$seed_required_per_plot,
     seed                           = 123
   )
-  
+
   fb <- out$combined_field_book
-  
+
   required_cols <- c(
     "Environment",
     "Treatment",
@@ -120,7 +117,7 @@ test_that("combined_field_book contains required MET-level columns", {
     "ReplicationMode",
     "SparseMethod"
   )
-  
+
   expect_true(all(required_cols %in% names(fb)))
 })
 
@@ -130,9 +127,9 @@ test_that("combined_field_book contains required MET-level columns", {
 # ============================================================
 
 test_that("combined_field_book covers all environments", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -144,7 +141,7 @@ test_that("combined_field_book covers all environments", {
     treatment_info                 = x$treatment_info,
     seed                           = 123
   )
-  
+
   expect_setequal(
     unique(out$combined_field_book$Environment),
     x$environments
@@ -157,9 +154,9 @@ test_that("combined_field_book covers all environments", {
 # ============================================================
 
 test_that("IsCommonTreatment flag is correct", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -171,9 +168,9 @@ test_that("IsCommonTreatment flag is correct", {
     treatment_info                 = x$treatment_info,
     seed                           = 123
   )
-  
+
   fb <- out$combined_field_book
-  
+
   expect_true(
     all(
       fb$IsCommonTreatment[
@@ -181,7 +178,7 @@ test_that("IsCommonTreatment flag is correct", {
       ]
     )
   )
-  
+
   expect_true(
     all(
       !fb$IsCommonTreatment[
@@ -197,9 +194,9 @@ test_that("IsCommonTreatment flag is correct", {
 # ============================================================
 
 test_that("efficiency_summary has expected structure", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -211,11 +208,11 @@ test_that("efficiency_summary has expected structure", {
     treatment_info                 = x$treatment_info,
     seed                           = 123
   )
-  
+
   eff <- out$efficiency_summary
-  
+
   expect_true(is.data.frame(eff))
-  
+
   required_cols <- c(
     "Environment",
     "LocalDesign",
@@ -223,7 +220,7 @@ test_that("efficiency_summary has expected structure", {
     "Value",
     "ValueType"
   )
-  
+
   expect_true(all(required_cols %in% names(eff)))
 })
 
@@ -233,9 +230,9 @@ test_that("efficiency_summary has expected structure", {
 # ============================================================
 
 test_that("environment_summary contains efficiency columns", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   out <- plan_sparse_met_design(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -247,9 +244,9 @@ test_that("environment_summary contains efficiency columns", {
     treatment_info                 = x$treatment_info,
     seed                           = 123
   )
-  
+
   env_sum <- out$environment_summary
-  
+
   expect_true(all(
     c("has_efficiency", "eff_A", "eff_D", "eff_mean_PEV") %in% names(env_sum)
   ))
@@ -261,15 +258,15 @@ test_that("environment_summary contains efficiency columns", {
 # ============================================================
 
 test_that("error if env_design_specs missing environment", {
-  
+
   x <- make_example_sparsemet_data()
-  
+
   bad_specs <- x$env_design_specs[-1]
-  
+
   expect_error(
     plan_sparse_met_design(
-      treatments = x$treatments,
-      environments = x$environments,
+      treatments       = x$treatments,
+      environments     = x$environments,
       env_design_specs = bad_specs
     )
   )
@@ -277,73 +274,73 @@ test_that("error if env_design_specs missing environment", {
 
 
 # ============================================================
-# combine_met_fieldbooks basic structure
+# combine_met_fieldbooks: basic structure
 # ============================================================
 
 test_that("combine_met_fieldbooks returns expected structure", {
-  
+
   fb_E1 <- data.frame(
-    Treatment = c("L001","L002","CHK1"),
-    Family=c("F1","F2","CHECK"),
-    Block=1L,
-    Plot=1:3,
-    Row=1L,
-    Column=1:3
+    Treatment = c("L001", "L002", "CHK1"),
+    Family    = c("F1", "F2", "CHECK"),
+    Block     = 1L,
+    Plot      = 1:3,
+    Row       = 1L,
+    Column    = 1:3
   )
-  
+
   fb_E2 <- data.frame(
-    Treatment=c("L003","L004","CHK1"),
-    Family=c("F3","F4","CHECK"),
-    Block=1L,
-    Plot=1:3,
-    Row=1L,
-    Column=1:3
+    Treatment = c("L003", "L004", "CHK1"),
+    Family    = c("F3", "F4", "CHECK"),
+    Block     = 1L,
+    Plot      = 1:3,
+    Row       = 1L,
+    Column    = 1:3
   )
-  
+
   out <- combine_met_fieldbooks(
-    field_books=list(E1=fb_E1,E2=fb_E2),
-    local_designs=c(E1="prep_famoptg",E2="prep_famoptg"),
-    replication_modes=c(E1="augmented",E2="augmented"),
-    sparse_method="balanced_incomplete",
-    common_treatments="CHK1"
+    field_books       = list(E1 = fb_E1, E2 = fb_E2),
+    local_designs     = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
+    replication_modes = c(E1 = "augmented",        E2 = "augmented"),
+    sparse_method     = "balanced_incomplete",
+    common_treatments = "CHK1"
   )
-  
+
   expect_true(is.data.frame(out))
-  expect_equal(nrow(out),6)
-  expect_setequal(unique(out$Environment),c("E1","E2"))
+  expect_equal(nrow(out), 6)
+  expect_setequal(unique(out$Environment), c("E1", "E2"))
 })
 
 
 # ============================================================
-# row names reset correctly
+# combine_met_fieldbooks: row names reset correctly
 # ============================================================
 
 test_that("combine_met_fieldbooks resets row names", {
-  
+
   fb_E1 <- data.frame(
-    Treatment=c("L001","CHK1"),
-    Family=c("F1","CHECK"),
-    Block=1L,
-    Plot=1:2,
-    Row=1L,
-    Column=1:2,
-    row.names=c("a","b")
+    Treatment = c("L001", "CHK1"),
+    Family    = c("F1", "CHECK"),
+    Block     = 1L,
+    Plot      = 1:2,
+    Row       = 1L,
+    Column    = 1:2,
+    row.names = c("a", "b")
   )
-  
+
   fb_E2 <- data.frame(
-    Treatment=c("L002","CHK1"),
-    Family=c("F2","CHECK"),
-    Block=1L,
-    Plot=1:2,
-    Row=1L,
-    Column=1:2,
-    row.names=c("c","d")
+    Treatment = c("L002", "CHK1"),
+    Family    = c("F2", "CHECK"),
+    Block     = 1L,
+    Plot      = 1:2,
+    Row       = 1L,
+    Column    = 1:2,
+    row.names = c("c", "d")
   )
-  
+
   out <- combine_met_fieldbooks(
-    field_books=list(E1=fb_E1,E2=fb_E2)
+    field_books = list(E1 = fb_E1, E2 = fb_E2)
   )
-  
+
   expect_equal(
     rownames(out),
     as.character(seq_len(nrow(out)))
@@ -352,28 +349,28 @@ test_that("combine_met_fieldbooks resets row names", {
 
 
 # ============================================================
-# heterogeneous columns preserved
+# combine_met_fieldbooks: heterogeneous columns preserved
 # ============================================================
 
 test_that("combine_met_fieldbooks preserves heterogeneous columns", {
-  
+
   fb_E1 <- data.frame(
-    Treatment=c("L001"),
-    Family="F1",
-    Plot=1
+    Treatment = "L001",
+    Family    = "F1",
+    Plot      = 1
   )
-  
+
   fb_E2 <- data.frame(
-    Treatment=c("L002"),
-    Family="F2",
-    Plot=1,
-    SpatialResidual=0.2
+    Treatment       = "L002",
+    Family          = "F2",
+    Plot            = 1,
+    SpatialResidual = 0.2
   )
-  
+
   out <- combine_met_fieldbooks(
-    field_books=list(E1=fb_E1,E2=fb_E2)
+    field_books = list(E1 = fb_E1, E2 = fb_E2)
   )
-  
+
   expect_true("SpatialResidual" %in% names(out))
-  expect_true(is.na(out$SpatialResidual[out$Environment=="E1"]))
+  expect_true(is.na(out$SpatialResidual[out$Environment == "E1"]))
 })

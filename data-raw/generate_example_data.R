@@ -19,7 +19,7 @@ n_treatments <- 120L
 treatments   <- paste0("L", sprintf("%03d", seq_len(n_treatments)))
 environments <- c("Env_A", "Env_B", "Env_C", "Env_D")
 
-# 16 families assigned randomly so that family group sizes are unequal —
+# 16 families assigned randomly so that family group sizes are unequal --
 # this produces a realistic imbalance for demonstrating group-guided
 # allocation and adjacency control.
 treatment_info <- data.frame(
@@ -28,7 +28,7 @@ treatment_info <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# First 8 treatments designated as common — forced into all environments
+# First 8 treatments designated as common -- forced into all environments
 # before sparse allocation. Chosen from the head of the treatment vector
 # for reproducibility; in practice these would be elite connectors or
 # benchmark lines.
@@ -64,7 +64,7 @@ seed_required_per_plot <- data.frame(
 # Helper: generate a positive semi-definite matrix from random feature scores.
 # tcrossprod(Xs) / n_features approximates a genomic or pedigree relationship
 # matrix. The diagonal is inflated by diag_scale to ensure strict positive
-# definiteness — required for Cholesky factorization in efficiency evaluation
+# definiteness -- required for Cholesky factorization in efficiency evaluation
 # and for well-conditioned eigendecomposition in clustering.
 make_psd_matrix <- function(ids, n_features = 20, diag_scale = 1) {
   X  <- matrix(rnorm(length(ids) * n_features), nrow = length(ids), ncol = n_features)
@@ -104,10 +104,13 @@ sparse_example_args_random_balanced <- list(
   seed                           = 123
 )
 
-# Balanced incomplete: equal capacity per environment (38) chosen so that
-# the slot identity J* x r = I x k* is exactly satisfied after removing
-# 8 common treatments: 112 x 1 = 4 x 28. allow_approximate = FALSE
-# verifies that exact feasibility holds for this configuration.
+# Balanced incomplete: equal capacity per environment (38) demonstrates the
+# M4 BIBD-style allocator. After removing 8 common treatments, each environment
+# has k* = 38 - 8 = 30 sparse slots; total sparse slots = 4 x 30 = 120.
+# With J* = 112 sparse treatments and r = 1, the slot surplus is 8, so an exact
+# BIBD is not achievable (no lambda integer exists for J*=112, I=4). Setting
+# allow_approximate = TRUE lets the allocator construct the closest balanced
+# solution, demonstrating the approximate M4 path in a realistic scenario.
 sparse_example_args_balanced_incomplete <- list(
   treatments                     = treatments,
   environments                   = environments,
@@ -115,7 +118,7 @@ sparse_example_args_balanced_incomplete <- list(
   n_test_entries_per_environment = rep(38L, length(environments)),
   target_replications            = 1L,
   common_treatments              = common_treatments,
-  allow_approximate              = FALSE,
+  allow_approximate              = TRUE,
   seed                           = 123
 )
 
@@ -129,14 +132,14 @@ sparse_example_args_balanced_incomplete <- list(
 
 env_design_specs <- list(
   
-  # Env_A: p-rep design via prep_famoptg().
+  # Env_A: p-rep design via met_prep_famoptg().
   # Up to 12 treatments replicated twice (max_prep = 12); remaining
   # allocated treatments receive one plot. Treatments with insufficient
   # seed for 2 plots are downgraded to 1 plot rather than excluded.
   # 10 x 12 grid accommodates 2 checks x 4 blocks + 12 x 2 + remaining
   # unreplicated entries.
   Env_A = list(
-    design               = "prep_famoptg",
+    design               = "met_prep_famoptg",
     replication_mode     = "p_rep",
     desired_replications = 2L,
     max_prep             = 12L,
@@ -153,13 +156,13 @@ env_design_specs <- list(
     use_dispersion       = FALSE
   ),
   
-  # Env_B: alpha row-column stream design via alpha_rc_stream().
+  # Env_B: alpha row-column stream design via met_alpha_rc_stream().
   # n_reps = 2 with a 10 x 12 grid; min_entry_slots_per_block = 8 ensures
   # incomplete blocks are not too small after inserting 2 checks per block.
   # entry_treatments and entry_families are set internally by
   # plan_sparse_met_design() and must not appear here.
   Env_B = list(
-    design                    = "alpha_rc_stream",
+    design                    = "met_alpha_rc_stream",
     check_treatments          = c("CHK1", "CHK2"),
     check_families            = c("CHECK", "CHECK"),
     n_reps                    = 2L,
@@ -174,12 +177,12 @@ env_design_specs <- list(
     verbose                   = FALSE
   ),
   
-  # Env_C: augmented repeated-check design via prep_famoptg().
+  # Env_C: augmented repeated-check design via met_prep_famoptg().
   # All allocated entries are unreplicated (replication_mode = "augmented").
   # Column-major traversal without serpentine for contrast with Env_A.
   # A 10 x 10 grid is appropriate for a large unreplicated screening set.
   Env_C = list(
-    design           = "prep_famoptg",
+    design           = "met_prep_famoptg",
     replication_mode = "augmented",
     check_treatments = c("CHK1", "CHK2"),
     check_families   = c("CHECK", "CHECK"),
@@ -193,12 +196,12 @@ env_design_specs <- list(
     use_dispersion   = FALSE
   ),
   
-  # Env_D: RCBD-type repeated-check design via prep_famoptg().
+  # Env_D: RCBD-type repeated-check design via met_prep_famoptg().
   # All allocated entries targeted for 2 replications (rcbd_type mode).
   # Treatments with insufficient seed are downgraded to 1 plot.
   # 4 blocks x (2 checks + entries/2) fills the 10 x 12 grid.
   Env_D = list(
-    design               = "prep_famoptg",
+    design               = "met_prep_famoptg",
     replication_mode     = "rcbd_type",
     desired_replications = 2L,
     shortage_action      = "downgrade",

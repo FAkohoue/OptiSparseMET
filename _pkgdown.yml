@@ -1,8 +1,4 @@
 url: https://FAkohoue.github.io/OptiSparseMET/
-
-development:
-  mode: release
-
 favicon: pkgdown/assets/favicon.ico
 
 template:
@@ -10,60 +6,100 @@ template:
   includes:
     in_header: pkgdown/assets/favicon.html
   bslib:
-    primary: "#0C4C80"
-    secondary: "#3AA0FF"
-    success: "#7ED957"
-    base_font: { google: "Inter" }
+    primary:      "#0C4C80"
+    secondary:    "#3AA0FF"
+    success:      "#7ED957"
+    base_font:    { google: "Inter" }
     heading_font: { google: "Inter" }
-    code_font: { google: "Fira Code" }
+    code_font:    { google: "Fira Code" }
 
 authors:
-  Félicien Akohoue:
+  Felicien Akohoue:
     href: https://github.com/FAkohoue
 
 home:
   title: OptiSparseMET — Sparse Multi-Environment Trial Design
   description: >
     An R package for designing sparse multi-environment trials by jointly
-    optimizing across-environment treatment allocation and within-environment
-    field layout construction, with support for genetic structure constraints
-    and seed availability.
+    addressing across-environment treatment allocation and within-environment
+    field layout, with support for genetic structure constraints, seed
+    availability, and mixed-model efficiency evaluation.
 
 reference:
   - title: Across-environment allocation
+    desc: >
+      Functions for distributing treatments across environments and for
+      verifying the feasibility and balance of the resulting incidence
+      structure.
     contents:
       - allocate_sparse_met
       - check_balanced_incomplete_feasibility
       - derive_allocation_groups
 
   - title: Feasibility and capacity helpers
+    desc: >
+      Pre-flight diagnostics to verify that the chosen per-environment
+      capacity is sufficient to assign every non-common treatment at least
+      once before allocation begins.
     contents:
       - feasibility_helpers
       - min_k_for_full_coverage
       - suggest_safe_k
       - warn_if_k_too_small
 
-  - title: Seed-aware replication
+  - title: Seed-aware replication planning
+    desc: >
+      Partition treatments into replicated, unreplicated, and excluded roles
+      based on available seed quantities and per-plot seed requirements.
     contents:
       - assign_replication_by_seed
 
   - title: Within-environment field design
+    desc: >
+      Construct field layouts within each environment. Two engines are
+      available: block-based repeated-check designs and alpha row-column
+      stream designs.
     contents:
-      - prep_famoptg
-      - alpha_rc_stream
+      - met_prep_famoptg
+      - met_alpha_rc_stream
+
+  - title: Efficiency evaluation
+    desc: >
+      Evaluate the statistical efficiency of within-environment designs
+      under A-optimality, D-optimality, and CDmean criteria before
+      field deployment.
+    contents:
+      - met_evaluate_famoptg_efficiency
+      - met_evaluate_alpha_efficiency
+
+  - title: Design optimisation
+    desc: >
+      Search for higher-efficiency field arrangements using criterion-driven
+      optimisation. Supports Random Restart, Simulated Annealing, and
+      Genetic Algorithm methods.
+    contents:
+      - met_optimize_famoptg
+      - met_optimize_alpha_rc
 
   - title: Pipeline and assembly
+    desc: >
+      End-to-end pipeline orchestration and assembly of environment-level
+      field books into a single MET-level field book.
     contents:
       - plan_sparse_met_design
       - combine_met_fieldbooks
 
   - title: Example data
+    desc: >
+      Bundled example dataset for illustrating and testing the full
+      OptiSparseMET workflow.
     contents:
       - OptiSparseMET_example_data
 
 navbar:
+  bg: primary
   structure:
-    left:  [home, reference, articles]
+    left:  [home, reference, articles, news]
     right: [github]
   components:
     reference:
@@ -75,4 +111,9 @@ navbar:
     github:
       icon: fab fa-github
       href: https://github.com/FAkohoue/OptiSparseMET/
-      aria-label: "GitHub repository"
+      aria-label: GitHub repository
+
+articles:
+  - title: Getting started
+    contents:
+      - OptiSparseMET-introduction

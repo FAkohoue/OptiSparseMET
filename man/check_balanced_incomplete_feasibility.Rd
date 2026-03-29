@@ -77,20 +77,20 @@ equal capacity \eqn{k^*}, this reduces to the standard BIBD identity
 The function evaluates this condition and returns both a logical indicator
 and the signed difference \eqn{\sum k_e^* - J^* \times r}, which quantifies
 the degree of imbalance when exact feasibility fails. A positive difference
-means there are more available slots than required — some treatments will
+means there are more available slots than required -- some treatments will
 receive an extra replication in an approximate allocation. A negative
-difference means slots are insufficient — some treatments will be
-under-replicated. Both cases can be handled by \code{allocate_sparse_met()} with
+difference means slots are insufficient -- some treatments will be
+under-replicated. Both cases can be handled by \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
 \code{allow_approximate = TRUE}, but the magnitude of the difference informs
 whether the resulting imbalance is practically acceptable.
 }
 \details{
 \code{check_balanced_incomplete_feasibility()} determines whether the parameters
 of a proposed sparse MET design admit an exact balanced incomplete
-allocation — that is, whether the total number of sparse-allocatable
+allocation -- that is, whether the total number of sparse-allocatable
 treatment slots across environments exactly equals the number of non-common
 treatments multiplied by the target replication. The function is a
-diagnostic companion to \code{allocate_sparse_met()} with
+diagnostic companion to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
 \code{allocation_method = "balanced_incomplete"}, and should be called before
 allocation when the user wants to verify feasibility or understand the
 magnitude of any imbalance before deciding whether to set
@@ -116,11 +116,10 @@ condition.
 
 This function performs no allocation. It only evaluates the arithmetic
 condition and returns the components needed to diagnose feasibility. For
-the actual construction of the incidence matrix, see
-\code{allocate_sparse_met()}.
+the actual construction of the incidence matrix, see \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.
 }
 \examples{
-## Example 1: exact feasibility — 110 sparse treatments x 2 reps = 220,
+## Example 1: exact feasibility -- 110 sparse treatments x 2 reps = 220,
 ## 4 environments x 55 sparse slots each = 220.
 check_balanced_incomplete_feasibility(
   n_treatments_total             = 120,
@@ -131,10 +130,7 @@ check_balanced_incomplete_feasibility(
 )
 # feasible = TRUE, difference = 0
 
-## Example 2: slot deficit — 110 sparse treatments x 2 reps = 220,
-## 4 environments x 50 sparse slots each = 200. The deficit of 20 means
-## approximately 20 treatments will receive only 1 replication under an
-## approximate allocation.
+## Example 2: slot deficit -- difference = -20.
 check_balanced_incomplete_feasibility(
   n_treatments_total             = 120,
   n_environments                 = 4,
@@ -144,10 +140,7 @@ check_balanced_incomplete_feasibility(
 )
 # feasible = FALSE, difference = -20
 
-## Example 3: slot surplus — 110 sparse treatments x 2 reps = 220,
-## 4 environments x 60 sparse slots each = 240. The surplus of 20 means
-## approximately 20 treatments will receive a third replication under an
-## approximate allocation.
+## Example 3: slot surplus -- difference = +20.
 check_balanced_incomplete_feasibility(
   n_treatments_total             = 120,
   n_environments                 = 4,
@@ -157,8 +150,7 @@ check_balanced_incomplete_feasibility(
 )
 # feasible = FALSE, difference = 20
 
-## Example 4: heterogeneous environment capacities — useful when
-## environments differ in the number of plots available.
+## Example 4: heterogeneous environment capacities.
 check_balanced_incomplete_feasibility(
   n_treatments_total             = 100,
   n_environments                 = 4,
@@ -169,8 +161,13 @@ check_balanced_incomplete_feasibility(
 
 }
 \references{
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
-Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic
+Montesinos-Lopez, O. A., Mosqueda-Gonzalez, B. A., Salinas-Ruiz, J.,
+Montesinos-Lopez, A., & Crossa, J. (2023). Sparse multi-trait genomic
 prediction under balanced incomplete block design. \emph{The Plant Genome},
-16, e20305.
+16, e20305. \doi{10.1002/tpg2.20305}
+}
+\seealso{
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} for the allocation function this
+diagnostic accompanies. \code{\link[=suggest_safe_k]{suggest_safe_k()}} and \code{\link[=min_k_for_full_coverage]{min_k_for_full_coverage()}}
+for helpers that choose a feasible \code{n_test_entries_per_environment}.
 }

@@ -4,7 +4,7 @@
 # top of each test so that failures are isolated and reproducible without
 # depending on shared state.
 #
-# Naming convention: "function — what is being tested — expected outcome"
+# Naming convention: "function -- what is being tested -- expected outcome"
 
 # ============================================================
 # allocate_sparse_met(): output structure
@@ -61,8 +61,8 @@ test_that("allocate_sparse_met translates M3 alias to random_balanced internally
 test_that("allocate_sparse_met translates M4 alias to balanced_incomplete internally", {
   x <- make_example_sparsemet_data()
   
-  # 75 sparse treatments x 1 rep = 3 environments x 25 sparse slots:
-  # exact feasibility holds, so allow_approximate = FALSE is valid here.
+  # Fixture: J=80, C=5, I=3, r=1.
+  # Slot identity: J*×r = I×k* -> 75×1 = 3×25 = 75. k = 25+5 = 30.
   out <- allocate_sparse_met(
     treatments                     = x$treatments,
     environments                   = x$environments,
@@ -76,6 +76,37 @@ test_that("allocate_sparse_met translates M4 alias to balanced_incomplete intern
   
   expect_true(is.list(out))
   expect_equal(out$summary$allocation_method, "balanced_incomplete")
+  # Every sparse treatment appears in exactly 1 environment
+  sparse_reps <- out$line_replications[
+    !names(out$line_replications) %in% x$common_treatments
+  ]
+  expect_true(all(sparse_reps == 1L))
+})
+
+test_that("allocate_sparse_met enforces exact equal replication for strict balanced_incomplete", {
+  x <- make_example_sparsemet_data()
+  
+  # Fixture: J=80, C=5, I=3, r=1.
+  # Slot identity: 75*1 = 3*25 = 75. k = 30.
+  out <- allocate_sparse_met(
+    treatments                     = x$treatments,
+    environments                   = x$environments,
+    allocation_method              = "balanced_incomplete",
+    n_test_entries_per_environment = 30,
+    target_replications            = 1,
+    common_treatments              = x$common_treatments,
+    allow_approximate              = FALSE,
+    seed                           = 123
+  )
+  
+  sparse_reps <- out$line_replications[
+    !names(out$line_replications) %in% x$common_treatments
+  ]
+  # All sparse treatments must appear in exactly r=1 environment
+  expect_true(all(sparse_reps == 1L))
+  # All environments must have exactly k*=25 sparse treatments
+  sparse_env_sizes <- out$environment_sizes - length(x$common_treatments)
+  expect_true(all(sparse_env_sizes == 25L))
 })
 
 # ============================================================
@@ -141,7 +172,7 @@ test_that("allocate_sparse_met respects minimum coverage for random_balanced", {
 })
 
 # ============================================================
-# allocate_sparse_met(): balanced_incomplete — exact feasibility error
+# allocate_sparse_met(): balanced_incomplete -- exact feasibility error
 # ============================================================
 
 test_that("allocate_sparse_met stops when exact balanced_incomplete is infeasible and allow_approximate = FALSE", {
@@ -165,7 +196,7 @@ test_that("allocate_sparse_met stops when exact balanced_incomplete is infeasibl
 })
 
 # ============================================================
-# allocate_sparse_met(): balanced_incomplete — approximate fallback
+# allocate_sparse_met(): balanced_incomplete -- approximate fallback
 # ============================================================
 
 test_that("allocate_sparse_met completes with approximate balanced_incomplete when all treatments can still be assigned", {
@@ -256,4 +287,6 @@ test_that("check_balanced_incomplete_feasibility accounts correctly for common t
   expect_equal(chk$n_sparse_treatments, 75)
   expect_equal(chk$total_sparse_slots, 60)
   expect_equal(chk$difference, -15)
+  # k_sparse is a vector (one per environment), all equal to k - C = 20 - 5 = 15
+  expect_true(all(chk$k_sparse == 15L))
 })

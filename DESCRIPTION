@@ -1,34 +1,44 @@
 Package: OptiSparseMET
 Type: Package
-Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout Construction
+Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout
 Version: 0.1.0
 Authors@R:
     person(
-      given   = "Félicien",
+      given   = "Felicien",
       family  = "Akohoue",
       email   = "akohoue.f@gmail.com",
       role    = c("aut", "cre"),
       comment = c(ORCID = "0000-0002-2160-0182")
     )
-Description: Constructs sparse multi-environment trial designs by jointly
-    addressing across-environment treatment allocation and within-environment
-    field layout. Allocation supports random balanced and balanced incomplete
-    strategies, optional common treatments for cross-environment connectivity,
-    and optional structure-aware assignment guided by family labels or by
-    groups derived from genomic or pedigree relationship matrices. Feasibility
-    helpers (min_k_for_full_coverage(), suggest_safe_k(), warn_if_k_too_small())
-    verify that per-environment capacity is sufficient to assign all treatments
-    before allocation begins. Replication is determined by seed availability
-    through assign_replication_by_seed(). Within-environment layouts are built
-    via prep_famoptg() for repeated-check augmented, partially replicated, and
-    RCBD-type designs, or via alpha_rc_stream() for fixed-grid alpha row-column
-    designs. Optional mixed-model efficiency diagnostics are provided to
-    evaluate designs prior to field deployment.
+Description: Constructs sparse multi-environment trial (MET) designs by
+    jointly addressing across-environment treatment allocation and
+    within-environment field layout under shared statistical, genetic, and
+    logistical constraints. Allocation supports two strategies: a
+    random-balanced (M3-inspired) approach that guarantees full treatment
+    coverage while tolerating unequal environment sizes, and a balanced
+    incomplete block design (BIBD, M4) approach that enforces equal
+    replication across environments (Montesinos-Lopez et al. 2023
+    <doi:10.1002/tpg2.20305>). Optional common treatments establish
+    cross-environment genetic connectivity. Structure-aware allocation is
+    available via family labels or groups derived from genomic or pedigree
+    relationship matrices. Feasibility helpers verify per-environment
+    capacity before allocation begins. Seed-constrained replication plans
+    account for available seed quantities. Within-environment layouts are
+    built for repeated-check augmented, partially replicated (p-rep), and
+    RCBD-type block designs, or for fixed-grid alpha row-column stream
+    designs. Both constructors support optional grouping from family labels
+    or relationship matrices, optional genetic dispersion optimisation, and
+    mixed-model efficiency evaluation under A-optimality, D-optimality, and
+    CDmean criteria for genomic selection (Rincent et al. 2012
+    <doi:10.1534/genetics.112.141473>). Design optimisation is available
+    via random restart, simulated annealing, and genetic algorithm methods.
+    An end-to-end pipeline coordinates allocation, seed feasibility checks,
+    local field design construction, and assembly of a unified MET field book.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Depends:
-    R (>= 2.10)
+    R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
@@ -37,10 +47,14 @@ Imports:
     stats,
     utils
 Suggests:
+    crossdes,
     knitr,
     rmarkdown,
+    tinytex,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-URL: https://github.com/FAkohoue/OptiSparseMET, https://FAkohoue.github.io/OptiSparseMET
+Config/lifecycle/label: experimental
+URL: https://github.com/FAkohoue/OptiSparseMET,
+    https://FAkohoue.github.io/OptiSparseMET/
 BugReports: https://github.com/FAkohoue/OptiSparseMET/issues
 VignetteBuilder: knitr

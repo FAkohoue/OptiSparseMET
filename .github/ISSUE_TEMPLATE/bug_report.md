@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem in OptiDesign
+about: Report a reproducible problem in OptiSparseMET
 ---
 
 **What happened?**

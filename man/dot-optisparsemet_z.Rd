@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils_internal.R
 \name{.optisparsemet_z}
 \alias{.optisparsemet_z}
-\title{Internal z-score helper}
+\title{Internal z-score normalisation helper}
 \usage{
 .optisparsemet_z(x)
 }
@@ -10,9 +10,10 @@
 \item{x}{Numeric vector.}
 }
 \value{
-Numeric vector.
+Numeric vector of z-scores, or zeros if \code{sd(x) == 0}.
 }
 \description{
-Internal z-score helper
+Computes the z-score of a numeric vector. If the standard deviation is
+zero or non-finite, returns a zero vector of the same length.
 }
 \keyword{internal}

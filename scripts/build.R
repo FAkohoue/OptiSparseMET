@@ -2,9 +2,11 @@
 
 source("data-raw/generate_example_data.R")
 devtools::document()
-devtools::test()
-devtools::check()
+#devtools::test()
+
 devtools::install()
+devtools::check()
+
 
 unloadNamespace("OptiSparseMET")
 pkgdown::build_site()

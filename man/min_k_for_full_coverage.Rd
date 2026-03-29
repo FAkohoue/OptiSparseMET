@@ -26,17 +26,14 @@ Must not exceed \code{n_treatments_total}.}
 A named list with three components:
 \describe{
 \item{\code{n_sparse_treatments}}{Integer. Number of non-common treatments
-\eqn{J^* = J - C}. These are the treatments subject to sparse
-allocation.}
+\eqn{J^* = J - C}.}
 \item{\code{min_sparse_slots_per_environment}}{Integer. Minimum number of
-sparse-allocatable slots required per environment under equal capacities:
-\eqn{\lceil J^* / I \rceil}. This is the minimum value of
-\eqn{k_e^* = k_e - C}.}
+sparse-allocatable slots required per environment:
+\eqn{\lceil J^* / I \rceil}.}
 \item{\code{min_total_entries_per_environment}}{Integer. Minimum total entries
 per environment including common treatments:
 \eqn{\lceil J^* / I \rceil + C}. Pass this as
-\code{n_test_entries_per_environment} to guarantee that every non-common
-treatment can be assigned at least once.}
+\code{n_test_entries_per_environment} to guarantee full coverage.}
 }
 }
 \description{
@@ -65,9 +62,10 @@ and the corresponding minimum total entries per environment is:
 
 \deqn{k_{\min} = k^*_{\min} + C}
 
-This function returns both quantities. The value \code{min_total_entries_per_environment}
-is what should be passed to \code{n_test_entries_per_environment} to guarantee
-full coverage at minimum capacity.
+This function returns both quantities. The value
+\code{min_total_entries_per_environment} is what should be passed to
+\code{n_test_entries_per_environment} to guarantee full coverage at minimum
+capacity.
 }
 \details{
 Returns the minimum value of \code{n_test_entries_per_environment} under a
@@ -83,12 +81,16 @@ min_k_for_full_coverage(
   n_common_treatments = 0
 )
 
-## With 5 common treatments: J* = 75, minimum sparse k = ceil(75 / 3) = 25,
-## minimum total k = 25 + 5 = 30
+## With 5 common treatments: J* = 75, minimum total k = 25 + 5 = 30
 min_k_for_full_coverage(
   n_treatments_total  = 80,
   n_environments      = 3,
   n_common_treatments = 5
 )
 
+}
+\seealso{
+\code{\link[=suggest_safe_k]{suggest_safe_k()}} which adds a buffer on top of this minimum.
+\code{\link[=warn_if_k_too_small]{warn_if_k_too_small()}} for a non-fatal feasibility check.
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} for the allocation function this feeds into.
 }

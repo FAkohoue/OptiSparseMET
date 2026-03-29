@@ -17,11 +17,11 @@
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top bg-primary" data-bs-theme="dark" aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="../index.html">OptiSparseMET</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,7 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Vignettes</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/FAkohoue/OptiSparseMET/" aria-label="GitHub repository"><span class="fa fab fa-github"></span></a></li>
       </ul></div>
 
@@ -45,7 +46,7 @@
     <div class="section level2">
       <h2 id="across-environment-allocation">Across-environment allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation"></a></h2>
 
-
+      <div class="section-desc"><p>Functions for distributing treatments across environments and for verifying the feasibility and balance of the resulting incidence structure.</p></div>
 
 
     </div><div class="section level2">
@@ -74,7 +75,7 @@
       </dl></div><div class="section level2">
       <h2 id="feasibility-and-capacity-helpers">Feasibility and capacity helpers<a class="anchor" aria-label="anchor" href="#feasibility-and-capacity-helpers"></a></h2>
 
-
+      <div class="section-desc"><p>Pre-flight diagnostics to verify that the chosen per-environment capacity is sufficient to assign every non-common treatment at least once before allocation begins.</p></div>
 
 
     </div><div class="section level2">
@@ -107,9 +108,9 @@
         </dt>
         <dd>Warn when per-environment capacity is insufficient for full treatment coverage</dd>
       </dl></div><div class="section level2">
-      <h2 id="seed-aware-replication">Seed-aware replication<a class="anchor" aria-label="anchor" href="#seed-aware-replication"></a></h2>
+      <h2 id="seed-aware-replication-planning">Seed-aware replication planning<a class="anchor" aria-label="anchor" href="#seed-aware-replication-planning"></a></h2>
 
-
+      <div class="section-desc"><p>Partition treatments into replicated, unreplicated, and excluded roles based on available seed quantities and per-plot seed requirements.</p></div>
 
 
     </div><div class="section level2">
@@ -126,7 +127,7 @@
       </dl></div><div class="section level2">
       <h2 id="within-environment-field-design">Within-environment field design<a class="anchor" aria-label="anchor" href="#within-environment-field-design"></a></h2>
 
-
+      <div class="section-desc"><p>Construct field layouts within each environment. Two engines are available: block-based repeated-check designs and alpha row-column stream designs.</p></div>
 
 
     </div><div class="section level2">
@@ -136,20 +137,66 @@
 
       <dl><dt>
 
-          <code><a href="prep_famoptg.html">prep_famoptg()</a></code>
+          <code><a href="met_prep_famoptg.html">met_prep_famoptg()</a></code>
 
         </dt>
-        <dd>Construct a repeated-check block design with flexible replication structure</dd>
+        <dd>Construct a repeated-check block design with flexible replication</dd>
       </dl><dl><dt>
 
-          <code><a href="alpha_rc_stream.html">alpha_rc_stream()</a></code>
+          <code><a href="met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code>
 
         </dt>
-        <dd>Construct a fixed-grid alpha row-column design using stream-based incomplete blocking</dd>
+        <dd>Construct a stream-based repeated-check alpha row-column design</dd>
+      </dl></div><div class="section level2">
+      <h2 id="efficiency-evaluation">Efficiency evaluation<a class="anchor" aria-label="anchor" href="#efficiency-evaluation"></a></h2>
+
+      <div class="section-desc"><p>Evaluate the statistical efficiency of within-environment designs under A-optimality, D-optimality, and CDmean criteria before field deployment.</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency()</a></code>
+
+        </dt>
+        <dd>Evaluate the statistical efficiency of a repeated-check block design</dd>
+      </dl><dl><dt>
+
+          <code><a href="met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency()</a></code>
+
+        </dt>
+        <dd>Evaluate the statistical efficiency of an alpha-lattice design</dd>
+      </dl></div><div class="section level2">
+      <h2 id="design-optimisation">Design optimisation<a class="anchor" aria-label="anchor" href="#design-optimisation"></a></h2>
+
+      <div class="section-desc"><p>Search for higher-efficiency field arrangements using criterion-driven optimisation. Supports Random Restart, Simulated Annealing, and Genetic Algorithm methods.</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="met_optimize_famoptg.html">met_optimize_famoptg()</a></code>
+
+        </dt>
+        <dd>Search for a criterion-optimal repeated-check block design</dd>
+      </dl><dl><dt>
+
+          <code><a href="met_optimize_alpha_rc.html">met_optimize_alpha_rc()</a></code>
+
+        </dt>
+        <dd>Search for a criterion-optimal alpha-lattice design</dd>
       </dl></div><div class="section level2">
       <h2 id="pipeline-and-assembly">Pipeline and assembly<a class="anchor" aria-label="anchor" href="#pipeline-and-assembly"></a></h2>
 
-
+      <div class="section-desc"><p>End-to-end pipeline orchestration and assembly of environment-level field books into a single MET-level field book.</p></div>
 
 
     </div><div class="section level2">
@@ -172,7 +219,7 @@
       </dl></div><div class="section level2">
       <h2 id="example-data">Example data<a class="anchor" aria-label="anchor" href="#example-data"></a></h2>
 
-
+      <div class="section-desc"><p>Bundled example dataset for illustrating and testing the full OptiSparseMET workflow.</p></div>
 
 
     </div><div class="section level2">
@@ -192,7 +239,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

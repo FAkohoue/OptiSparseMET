@@ -2,16 +2,21 @@
 % Please edit documentation in R/utils_internal.R
 \name{.optisparsemet_dbg}
 \alias{.optisparsemet_dbg}
-\title{Internal debug message helper}
+\title{Internal conditional debug message helper}
 \usage{
 .optisparsemet_dbg(debug, ...)
 }
 \arguments{
-\item{debug}{Logical.}
+\item{debug}{Logical. If \code{TRUE}, the message is emitted.}
 
-\item{...}{Arguments passed to \code{sprintf()}.}
+\item{...}{Arguments passed to \code{\link[base:sprintf]{base::sprintf()}}.}
+}
+\value{
+Invisibly returns \code{NULL}.
 }
 \description{
-Internal debug message helper
+Emits a formatted message via \code{\link[base:message]{base::message()}} when \code{debug = TRUE}.
+Used internally to provide optional verbose output during design
+construction and optimisation.
 }
 \keyword{internal}

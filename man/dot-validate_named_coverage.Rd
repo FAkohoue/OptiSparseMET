@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils_internal.R
 \name{.validate_named_coverage}
 \alias{.validate_named_coverage}
-\title{Validate that a named vector covers all required names}
+\title{Internal named vector coverage validator}
 \usage{
 .validate_named_coverage(x, required, nm = "object")
 }
@@ -11,9 +11,13 @@
 
 \item{required}{Character vector of required names.}
 
-\item{nm}{Object name for messages.}
+\item{nm}{Character scalar. Object name used in error messages.}
+}
+\value{
+Invisibly returns \code{TRUE} if validation passes.
 }
 \description{
-Validate that a named vector covers all required names
+Checks that a named vector or list contains all required names.
+Used internally to validate that \code{env_design_specs} covers all environments.
 }
 \keyword{internal}

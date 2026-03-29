@@ -2,10 +2,10 @@
 #'
 #' `assign_replication_by_seed()` evaluates seed feasibility for each
 #' non-check treatment assigned to a single environment and partitions those
-#' treatments into replication roles — replicated, unreplicated, or excluded —
+#' treatments into replication roles -- replicated, unreplicated, or excluded --
 #' according to the requested design mode and the available seed quantity per
-#' treatment. The output is intended as direct input to `prep_famoptg()`, which
-#' constructs the within-environment field layout from the resulting role
+#' treatment. The output is intended as direct input to [met_prep_famoptg()],
+#' which constructs the within-environment field layout from the resulting role
 #' assignments.
 #'
 #' @description
@@ -98,14 +98,15 @@
 #'
 #' @param replication_mode Character. Design mode controlling how the function
 #'   partitions treatments into roles. One of:
-#'
-#'   - `"augmented"`: targets one unreplicated plot per treatment.
-#'   - `"p_rep"`: targets replication for a feasible subset, unreplicated for
-#'     the remainder.
-#'   - `"rcbd_type"`: targets `desired_replications` plots for all treatments.
-#'
+#' \describe{
+#'   \item{`"augmented"`}{Targets one unreplicated plot per treatment.}
+#'   \item{`"p_rep"`}{Targets replication for a feasible subset; unreplicated
+#'     for the remainder.}
+#'   \item{`"rcbd_type"`}{Targets `desired_replications` plots for all
+#'     treatments.}
+#' }
 #'   The selected mode must be consistent with the field design intended for the
-#'   environment. `prep_famoptg()` interprets the output roles directly.
+#'   environment. [met_prep_famoptg()] interprets the output roles directly.
 #'
 #' @param desired_replications Positive integer. Number of plots requested for
 #'   replicated treatments. In `"augmented"` mode this value is not used for
@@ -122,12 +123,12 @@
 #' @param priority Character. Selection rule for determining which candidate
 #'   treatments are replicated in `"p_rep"` mode when the feasible candidate
 #'   pool exceeds `max_prep`. One of:
-#'
-#'   - `"seed_available"`: ranks by descending seed quantity, breaking ties by
-#'     position in `treatments`.
-#'   - `"input_order"`: follows the order of `treatments` as supplied.
-#'   - `"random"`: draws uniformly at random from feasible candidates.
-#'
+#' \describe{
+#'   \item{`"seed_available"`}{Ranks by descending seed quantity, breaking ties
+#'     by position in `treatments`.}
+#'   \item{`"input_order"`}{Follows the order of `treatments` as supplied.}
+#'   \item{`"random"`}{Draws uniformly at random from feasible candidates.}
+#' }
 #'   Ignored in `"augmented"` and `"rcbd_type"` modes.
 #'
 #' @param minimum_seed_buffer Non-negative numeric scalar. Additional seed
@@ -145,13 +146,14 @@
 #'
 #' @param shortage_action Character. Action taken when a treatment has
 #'   insufficient seed for its target role. One of:
-#'
-#'   - `"error"`: stops immediately with an informative message listing the
-#'     affected treatments.
-#'   - `"downgrade"`: reduces the role to `"unreplicated"` if the single-plot
-#'     feasibility condition is met; otherwise assigns `"excluded"`. Applies in
-#'     `"rcbd_type"` mode only.
-#'   - `"exclude"`: removes the treatment from the design.
+#' \describe{
+#'   \item{`"error"`}{Stops immediately with an informative message listing the
+#'     affected treatments.}
+#'   \item{`"downgrade"`}{Reduces the role to `"unreplicated"` if the
+#'     single-plot feasibility condition is met; otherwise assigns `"excluded"`.
+#'     Applies in `"rcbd_type"` mode only.}
+#'   \item{`"exclude"`}{Removes the treatment from the design.}
+#' }
 #'
 #' @param seed Optional integer. Random seed for reproducibility. Affects
 #'   random candidate selection in `"p_rep"` mode when `priority = "random"`.
@@ -182,6 +184,11 @@
 #'     none was supplied.}
 #' }
 #'
+#' @seealso [met_prep_famoptg()] to construct the within-environment field
+#'   layout using the role assignments produced by this function.
+#'   [plan_sparse_met_design()] for the end-to-end pipeline which calls this
+#'   function internally when seed-aware replication is requested.
+#'
 #' @examples
 #' treatments <- paste0("L", sprintf("%03d", 1:10))
 #'
@@ -191,7 +198,7 @@
 #'   stringsAsFactors = FALSE
 #' )
 #'
-#' ## Example 1: p_rep mode — replicate the 4 best-seeded candidates
+#' ## Example 1: p_rep mode -- replicate the 4 best-seeded candidates
 #' ## at 2 reps; remaining feasible treatments receive one plot.
 #' out1 <- assign_replication_by_seed(
 #'   treatments             = treatments,
@@ -203,12 +210,12 @@
 #'   max_prep               = 4
 #' )
 #'
-#' out1$p_rep_treatments       # L001–L004: sufficient seed for 2 plots each
+#' out1$p_rep_treatments       # L001-L004: sufficient seed for 2 plots each
 #' out1$unreplicated_treatments # remaining feasible treatments
 #' out1$excluded_treatments     # treatments with seed < 10
 #' out1$seed_summary
 #'
-#' ## Example 2: rcbd_type mode with downgrade — all treatments targeted for
+#' ## Example 2: rcbd_type mode with downgrade -- all treatments targeted for
 #' ## 3 reps; those below threshold are downgraded to 1 rep or excluded.
 #' out2 <- assign_replication_by_seed(
 #'   treatments             = treatments,
@@ -224,7 +231,7 @@
 #' out2$excluded_treatments     # treatments with seed < 10
 #' out2$seed_summary
 #'
-#' ## Example 3: augmented mode with a seed buffer — each treatment gets one
+#' ## Example 3: augmented mode with a seed buffer -- each treatment gets one
 #' ## plot; a buffer of 5 seeds is reserved per treatment before feasibility
 #' ## is assessed.
 #' out3 <- assign_replication_by_seed(
@@ -240,7 +247,6 @@
 #' out3$seed_summary
 #'
 #' @export
-#'  
 assign_replication_by_seed <- function(
     treatments,
     check_treatments = NULL,
@@ -255,208 +261,165 @@ assign_replication_by_seed <- function(
     shortage_action = c("error", "downgrade", "exclude"),
     seed = NULL
 ) {
-  
+
   replication_mode <- match.arg(replication_mode)
-  priority <- match.arg(priority)
-  shortage_action <- match.arg(shortage_action)
-  
+  priority         <- match.arg(priority)
+  shortage_action  <- match.arg(shortage_action)
+
   seed_used <- seed
-  if (!is.null(seed_used)) {
-    set.seed(seed_used)
-  }
-  
-  if (length(treatments) == 0) {
+  if (!is.null(seed_used)) set.seed(seed_used)
+
+  if (length(treatments) == 0)
     stop("`treatments` must contain at least one non-check treatment.")
-  }
   treatments <- unique(as.character(treatments))
-  
+
   if (!is.null(check_treatments)) {
     check_treatments <- unique(as.character(check_treatments))
     overlap <- intersect(treatments, check_treatments)
-    if (length(overlap) > 0) {
+    if (length(overlap) > 0)
       stop("Some treatments are also listed as checks: ", paste(overlap, collapse = ", "))
-    }
   }
-  
+
   if (!is.data.frame(seed_available) ||
-      !all(c("Treatment", "SeedAvailable") %in% names(seed_available))) {
+      !all(c("Treatment", "SeedAvailable") %in% names(seed_available)))
     stop("`seed_available` must be a data frame with columns `Treatment` and `SeedAvailable`.")
-  }
-  
+
   if (!is.numeric(seed_required_per_plot) || length(seed_required_per_plot) != 1 ||
-      is.na(seed_required_per_plot) || seed_required_per_plot <= 0) {
+      is.na(seed_required_per_plot) || seed_required_per_plot <= 0)
     stop("`seed_required_per_plot` must be a single positive number.")
-  }
-  
+
   if (!is.numeric(desired_replications) || length(desired_replications) != 1 ||
-      is.na(desired_replications) || desired_replications < 1) {
+      is.na(desired_replications) || desired_replications < 1)
     stop("`desired_replications` must be a single integer >= 1.")
-  }
   desired_replications <- as.integer(desired_replications)
-  
+
   if (!is.numeric(minimum_seed_buffer) || length(minimum_seed_buffer) != 1 ||
-      is.na(minimum_seed_buffer) || minimum_seed_buffer < 0) {
+      is.na(minimum_seed_buffer) || minimum_seed_buffer < 0)
     stop("`minimum_seed_buffer` must be a single numeric value >= 0.")
-  }
-  
+
   if (!is.null(max_prep)) {
-    if (!is.numeric(max_prep) || length(max_prep) != 1 || is.na(max_prep) || max_prep < 0) {
+    if (!is.numeric(max_prep) || length(max_prep) != 1 || is.na(max_prep) || max_prep < 0)
       stop("`max_prep` must be NULL or a single integer >= 0.")
-    }
     max_prep <- as.integer(max_prep)
   }
-  
+
   seed_df <- seed_available[, c("Treatment", "SeedAvailable")]
   seed_df$Treatment <- as.character(seed_df$Treatment)
   seed_df <- seed_df[seed_df$Treatment %in% treatments, , drop = FALSE]
-  
+
   missing_seed <- setdiff(treatments, seed_df$Treatment)
-  if (length(missing_seed) > 0) {
+  if (length(missing_seed) > 0)
     stop("Missing seed availability for treatments: ", paste(missing_seed, collapse = ", "))
-  }
-  
+
   seed_df <- seed_df[match(treatments, seed_df$Treatment), , drop = FALSE]
-  
+
   req_unrep <- seed_required_per_plot + minimum_seed_buffer
   req_rep   <- desired_replications * seed_required_per_plot + minimum_seed_buffer
-  
+
   seed_df$Required_Unrep <- req_unrep
   seed_df$Required_Rep   <- req_rep
   seed_df$Can_Unrep      <- seed_df$SeedAvailable >= req_unrep
   seed_df$Can_Rep        <- seed_df$SeedAvailable >= req_rep
   seed_df$Role           <- NA_character_
-  
+
   if (is.null(candidate_prep)) {
     candidate_prep <- treatments
   } else {
     candidate_prep <- intersect(as.character(candidate_prep), treatments)
   }
-  
+
   rank_candidates <- function(df, treatment_order, mode) {
     if (nrow(df) == 0) return(df)
-    
     if (mode == "seed_available") {
       ord <- order(-df$SeedAvailable, match(df$Treatment, treatment_order))
       return(df[ord, , drop = FALSE])
     }
-    
     if (mode == "input_order") {
       ord <- match(df$Treatment, treatment_order)
       return(df[order(ord), , drop = FALSE])
     }
-    
-    if (mode == "random") {
+    if (mode == "random")
       return(df[sample(seq_len(nrow(df))), , drop = FALSE])
-    }
-    
     df
   }
-  
+
   p_rep_treatments        <- character(0)
   p_rep_reps              <- integer(0)
   unreplicated_treatments <- character(0)
   excluded_treatments     <- character(0)
-  
+
   if (replication_mode == "augmented") {
-    feasible_unrep <- seed_df$Treatment[seed_df$Can_Unrep]
-    infeasible     <- seed_df$Treatment[!seed_df$Can_Unrep]
-    
-    # In augmented mode, infeasible treatments are excluded rather than
-    # triggering an error. This matches the intended role partitioning:
-    # each treatment is either feasible for one plot ("unreplicated") or not
-    # feasible ("excluded").
+    feasible_unrep          <- seed_df$Treatment[seed_df$Can_Unrep]
+    infeasible              <- seed_df$Treatment[!seed_df$Can_Unrep]
     unreplicated_treatments <- feasible_unrep
     excluded_treatments     <- infeasible
-    
     seed_df$Role[seed_df$Treatment %in% unreplicated_treatments] <- "unreplicated"
     seed_df$Role[seed_df$Treatment %in% excluded_treatments]     <- "excluded"
   }
-  
+
   if (replication_mode == "p_rep") {
     cand_df <- seed_df[
-      seed_df$Treatment %in% candidate_prep & seed_df$Can_Rep,
-      ,
-      drop = FALSE
+      seed_df$Treatment %in% candidate_prep & seed_df$Can_Rep, , drop = FALSE
     ]
     cand_df <- rank_candidates(cand_df, treatments, priority)
-    
-    if (!is.null(max_prep)) {
-      cand_df <- head(cand_df, max_prep)
-    }
-    
+    if (!is.null(max_prep)) cand_df <- head(cand_df, max_prep)
+
     p_rep_treatments <- cand_df$Treatment
     p_rep_reps       <- rep(desired_replications, length(p_rep_treatments))
-    
+
     remaining    <- setdiff(treatments, p_rep_treatments)
     remaining_df <- seed_df[seed_df$Treatment %in% remaining, , drop = FALSE]
-    
+
     feasible_unrep <- remaining_df$Treatment[remaining_df$Can_Unrep]
     infeasible     <- remaining_df$Treatment[!remaining_df$Can_Unrep]
-    
-    if (length(infeasible) > 0 && shortage_action == "error") {
-      stop(
-        "Some remaining treatments do not have enough seed for one plot: ",
-        paste(infeasible, collapse = ", ")
-      )
-    }
-    
-    if (length(infeasible) > 0) {
-      excluded_treatments <- infeasible
-    }
-    
+
+    if (length(infeasible) > 0 && shortage_action == "error")
+      stop("Some remaining treatments do not have enough seed for one plot: ",
+           paste(infeasible, collapse = ", "))
+    if (length(infeasible) > 0) excluded_treatments <- infeasible
     unreplicated_treatments <- feasible_unrep
-    
+
     seed_df$Role[seed_df$Treatment %in% p_rep_treatments]        <- "p_rep"
     seed_df$Role[seed_df$Treatment %in% unreplicated_treatments] <- "unreplicated"
     seed_df$Role[seed_df$Treatment %in% excluded_treatments]     <- "excluded"
   }
-  
+
   if (replication_mode == "rcbd_type") {
     feasible_rep <- seed_df$Treatment[seed_df$Can_Rep]
     not_rep      <- seed_df$Treatment[!seed_df$Can_Rep]
-    
-    if (length(not_rep) > 0 && shortage_action == "error") {
-      stop(
-        "Some treatments do not have enough seed for the requested replication: ",
-        paste(not_rep, collapse = ", ")
-      )
-    }
-    
+
+    if (length(not_rep) > 0 && shortage_action == "error")
+      stop("Some treatments do not have enough seed for the requested replication: ",
+           paste(not_rep, collapse = ", "))
+
     if (length(not_rep) > 0 && shortage_action == "exclude") {
       excluded_treatments <- not_rep
       p_rep_treatments    <- feasible_rep
     }
-    
+
     if (length(not_rep) > 0 && shortage_action == "downgrade") {
-      downgradable <- not_rep[seed_df$Can_Unrep[match(not_rep, seed_df$Treatment)]]
+      downgradable        <- not_rep[seed_df$Can_Unrep[match(not_rep, seed_df$Treatment)]]
       excluded_treatments <- setdiff(not_rep, downgradable)
       unreplicated_treatments <- downgradable
-      p_rep_treatments <- feasible_rep
+      p_rep_treatments    <- feasible_rep
     }
-    
-    if (length(not_rep) == 0) {
-      p_rep_treatments <- feasible_rep
-    }
-    
+
+    if (length(not_rep) == 0) p_rep_treatments <- feasible_rep
     p_rep_reps <- rep(desired_replications, length(p_rep_treatments))
-    
+
     seed_df$Role[seed_df$Treatment %in% p_rep_treatments]        <- "p_rep"
     seed_df$Role[seed_df$Treatment %in% unreplicated_treatments] <- "unreplicated"
     seed_df$Role[seed_df$Treatment %in% excluded_treatments]     <- "excluded"
   }
-  
+
   p_rep_treatments <- treatments[treatments %in% p_rep_treatments]
-  if (length(p_rep_treatments) > 0) {
-    p_rep_reps <- rep(desired_replications, length(p_rep_treatments))
-  } else {
-    p_rep_reps <- integer(0)
-  }
-  
+  p_rep_reps <- if (length(p_rep_treatments) > 0)
+    rep(desired_replications, length(p_rep_treatments)) else integer(0)
+
   unreplicated_treatments <- treatments[treatments %in% unreplicated_treatments]
   excluded_treatments     <- treatments[treatments %in% excluded_treatments]
-  
   seed_df$Role[is.na(seed_df$Role)] <- "unused"
-  
+
   list(
     p_rep_treatments        = p_rep_treatments,
     p_rep_reps              = p_rep_reps,

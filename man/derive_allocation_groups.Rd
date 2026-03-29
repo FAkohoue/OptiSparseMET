@@ -22,11 +22,11 @@ derive_allocation_groups(
 silently deduplicated. Must contain at least one element.}
 
 \item{allocation_group_source}{Character scalar. Grouping mode. One of:
-\itemize{
-\item \code{"none"}: all treatments assigned to a single group \code{"ALL"}.
-\item \code{"Family"}: group labels read from \code{treatment_info$Family}.
-\item \code{"GRM"}: cluster labels derived from \code{GRM} via PCA and clustering.
-\item \code{"A"}: cluster labels derived from \code{A} via PCA and clustering.
+\describe{
+\item{\code{"none"}}{All treatments assigned to a single group \code{"ALL"}.}
+\item{\code{"Family"}}{Group labels read from \code{treatment_info$Family}.}
+\item{\code{"GRM"}}{Cluster labels derived from \code{GRM} via PCA and clustering.}
+\item{\code{"A"}}{Cluster labels derived from \code{A} via PCA and clustering.}
 }}
 
 \item{treatment_info}{Optional data frame. Required when
@@ -70,8 +70,7 @@ Active only when \code{allocation_group_source \%in\% c("GRM", "A")} and
 \item{n_pcs_use}{Integer or \code{Inf}. Number of leading principal components
 retained for clustering. \code{Inf} retains all components corresponding to
 positive eigenvalues, up to \eqn{n - 1}. Smaller integer values retain
-only the leading components, preserving broad structure and discarding
-finer differentiation. Must be at least 2. Ignored when
+only the leading components. Must be at least 2. Ignored when
 \code{allocation_group_source \%in\% c("none", "Family")}.}
 }
 \value{
@@ -104,21 +103,22 @@ treatments.
 \details{
 \code{derive_allocation_groups()} assigns a group label to each treatment prior
 to sparse allocation across environments. These labels are then used by
-\code{allocate_sparse_met()} to guide the incidence structure so that genetic
-groups — defined by family membership or by clusters derived from a
-relationship matrix — are distributed across environments rather than
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} to guide the incidence structure so that genetic
+groups -- defined by family membership or by clusters derived from a
+relationship matrix -- are distributed across environments rather than
 concentrated in a subset of them. The function is called internally by
-\code{allocate_sparse_met()} when \code{allocation_group_source} is not \code{"none"},
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} when \code{allocation_group_source} is not \code{"none"},
 but can also be called directly to inspect or audit the group structure
 before running allocation.
 \subsection{Matrix-based grouping}{
 
 When \code{allocation_group_source \%in\% c("GRM", "A")}, the function extracts
 the treatment-level submatrix, performs eigendecomposition, and retains
-eigenvectors corresponding to positive eigenvalues (threshold \eqn{> 10^{-10}})
-as principal components. Component scores are scaled by the square root of
-the corresponding eigenvalues before clustering, which weights components
-proportionally to their contribution to variance in the relationship matrix.
+eigenvectors corresponding to positive eigenvalues (threshold
+\eqn{> 10^{-10}}) as principal components. Component scores are scaled by
+the square root of the corresponding eigenvalues before clustering, which
+weights components proportionally to their contribution to variance in the
+relationship matrix.
 
 The number of components retained is controlled by \code{n_pcs_use}. Setting
 \code{n_pcs_use = Inf} retains all positive-eigenvalue components up to
@@ -152,29 +152,25 @@ treatment_info <- data.frame(
   stringsAsFactors = FALSE
 )
 
-## Example 1: family-based groups — labels read directly from treatment_info.
+## Example 1: family-based groups
 grp_fam <- derive_allocation_groups(
   treatments              = treatments,
   allocation_group_source = "Family",
   treatment_info          = treatment_info
 )
 grp_fam
-# 12 rows; AllocationGroup is "F1", "F2", or "F3" according to family
+# AllocationGroup is "F1", "F2", or "F3"
 
-## Example 2: no grouping — all treatments assigned to "ALL".
-## Use this to disable group-guided allocation without changing any other
-## argument in allocate_sparse_met().
+## Example 2: no grouping
 grp_none <- derive_allocation_groups(
   treatments              = treatments,
   allocation_group_source = "none"
 )
 unique(grp_none$AllocationGroup)  # "ALL"
 
-## Example 3: GRM-based clustering — groups derived from eigenstructure
-## of a genomic relationship matrix. Number of clusters anchored to the
-## number of families in treatment_info when supplied.
+## Example 3: GRM-based clustering
 set.seed(1)
-n <- length(treatments)
+n   <- length(treatments)
 raw <- matrix(rnorm(n * n), n, n)
 GRM <- crossprod(raw) / n
 diag(GRM) <- diag(GRM) + 0.1
@@ -192,6 +188,10 @@ grp_grm <- derive_allocation_groups(
 )
 grp_grm
 # AllocationGroup values are "GRP_G1", "GRP_G2", "GRP_G3"
-# (3 clusters, anchored to 3 families in treatment_info)
 
+}
+\seealso{
+\code{\link[=allocate_sparse_met]{allocate_sparse_met()}} which calls this function internally when
+\code{allocation_group_source} is not \code{"none"}. Call \code{derive_allocation_groups()}
+directly to inspect or audit the group structure before running allocation.
 }

@@ -19,20 +19,21 @@ and must therefore be unique and non-empty. Each element must be a data
 frame; the function stops with an error if any element is not.}
 
 \item{local_designs}{Optional named character vector or named list. Gives
-the local design type used in each environment, e.g. \code{"augmented"},
-\code{"p_rep"}, or \code{"alpha_rc"}. Names must match the names of \code{field_books}.
-Environments not present in \code{local_designs} receive \code{NA} in the
-\code{LocalDesign} column. If \code{NULL}, all environments receive \code{NA}.}
+the local design type used in each environment, typically
+\code{"met_prep_famoptg"} or \code{"met_alpha_rc_stream"} for built-in engines.
+Names must match the names of \code{field_books}. Environments not present in
+\code{local_designs} receive \code{NA} in the \code{LocalDesign} column. If \code{NULL}, all
+environments receive \code{NA}.}
 
 \item{replication_modes}{Optional named character vector or named list.
 Gives the replication mode used in each environment, corresponding to the
-\code{replication_mode} argument passed to \code{assign_replication_by_seed()} for
+\code{replication_mode} argument passed to \code{\link[=assign_replication_by_seed]{assign_replication_by_seed()}} for
 that environment. Names must match the names of \code{field_books}.
 Environments not present in \code{replication_modes} receive \code{NA} in the
 \code{ReplicationMode} column. If \code{NULL}, all environments receive \code{NA}.}
 
 \item{sparse_method}{Optional character scalar. The across-environment
-allocation strategy used in \code{allocate_sparse_met()}, e.g.
+allocation strategy used in \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}, e.g.
 \code{"balanced_incomplete"} or \code{"random_balanced"}. Applied uniformly to all
 rows of the combined field book. If \code{NULL}, the \code{SparseMethod} column is
 filled with \code{NA}.}
@@ -53,14 +54,15 @@ environment's field book are filled with \code{NA} for all rows belonging to
 that environment.
 }
 \description{
-Environment-level field books produced by \code{prep_famoptg()} or
-\code{alpha_rc_stream()} may differ in their column sets depending on the design
-options used in each environment. A direct \code{rbind()} over such a list fails
-unless all data frames share identical columns. \code{combine_met_fieldbooks()}
-resolves this by computing the union of all column names across environments,
-padding missing columns with \code{NA} in each data frame before stacking, and
-placing a standard set of columns at the front of the result regardless of
-the order in which they appear in the individual field books.
+Environment-level field books produced by \code{\link[=met_prep_famoptg]{met_prep_famoptg()}} or
+\code{\link[=met_alpha_rc_stream]{met_alpha_rc_stream()}} may differ in their column sets depending on the
+design options used in each environment. A direct \code{rbind()} over such a list
+fails unless all data frames share identical columns.
+\code{combine_met_fieldbooks()} resolves this by computing the union of all
+column names across environments, padding missing columns with \code{NA} in each
+data frame before stacking, and placing a standard set of columns at the
+front of the result regardless of the order in which they appear in the
+individual field books.
 
 The following columns are guaranteed to be present in the output even when
 absent in the input, filled with \code{NA} where the source field book did not
@@ -114,13 +116,13 @@ fb_E2 <- data.frame(
 
 met <- combine_met_fieldbooks(
   field_books        = list(E1 = fb_E1, E2 = fb_E2),
-  local_designs      = c(E1 = "augmented", E2 = "augmented"),
+  local_designs      = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
   replication_modes  = c(E1 = "augmented", E2 = "augmented"),
   sparse_method      = "balanced_incomplete",
   common_treatments  = "CHK1"
 )
 
-nrow(met)                        # 6 — three plots per environment
+nrow(met)                        # 6 -- three plots per environment
 unique(met$Environment)          # "E1" "E2"
 met$IsCommonTreatment            # TRUE only for CHK1 rows
 head(met[, 1:8])
@@ -133,7 +135,13 @@ met2 <- combine_met_fieldbooks(
   field_books = list(E1 = fb_E1, E2 = fb_E2)
 )
 
-"SpatialResidual" \%in\% names(met2)         # TRUE
-is.na(met2$SpatialResidual[met2$Environment == "E1"])  # all TRUE
+"SpatialResidual" \%in\% names(met2)                         # TRUE
+is.na(met2$SpatialResidual[met2$Environment == "E1"])      # all TRUE
 
+}
+\seealso{
+\code{\link[=met_prep_famoptg]{met_prep_famoptg()}} and \code{\link[=met_alpha_rc_stream]{met_alpha_rc_stream()}} which produce the
+environment-level field books that serve as input to this function.
+\code{\link[=plan_sparse_met_design]{plan_sparse_met_design()}} which calls this function internally as the
+final step of the two-stage MET pipeline.
 }

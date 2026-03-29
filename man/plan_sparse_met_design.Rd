@@ -48,9 +48,10 @@ to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 
 \item{env_design_specs}{Named list with one element per environment. Each
 element must contain at least a \code{design} field selecting the local design
-engine (\code{"prep_famoptg"} or \code{"alpha_rc_stream"}). All other fields are
-passed through to the corresponding local design function, except a small
-set of pipeline-consumed fields used internally for seed-aware replication.}
+engine (\code{"met_prep_famoptg"} or \code{"met_alpha_rc_stream"}). All other
+fields are passed through to the corresponding local design function,
+except a small set of pipeline-consumed fields used internally for
+seed-aware replication.}
 
 \item{treatment_info}{Optional data frame with at least \code{Treatment} and
 optionally \code{Family}.}
@@ -137,8 +138,8 @@ Compared with calling the lower-level functions manually,
 are automatically captured into \code{environment_summary} and
 \code{efficiency_summary}
 \item environment specs are validated before design construction
-\item \code{prep_famoptg()} replication mode can be inferred automatically when not
-supplied explicitly
+\item \code{met_prep_famoptg()} replication mode can be inferred automatically when
+not supplied explicitly
 \item a registry-based compatibility layer allows additional future design
 engines to be added with minimal changes
 }

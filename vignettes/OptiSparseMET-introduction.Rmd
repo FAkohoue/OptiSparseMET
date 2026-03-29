@@ -16,71 +16,215 @@ knitr::opts_chunk$set(
 )
 ```
 
+---
+
 # 1. Introduction
 
-The fundamental constraint in multi-environment trials is that the number of candidate lines $J$ routinely exceeds the number of plots available across the $I$ environments in the trial. Complete evaluation of all lines in all environments is therefore infeasible, and some form of incomplete allocation is required.
+## 1.1 The core problem
 
-Sparse MET design formalizes this allocation problem. Rather than assigning lines to environments arbitrarily or by convenience, a principled sparse design controls replication, co-occurrence, and genetic connectivity simultaneously — so that the resulting data support the mixed-model inference the trial was built for. `OptiSparseMET` addresses this at two levels: across-environment allocation and within-environment field design, treated jointly rather than sequentially.
+A multi-environment trial (MET) evaluates a set of candidate lines — varieties,
+hybrids, inbred lines — across multiple environments (locations, years, or
+location-year combinations). The goal is to estimate the performance of each
+line across environments, partition genetic from environment effects, and
+identify lines with broad or specific adaptation.
 
-This package is built for breeding workflows where design quality must satisfy both statistical and operational constraints:
+The fundamental constraint is that the number of candidate lines $J$ almost
+always exceeds the number of plots available in any single environment. Testing
+all $J$ lines in all $I$ environments is infeasible; some form of incomplete
+testing is unavoidable. The question is not whether to test incompletely, but
+how to structure that incompleteness so the resulting data still support
+reliable inference.
 
-- limited field capacity per environment
-- unequal environment sizes
-- strong family or genomic structure among candidates
-- seed availability constraints on replication
-- need for mixed-model compatible layouts
-- need for a unified MET-level field book
+**Sparse testing** is the formal approach. A sparse MET design specifies, for
+each line $j$ and environment $e$, whether that combination appears in the
+trial. The goal is a structure that is statistically efficient, genetically
+connected, and operationally deployable given seed and plot constraints.
+
+## 1.2 What OptiSparseMET does
+
+`OptiSparseMET` addresses sparse MET design at two linked levels:
+
+1. **Across-environment allocation** — which lines go to which environments,
+   how many times each line is replicated across the trial, and whether the
+   resulting connectivity is sufficient for cross-environment inference.
+
+2. **Within-environment design** — how the lines assigned to each environment
+   are arranged in the field, how checks are distributed, how blocks control
+   local heterogeneity, and how spatial gradients are managed.
+
+Standard tools optimize each level separately. `OptiSparseMET` treats them
+jointly: the allocation output constrains the within-environment layout, and
+the within-environment design targets match what the allocation delivers.
 
 ---
 
 # 2. Statistical Framework
 
-The underlying model is a standard linear mixed model:
+## 2.1 The linear mixed model
+
+Phenotypic observations in plant breeding trials are analyzed using a linear
+mixed model. For a single environment, a typical form is:
 
 $$y = X\beta + Zg + e$$
 
-where $g \sim N(0,\, K\sigma_g^2)$ and $e \sim N(0,\, R\sigma_e^2)$. The matrix $K$ is either a genomic relationship matrix (GRM) or a pedigree-based numerator relationship matrix $A$, depending on the available data. The covariance structure of $R$ can be identity (IID), or structured as AR1 or AR1$\times$AR1 to account for spatial gradients within environments.
+where:
 
-Design choices affect this model at multiple points. The incidence structure of $Z$ — determined by allocation — governs the estimability and precision of $\hat{g}$. The blocking structure within environments governs $R$ and the degree to which local field heterogeneity is absorbed rather than confounded with genetic effects. Both levels need to be well-constructed for the model to return reliable estimates.
+- $y$ is the vector of observed phenotypic values (one per plot)
+- $X\beta$ captures fixed effects: the overall mean, environment effects,
+  check effects, and any fixed treatment contrasts
+- $Zg$ captures random line effects: $g \sim N(0,\, K\sigma_g^2)$, where
+  $K$ is a relationship matrix (genomic or pedigree-based) and $\sigma_g^2$
+  is the genetic variance
+- $e \sim N(0,\, R\sigma_e^2)$ is the vector of residuals, with $R$
+  encoding the spatial covariance structure
+
+The design matrix $Z$ — whose columns correspond to lines and whose rows
+correspond to plots — is determined entirely by the experimental design.
+**A good design is one that makes $Z$ well-conditioned for estimation.**
+
+## 2.2 Why design affects inference
+
+When $Z$ is sparse, not all lines are observed in all environments.
+Cross-environment inference then depends on either:
+
+- **Design-based connectivity**: lines that co-occur in the same environment
+  create direct comparisons; common treatments that appear in every environment
+  create bridges between sites.
+- **Model-based connectivity**: the relationship matrix $K$ propagates
+  information between genetically related lines, even if they never appear in
+  the same environment.
+
+Both mechanisms are important, but model-based connectivity is less robust
+because it depends on the assumed covariance structure being correct. A
+well-designed sparse MET builds in design-based connectivity as a safeguard.
+
+## 2.3 Efficiency criteria
+
+Given a design, its statistical efficiency can be measured by how well it
+supports estimation and prediction of genetic values. The three main criteria
+used by `OptiSparseMET` are:
+
+**A-optimality** minimizes the average variance of treatment comparison
+estimates (contrasts). Formally it minimizes $\text{trace}(C^{-1})$ where
+$C$ is the coefficient matrix of the treatment effects. A lower value is
+better. Its reciprocal, **A-efficiency** $= 1 / A_{\text{criterion}}$, is
+sometimes more interpretable because larger values are better.
+
+**D-optimality** maximizes the determinant $|C|$, which corresponds to
+maximizing the volume of the confidence ellipsoid for treatment estimates. It
+is more sensitive to the overall spread of information across all contrasts
+than A-optimality, which focuses on the average. Again, **D-efficiency**
+$= 1 / D_{\text{criterion}}$ is used so larger values are better.
+
+**CDmean** (coefficient of determination of the mean) is the criterion most
+directly tied to genomic prediction. It is defined as:
+
+$$\text{CDmean} = 1 - \frac{\overline{\text{PEV}}}{\sigma_g^2}$$
+
+where $\overline{\text{PEV}}$ is the mean prediction error variance (PEV) of
+the BLUP estimates and $\sigma_g^2$ is the genetic variance. CDmean lies in
+$[0, 1]$; values close to 1 indicate that the design supports precise
+prediction. It captures how accurately genomic estimated breeding values
+(GEBVs) can be recovered from the design, incorporating both the relationship
+matrix $K$ and the block structure.
+
+> **For novice readers**: Think of CDmean as "what fraction of the true
+> genetic value the design allows you to recover on average." A CDmean of 0.85
+> means the design, on average, captures 85% of the genetic signal.
 
 ---
 
 # 3. Two-Level Design Structure
 
-Sparse MET design in `OptiSparseMET` is intentionally divided into two linked levels.
-
-## 3.1 Across-Environment Allocation
+## 3.1 Across-environment allocation
 
 The resource identity underlying balanced sparse allocation is:
 
-$$J \times r = I \times k$$
+$$N = J \times r = I \times k$$
 
-where $J$ is the total number of treatments, $r$ is the number of environments each treatment enters, $I$ is the number of environments, and $k$ is the number of treatments tested per environment. Given fixed total resources $N = J \times r = I \times k$, this identity makes the tradeoff between coverage breadth ($k$) and replication depth ($r$) explicit: increasing one necessarily decreases the other.
+where:
 
-Allocation strategies in `OptiSparseMET` operate by constructing treatment-by-environment incidence matrices that satisfy or approximate this constraint while respecting genetic structure constraints and common treatment requirements.
+| Symbol | Meaning |
+|--------|---------|
+| $N$ | Total number of line-by-environment observations |
+| $J$ | Total number of candidate lines |
+| $r$ | Number of environments each line enters (replication depth) |
+| $I$ | Number of environments |
+| $k$ | Number of lines tested per environment (coverage breadth) |
 
-## 3.2 Within-Environment Design
+Given a fixed total resource $N$, this identity formalizes a fundamental
+tradeoff: **increasing coverage breadth** (testing more lines per environment,
+larger $k$) **necessarily reduces replication depth** (each line appears in
+fewer environments, smaller $r$). No design can simultaneously maximize both.
 
-Each environment receives an independent field design constructed by one of two engines:
+> **For novice readers**: If you have 100 lines, 4 environments, and enough
+> seed for 400 plots total, you could test 100 lines in 4 environments (full
+> replication, but only if all 400 plots are available per environment), or
+> test 50 lines per environment and have each line appear in 2 environments
+> ($r = 2, k = 100$), or test 25 lines per environment and have each appear in
+> 4 environments ($r = 4, k = 100$). The product $J \times r$ always equals
+> $N = I \times k$.
 
-- `prep_famoptg()` for block-based repeated-check designs, including augmented and p-rep layouts
-- `alpha_rc_stream()` for row-column alpha designs under large-scale spatial structure
+The practical constraint is that $k$ is bounded by the number of plots
+available per environment, and $r$ is bounded by seed availability. The
+allocation problem is to choose which lines go to which environments, subject
+to these bounds.
 
-The choice between them depends on field geometry, check structure, replication goals, and the spatial model anticipated at analysis.
+When common treatments are included, a number $C$ of lines are assigned to
+**every** environment before sparse allocation begins. Their count is subtracted
+from each environment's capacity:
+
+$$k_e^* = k_e - C$$
+
+The sparse-allocatable lines number $J^* = J - C$, and the modified resource
+identity applies to them:
+
+$$J^* \times r = I \times k^*$$
+
+## 3.2 Within-environment design
+
+Each environment receives an independent field design constructed by one of
+two engines:
+
+- `met_prep_famoptg()` for block-based repeated-check designs, including
+  augmented, partially replicated (p-rep), and RCBD-type layouts
+- `met_alpha_rc_stream()` for row-column alpha designs suited to large-scale
+  spatial field structure
+
+The choice between them depends on field geometry, check structure,
+replication goals, and the spatial model anticipated at analysis. They can
+differ across environments within the same trial.
 
 ---
 
 # 4. Pipeline Overview
 
-The package workflow proceeds in four stages:
+The `OptiSparseMET` workflow proceeds in four stages, with an optional
+shortcut that runs all four together.
 
-- `allocate_sparse_met()` distributes treatments across environments
-- `assign_replication_by_seed()` verifies replication feasibility when seed constraints are relevant
-- local design engines construct within-environment layouts
-- `combine_met_fieldbooks()` merges all layouts into a single MET-level field book
+```
+STAGE 0   Verify per-environment capacity
+          suggest_safe_k()  OR  min_k_for_full_coverage()
+          |
+STAGE 1   Allocate lines across environments
+          allocate_sparse_met()
+          |
+STAGE 2   Verify replication feasibility given seed inventory
+          assign_replication_by_seed()
+          |
+STAGE 3   Build within-environment field designs
+          met_prep_famoptg()  OR  met_alpha_rc_stream()
+          (optional: evaluate and optimise each design)
+          |
+STAGE 4   Assemble the combined MET field book
+          combine_met_fieldbooks()
+
+          --- OR: run stages 1-4 together ---
+
+          plan_sparse_met_design()
+```
 
 ```{r pipeline-diagram, eval=FALSE}
-# install if needed: install.packages("DiagrammeR")
 library(DiagrammeR)
 
 grViz("
@@ -88,120 +232,44 @@ digraph OptiSparseMET {
   graph [layout = dot, rankdir = LR]
   node [shape = rectangle, style = rounded, fontname = Helvetica]
 
-  A [label = 'Input data\nTreatments\nEnvironments\nFamilies / GRM / A\nSeed inventory']
-  B [label = 'Across-environment allocation\nallocate_sparse_met()\n(M3 or M4)']
-  C [label = 'Allocation matrix']
-  D [label = 'Seed-aware replication\nassign_replication_by_seed()']
-  E [label = 'Within-environment design\nprep_famoptg()\nor\nalpha_rc_stream()']
-  F [label = 'Local field books']
-  G [label = 'combine_met_fieldbooks()']
-  H [label = 'Outputs\ncombined_field_book\nenvironment_summary\nefficiency_summary']
+  A [label = 'Input\nLines  Environments\nFamilies / GRM / A\nSeed inventory']
+  B [label = 'Stage 0: Verify capacity\nsuggest_safe_k()']
+  C [label = 'Stage 1: Allocation\nallocate_sparse_met()\n(M3 or M4)']
+  D [label = 'Stage 2: Seed replication\nassign_replication_by_seed()']
+  E [label = 'Stage 3: Field design\nmet_prep_famoptg()\nor met_alpha_rc_stream()']
+  F [label = 'Stage 4: Assemble\ncombine_met_fieldbooks()']
+  G [label = 'Outputs\ncombined_field_book\nenvironment_summary\nefficiency_summary']
 
-  A -> B -> C -> D -> E -> F -> G -> H
+  A -> B -> C -> D -> E -> F -> G
 }
 ")
 ```
 
 ---
 
-# 5. Allocation Strategies
+# 5. Feasibility Helpers
 
-## 5.1 Random Balanced (M3)
+Before any allocation, it is essential to verify that the chosen
+per-environment capacity $k$ is large enough to assign every non-common line at
+least once. Passing a capacity that is too small causes `allocate_sparse_met()`
+to stop with an informative error.
 
-The `random_balanced` strategy uses stochastic allocation to achieve approximate balance without requiring exact BIBD parameters to be satisfiable. It is appropriate when environment capacities are heterogeneous, when the trial dimensions do not admit an exact balanced solution, or when some flexibility in the incidence structure is acceptable. Balance is approximate rather than exact, but the construction is reproducible through the `seed` argument.
+The minimum capacity for full coverage under equal environment sizes is:
 
-## 5.2 Balanced Incomplete (M4)
+$$k_{\min} = \left\lceil \frac{J^*}{I} \right\rceil + C$$
 
-The `balanced_incomplete` strategy enforces equal replication across environments and approximately uniform pairwise co-occurrence of treatments, following BIBD principles applied at the MET level. It is appropriate when environments are comparable in capacity, equal replication is a hard requirement, and uniform co-occurrence is needed for precision of treatment comparisons. When exact slot equality holds and `allow_approximate = FALSE`, strict replication equality among non-common treatments is enforced. When exact balance cannot be satisfied, `allow_approximate = TRUE` relaxes the requirement.
+where $\lceil \cdot \rceil$ is the ceiling function. This is the floor below
+which any sparse allocation must leave some lines unassigned.
 
----
+`OptiSparseMET` provides three helpers:
 
-# 6. M3 versus M4
+| Function | Action |
+|----------|--------|
+| `min_k_for_full_coverage()` | Returns $k_{\min}$ exactly |
+| `suggest_safe_k()` | Returns $k_{\min}$ plus a user-defined buffer |
+| `warn_if_k_too_small()` | Emits a non-fatal warning if $k < k_{\min}$ |
 
-| Feature | M3 `random_balanced` | M4 `balanced_incomplete` |
-|---|---|---|
-| Replication equality | Approximate | Exact or near-exact |
-| Pairwise co-occurrence | Stochastic | More uniform |
-| Feasibility requirement | Flexible | Stricter |
-| Typical use case | Heterogeneous environments | Uniform MET networks |
-| Balance guarantee | Heuristic | Design-based |
-
-In practice, M3 is often easier to use in real breeding pipelines. M4 is preferable when exact balance is central to the design objective.
-
-```{r allocation-comparison, eval=FALSE}
-library(OptiSparseMET)
-
-data("OptiSparseMET_example_data")
-x <- OptiSparseMET_example_data
-
-alloc_M3 <- allocate_sparse_met(
-  treatments                     = x$treatments,
-  environments                   = x$environments,
-  allocation_method              = "random_balanced",
-  n_test_entries_per_environment = 40,
-  target_replications            = 2,
-  common_treatments              = x$common_treatments,
-  seed                           = 123
-)
-
-alloc_M4 <- allocate_sparse_met(
-  treatments                     = x$treatments,
-  environments                   = x$environments,
-  allocation_method              = "balanced_incomplete",
-  n_test_entries_per_environment = 40,
-  target_replications            = 2,
-  common_treatments              = x$common_treatments,
-  allow_approximate              = TRUE,
-  seed                           = 123
-)
-
-alloc_M3$summary
-alloc_M4$summary
-```
-
----
-
-# 7. Genetic Structure-Aware Allocation
-
-Standard allocation treats lines as exchangeable. This is inadequate when genomic prediction is a downstream objective, family structure is strong, or environments risk receiving genetically clustered subsets of entries. `OptiSparseMET` incorporates genetic structure through three mechanisms.
-
-## 7.1 Family-Based Allocation
-
-Family-based allocation distributes related materials across environments rather than concentrating them in a few sites, preventing systematic differences in the genetic composition of environments that would otherwise inflate GxE estimates.
-
-## 7.2 GRM-Based Allocation
-
-Genomic relationship matrix allocation uses marker-derived relatedness to spread genetically similar lines across environments, improving the conditions under which GBLUP models are estimated and reducing the risk of genetic clustering.
-
-## 7.3 Pedigree-Based Allocation
-
-When genomic data are unavailable, the pedigree-based numerator relationship matrix $A$ plays the same role as the GRM in guiding allocation away from genetic clustering.
-
-All three mechanisms improve cross-environment connectedness, comparability of genetic effects across sites, stability of GxE estimation, and prediction accuracy under GBLUP and PBLUP models.
-
----
-
-# 8. Common Treatments
-
-Let $C$ denote the number of common treatments — treatments assigned to every environment before sparse allocation begins. The effective per-environment sparse capacity is:
-
-$$k_e^* = k_e - C$$
-
-Common treatments play two key roles. They establish direct cross-environment connectivity that does not depend on model assumptions about $K$, and they stabilize estimation of environment-level effects. Without them, cross-environment linkage relies entirely on the covariance structure of $K$, which is model-based rather than design-based. Common treatments are most important when environments are weakly correlated.
-
----
-
-# 9. Feasibility Helpers
-
-Before allocation, it is important to verify that the chosen per-environment capacity is sufficient to assign every non-common treatment at least once. Passing a capacity that is too small causes `allocate_sparse_met()` to stop with an informative error. The package provides three helpers for this pre-flight check.
-
-| Function | Purpose |
-|---|---|
-| `min_k_for_full_coverage()` | Compute the minimum entries per environment required to place all treatments |
-| `suggest_safe_k()` | Propose a safe uniform value of `n_test_entries_per_environment` with a buffer |
-| `warn_if_k_too_small()` | Emit a non-fatal warning when the chosen capacity is insufficient |
-
-These helpers are especially useful when many common treatments reduce effective sparse capacity.
+Always call one of these before `allocate_sparse_met()`.
 
 ```{r feasibility, eval=FALSE}
 library(OptiSparseMET)
@@ -209,126 +277,812 @@ library(OptiSparseMET)
 data("OptiSparseMET_example_data")
 x <- OptiSparseMET_example_data
 
-# Suggest a safe k with a small buffer above the strict minimum
+# Strict arithmetic minimum
+min_k_for_full_coverage(
+  n_treatments_total  = length(x$treatments),    # 120
+  n_environments      = length(x$environments),  # 4
+  n_common_treatments = length(x$common_treatments)  # 8; J*=112
+)
+# min_sparse_slots_per_environment = 28  (= ceil(112/4))
+# min_total_entries_per_environment = 36 (= 28 + 8)
+
+# Safe value with buffer of 3
 suggest_safe_k(
   treatments        = x$treatments,
   environments      = x$environments,
   common_treatments = x$common_treatments,
   buffer            = 3
 )
+# Returns 39
 
-# Compute the strict minimum directly
-min_k_for_full_coverage(
-  n_treatments_total  = length(x$treatments),
-  n_environments      = length(x$environments),
-  n_common_treatments = length(x$common_treatments)
-)
-
-# Non-fatal check on a proposed capacity
+# Non-fatal check (useful inside scripts)
 warn_if_k_too_small(
   treatments                     = x$treatments,
   environments                   = x$environments,
-  n_test_entries_per_environment = 40,
+  n_test_entries_per_environment = 39,
   common_treatments              = x$common_treatments
 )
+# No warning: 4 * (39 - 8) = 124 >= 112 sparse lines
 ```
 
 ---
 
-# 10. Seed-Aware Replication
+# 6. Allocation Strategies
 
-A design that requests replication without accounting for seed availability is not deployable. The feasibility condition for assigning replication $r_i$ to treatment $i$ is:
+## 6.1 The random balanced strategy (M3)
 
-$$s_i \geq r_i \times q_e$$
+The `"random_balanced"` method is a coverage-first stochastic allocation
+inspired by the M3 method of Montesinos-López et al. (2023). It operates in
+two phases:
 
-where $s_i$ is the seeds available for treatment $i$, $r_i$ is the assigned replication level, and $q_e$ is the seeds required per plot. `assign_replication_by_seed()` evaluates this condition and assigns each treatment one of three roles — replicated, unreplicated (downgraded from the target), or excluded — depending on the design mode and available seed. This step is especially relevant before calling `prep_famoptg()` in p-rep or RCBD-type repeated-check designs.
+**Phase 1 (coverage guarantee)**: Every non-common line is assigned to at
+least one environment. Lines are processed in random order; each is placed in
+the environment with the most remaining capacity, with a preference for
+environments where the line's genetic group is not yet represented when
+`allocation_group_source` is active.
 
----
+**Phase 2 (replication filling)**: Remaining slots are filled by repeatedly
+selecting lines with the largest replication deficit relative to
+`target_replications`, subject to group-balance penalties.
 
-# 11. Within-Environment Design Engines
+This strategy is appropriate when:
+- Environment capacities are heterogeneous
+- Exact BIBD parameters are not achievable for the trial dimensions
+- Some flexibility in the incidence structure is acceptable
 
-## 11.1 `prep_famoptg()`
+Unlike the original M3, which allocates environment by environment and may
+silently leave some lines with no assignment, this implementation guarantees
+full coverage before attempting any additional replication.
 
-This function builds repeated-check block designs supporting three main design classes:
+## 6.2 The balanced incomplete strategy (M4)
 
-- **Augmented repeated-check design**: checks repeated in every block, all test entries unreplicated
-- **Partially replicated (p-rep) design**: a subset of entries replicated, the remainder unreplicated
-- **RCBD-type repeated-check design**: all non-check entries replicated at a common level
+The `"balanced_incomplete"` method implements the M4 allocation of
+Montesinos-López et al. (2023). It enforces two structural guarantees:
 
-Core rules enforced across all classes: checks appear in every block; replicated non-check entries appear at most once per block; unreplicated entries appear exactly once in the full design. Optionally, the function minimizes same-group adjacency within blocks, applies dispersion optimization using a relationship matrix, and evaluates mixed-model efficiency metrics.
+**Condition 1 — Equal replication**: every non-common line appears in exactly
+$r$ environments. This ensures no line is systematically under-evaluated and
+is the defining property that distinguishes M4 from M3.
 
-## 11.2 `alpha_rc_stream()`
+**Condition 2 — Equal environment sizes**: every environment receives exactly
+$k^*$ sparse lines. This ensures environments are comparable and the resource
+identity $J^* \times r = I \times k^*$ holds exactly.
 
-This function builds stream-based alpha row-column designs over a fixed grid. It is best suited when fields are large, row and column trends matter, and spatial models such as AR1 or AR1$\times$AR1 are planned at the analysis stage. Each entry appears exactly once per replicate and checks appear once in every incomplete block. Replicate boundaries are determined by position in the traversal stream rather than by geometric subdivision of the grid.
+These two conditions are what matter in plant breeding programs where thousands
+of candidate lines are tested across a few environments. Enforcing them means
+every line gets the same number of chances to be evaluated — a fundamental
+fairness and precision requirement.
 
----
+> **For novice readers**: Equal replication means that if two breeders each
+> select the "top 10% of lines" based on the trial data, they are working from
+> the same quality of information for every line. Without equal replication,
+> lines tested more often have lower-variance estimates and a systematic
+> advantage in selection.
 
-# 12. Design Engine Selection Guide
+`allow_approximate = FALSE` (the default) enforces both conditions strictly.
+The slot identity $J^* \times r = I \times k^*$ must hold exactly, and the
+function stops with a clear error if it does not. Use
+`check_balanced_incomplete_feasibility()` to verify the slot identity before
+allocating:
 
-```{r design-choice-diagram, eval=FALSE}
-library(DiagrammeR)
+```{r bibd-check, eval=FALSE}
+# With k=39, J*=112, I=4, r=1: available slots = 4*(39-8) = 124,
+# required slots = 112*1 = 112. 124 ≠ 112 -> slot identity fails.
+check_balanced_incomplete_feasibility(
+  n_treatments_total             = 120,
+  n_environments                 = 4,
+  n_test_entries_per_environment = 39,
+  target_replications            = 1,
+  n_common_treatments            = 8
+)
+# feasible   = FALSE  (available = 124, required = 112, difference = 12)
+# Adjust k so that J*×r = I×k*: e.g. k=36 -> k*=28, 4*28=112=112*1.
 
-grViz("
-digraph design_choice {
-  graph [layout = dot, rankdir = TB]
-  node [shape = diamond, fontname = Helvetica]
-
-  A [label = 'Is field geometry strongly row-column structured?']
-  B [label = 'Is spatial modeling planned?']
-  C [label = 'Use alpha_rc_stream()']
-  D [label = 'Need augmented or p-rep repeated-check design?']
-  E [label = 'Use prep_famoptg()']
-
-  A -> B [label = 'yes']
-  B -> C [label = 'yes']
-  B -> D [label = 'no']
-  A -> D [label = 'no']
-  D -> E [label = 'yes']
-  D -> C [label = 'no']
-}
-")
+# With k=36: slot identity holds.
+check_balanced_incomplete_feasibility(
+  n_treatments_total             = 120,
+  n_environments                 = 4,
+  n_test_entries_per_environment = 36,
+  target_replications            = 1,
+  n_common_treatments            = 8
+)
+# feasible = TRUE (difference = 0)
 ```
 
-Use `prep_famoptg()` when repeated checks are central, when a p-rep or augmented design is needed, or when block structure is the primary local control mechanism.
+Construction proceeds via `crossdes::find.BIB()` when the `crossdes` package
+is installed, falling back to a greedy load-balanced constructor otherwise.
 
-Use `alpha_rc_stream()` when the field is large and rectangular, when row and column variation is substantial, or when a spatial residual model is anticipated at analysis.
+`allow_approximate = TRUE` relaxes the slot identity and accepts minor
+replication imbalances. This is a fallback for exploratory use when exact
+slot identity cannot be achieved, not the primary path.
 
----
+## 6.3 M3 versus M4: choosing the right strategy
 
-# 13. Example: Allocation
+| Feature | M3 `"random_balanced"` | M4 `"balanced_incomplete"` |
+|---------|------------------------|----------------------------|
+| Equal replication guarantee | No (approximate) | Yes (`allow_approximate = FALSE`) |
+| Equal environment sizes | No | Yes (both modes) |
+| Pairwise co-occurrence | Stochastic | Approximately uniform; compute from `$allocation_matrix %*% t($allocation_matrix)` |
+| Handles unequal environment sizes | Yes | Only with `allow_approximate = TRUE` |
+| Requires slot identity $J^* r = I k^*$ | No | Yes (strict mode) |
+| Coverage guarantee | Yes (phase 1) | Yes |
+| Typical use | Heterogeneous programs, exploratory | Standard MET networks with equal replication |
 
-```{r allocation-example, eval=FALSE}
+In practice, M3 is more flexible and tolerates heterogeneous constraints.
+M4 with `allow_approximate = FALSE` (the default) is the correct choice
+whenever equal replication is a hard requirement — which it should be in most
+standard breeding programs. Verify the slot identity first with
+`check_balanced_incomplete_feasibility()` and adjust $k$ or $r$ so that
+$J^* \times r = I \times k^*$ holds. M4 with `allow_approximate = TRUE`
+is a fallback when the slot identity cannot be satisfied.
+
+```{r allocation-comparison, eval=FALSE}
 library(OptiSparseMET)
 
 data("OptiSparseMET_example_data")
 x <- OptiSparseMET_example_data
 
-alloc <- allocate_sparse_met(
+# Verify feasibility first
+suggest_safe_k(x$treatments, x$environments,
+               common_treatments = x$common_treatments, buffer = 3)
+# Returns 39: ceil(112/4) + 8 + 3 = 39
+
+# M3: random balanced allocation
+alloc_M3 <- allocate_sparse_met(
   treatments                     = x$treatments,
   environments                   = x$environments,
-  allocation_method              = "balanced_incomplete",
-  n_test_entries_per_environment = 40,
-  target_replications            = 2,
+  allocation_method              = "random_balanced",
+  n_test_entries_per_environment = 39,
+  target_replications            = 1,
   common_treatments              = x$common_treatments,
-  allow_approximate              = TRUE,
   seed                           = 123
 )
 
-alloc$summary
-head(alloc$allocation_long)
-alloc$overlap_matrix
+# M4: balanced incomplete allocation with equal replication.
+# J*=112, I=4, r=1: need k* = 112/4 = 28, k = 28+8 = 36.
+# Slot identity: 112*1 = 4*28 = 112. Verified above.
+alloc_M4 <- allocate_sparse_met(
+  treatments                     = x$treatments,
+  environments                   = x$environments,
+  allocation_method              = "balanced_incomplete",
+  n_test_entries_per_environment = 36,
+  target_replications            = 1,
+  common_treatments              = x$common_treatments,
+  allow_approximate              = FALSE,
+  seed                           = 123
+)
+
+alloc_M3$summary  # allocation_method, min/max/mean replication, etc.
+alloc_M4$summary  # min_sparse_replication = max_sparse_replication = 1 (equal)
+alloc_M4$summary$max_sparse_replication  # equals min_sparse_replication: equal replication confirmed
 ```
 
 ---
 
-# 14. Example: Full Pipeline
+# 7. Genetic Structure-Aware Allocation
 
-```{r full-pipeline, eval=FALSE}
+Standard allocation treats lines as exchangeable — any line could go to any
+environment with equal probability. This is inadequate when:
+
+- Genomic prediction is a downstream objective (related lines clustered in the
+  same environments provide redundant rather than complementary information)
+- Family structure is strong and environments differ in their genetic
+  composition
+- Genetic disconnectedness would bias G×E estimation
+
+`OptiSparseMET` incorporates genetic structure through three mechanisms,
+controlled by `allocation_group_source` in `allocate_sparse_met()`.
+
+## 7.1 Family-based allocation (`"Family"`)
+
+Family labels (e.g., full-sib or half-sib families) are read from
+`treatment_info$Family`. Lines from the same family are treated as a group and
+the allocator distributes groups across environments rather than concentrating
+them. This prevents any one environment from containing a disproportionate
+fraction of one family's members, which would inflate within-family variance
+estimates and reduce the effective diversity of each site's test set.
+
+## 7.2 GRM-based allocation (`"GRM"`)
+
+When marker data are available, the genomic relationship matrix (GRM) encodes
+pairwise genetic similarity between all candidate lines. The allocator performs
+PCA on the GRM, then clusters lines by their positions in genomic principal
+component space using k-means or hierarchical clustering. The resulting cluster
+labels guide allocation just as family labels do.
+
+This approach is more precise than family-based allocation when families are
+heterogeneous in size or when marker data captures structure not visible from
+pedigree labels alone. It directly improves the conditions under which GBLUP
+models operate by ensuring that genomically similar lines are spread across
+environments.
+
+## 7.3 Pedigree-based allocation (`"A"`)
+
+When genomic data are unavailable, the pedigree numerator relationship matrix
+$A$ plays the same role as the GRM. PCA is performed on $A$ and clustering
+proceeds identically. The resulting groups reflect pedigree relatedness rather
+than marker-estimated genomic similarity.
+
+## 7.4 Why this matters for prediction
+
+Under a GBLUP model, prediction accuracy for unobserved lines depends on
+their relatedness to observed lines. When genetically similar lines are
+clustered in the same environments, the model gets redundant replication
+of the same genetic profiles while other profiles go unobserved. Spreading
+related lines across environments ensures the full genetic diversity of the
+candidate set is represented at each site, maximizing the amount of novel
+genetic information available for calibrating the prediction model.
+
+```{r grm-allocation, eval=FALSE}
+alloc_grm <- allocate_sparse_met(
+  treatments                     = x$treatments,
+  environments                   = x$environments,
+  allocation_method              = "random_balanced",
+  n_test_entries_per_environment = 39,
+  target_replications            = 1,
+  common_treatments              = x$common_treatments,
+  allocation_group_source        = "GRM",
+  GRM                            = x$OptiSparseMET_GRM,
+  treatment_info                 = x$treatment_info,
+  group_method                   = "kmeans",
+  group_seed                     = 42,
+  group_attempts                 = 25,
+  min_groups_per_environment     = 4,
+  min_env_per_group              = 2,
+  balance_groups_across_env      = TRUE,
+  force_group_connectivity       = TRUE,
+  seed                           = 123
+)
+
+alloc_grm$group_by_environment  # how many lines per group per environment
+alloc_grm$group_overlap_matrix  # how many groups are shared across env pairs
+```
+
+---
+
+# 8. Common Treatments
+
+Common treatments are lines assigned to **every** environment before sparse
+allocation begins. If $C$ is the number of common treatments, each environment
+has its effective sparse capacity reduced:
+
+$$k_e^* = k_e - C$$
+
+and the number of sparse-allocatable lines is:
+
+$$J^* = J - C$$
+
+## 8.1 Why common treatments matter
+
+Common treatments serve two statistically distinct purposes.
+
+**Design-based connectivity**: Two environments that share no tested lines can
+only be linked through the model — through the assumed structure of $K$.
+Common treatments provide direct comparisons that do not depend on any model
+assumption. This is important when environments are weakly genetically correlated
+or when the researcher wants robust cross-site inference.
+
+**Estimation stability**: Common treatments appear in every environment, so
+their effects are estimated with the highest precision. They function as
+stable benchmarks against which the performance of sparse treatments is
+measured. In practice, they are often elite lines or standard checks whose
+behavior is already partially known.
+
+> **For novice readers**: Common treatments are like reference points in a
+> measurement system. Even if two environments test completely different sets
+> of experimental lines, they can still be compared through their shared
+> reference lines — just as two labs can compare results if they all measure
+> the same control sample.
+
+## 8.2 When to include them
+
+Include common treatments when:
+- Environments are expected to be weakly correlated (e.g., very different
+  climate zones, different growing seasons)
+- Direct cross-environment comparisons need to be reliable without assuming
+  a specific genetic covariance structure
+- A stable reference set is needed for cross-trial benchmarking
+
+Minimize the number of common treatments when:
+- All environments are similar and $K$-based connectivity is sufficient
+- Sparse capacity is already tight and common treatments would leave too few
+  slots for the experimental lines
+
+---
+
+# 9. Seed-Aware Replication
+
+## 9.1 The feasibility constraint
+
+A design that requests replication without accounting for available seed cannot
+be deployed. The feasibility condition for assigning replication $r_i$ to line
+$i$ in environment $e$ is:
+
+$$s_i \geq r_i \times q_e + b$$
+
+where:
+- $s_i$ = seeds available for line $i$
+- $r_i$ = desired replication level
+- $q_e$ = seeds required per plot in environment $e$
+- $b$ = optional safety buffer (e.g., for germination losses)
+
+## 9.2 Replication roles
+
+`assign_replication_by_seed()` evaluates this condition for every line and
+assigns one of three roles:
+
+- **`"p_rep"`** — sufficient seed for $r_i$ plots; assigned
+  `desired_replications` plots
+- **`"unreplicated"`** — sufficient seed for one plot but not for
+  `desired_replications` plots (downgraded)
+- **`"excluded"`** — insufficient seed even for one plot
+
+Three design modes control how these roles are assigned:
+
+| Mode | `"augmented"` | `"p_rep"` | `"rcbd_type"` |
+|------|--------------|-----------|---------------|
+| Target | 1 plot per line | $r$ plots for a feasible subset | $r$ plots for all lines |
+| Downgrade | Excluded if seed < $q_e$ | Non-candidates get 1 plot | Yes, if `shortage_action = "downgrade"` |
+| P-rep selection | — | By priority (seed, order, random) | — |
+
+```{r seed-replication, eval=FALSE}
+seed_df <- data.frame(
+  Treatment     = x$treatments,
+  SeedAvailable = sample(20:120, length(x$treatments), replace = TRUE)
+)
+
+rep_plan <- assign_replication_by_seed(
+  treatments             = x$treatments,
+  seed_available         = seed_df,
+  seed_required_per_plot = 10,
+  replication_mode       = "p_rep",
+  desired_replications   = 2,
+  priority               = "seed_available",
+  max_prep               = 20,
+  minimum_seed_buffer    = 5,
+  shortage_action        = "downgrade",
+  seed                   = 123
+)
+
+length(rep_plan$p_rep_treatments)        # replicated at 2 reps
+length(rep_plan$unreplicated_treatments) # assigned 1 plot (downgraded)
+length(rep_plan$excluded_treatments)     # insufficient seed
+rep_plan$seed_summary                    # full per-line feasibility table
+```
+
+---
+
+# 10. Within-Environment Design Engines
+
+## 10.1 `met_prep_famoptg()` — block-based repeated-check designs
+
+This engine constructs repeated-check block designs for environments where
+the primary local control mechanism is blocking (incomplete block designs).
+It supports three design classes:
+
+**Augmented repeated-check design**
+
+All non-check lines are unreplicated. Each block contains the same set of check
+treatments plus a unique subset of experimental lines. This design is
+appropriate for early screening stages when the number of candidates far exceeds
+available resources and seed is very limited. The checks allow estimation of
+block effects, which are subtracted to improve comparisons among the
+unreplicated lines.
+
+**Partially replicated (p-rep) design**
+
+A subset of lines — those with more seed or higher priority — is replicated
+at `desired_replications` plots, distributed across distinct blocks. The
+remainder appear unreplicated. P-rep designs are efficient because they
+concentrate replication where it provides the most information while still
+including a broad set of candidates.
+
+**RCBD-type repeated-check design**
+
+All non-check lines are replicated at a uniform level. This is the closest to
+a standard RCBD within a single environment, extended to include repeated
+checks in every block.
+
+**Structural guarantees enforced by `met_prep_famoptg()`**:
+
+- Check treatments appear in every block
+- Replicated lines appear in distinct blocks (at most once per block)
+- Unreplicated lines appear exactly once in the design
+
+Optional features include family-based or GRM/A-based genetic dispersion
+optimization (minimizing the average relatedness of adjacent plots) and
+mixed-model efficiency evaluation (A, D, CDmean).
+
+```{r prep-famoptg, eval=FALSE}
+design_E1 <- met_prep_famoptg(
+  check_treatments        = c("CHK1", "CHK2"),
+  check_families          = c("CHECK", "CHECK"),
+  p_rep_treatments        = rep_plan$p_rep_treatments,
+  p_rep_reps              = rep_plan$p_rep_reps,
+  p_rep_families          = x$treatment_info$Family[
+                              match(rep_plan$p_rep_treatments,
+                                    x$treatment_info$Treatment)],
+  unreplicated_treatments = rep_plan$unreplicated_treatments,
+  unreplicated_families   = x$treatment_info$Family[
+                              match(rep_plan$unreplicated_treatments,
+                                    x$treatment_info$Treatment)],
+  n_blocks     = 4L,
+  n_rows       = 10L,
+  n_cols       = 12L,
+  order        = "row",
+  serpentine   = TRUE,
+  seed         = 123
+)
+
+design_E1$layout_matrix  # plot-level field map
+design_E1$field_book     # row-level data frame ready for export
+```
+
+## 10.2 `met_alpha_rc_stream()` — row-column alpha designs
+
+This engine constructs alpha row-column designs for large fields where both
+row and column gradients are present. It is most appropriate when:
+
+- The field is large and rectangular
+- Row and column variation is substantial relative to treatment differences
+- A spatial residual model (AR1 or AR1×AR1) will be used at analysis
+
+The design is built by streaming plots across the field in a specified
+traversal order (row-major, column-major, or serpentine). Each replicate
+occupies a contiguous block of rows or columns. Within each replicate, entries
+are partitioned into incomplete blocks, with check treatments inserted at
+regular intervals within every incomplete block.
+
+**Structural guarantees**:
+
+- Each entry appears exactly once per replicate
+- Check treatments appear in every incomplete block
+- Block sizes are constrained within `[min_block_size, max_block_size]`
+
+```{r alpha-rc, eval=FALSE}
+design_E2 <- met_alpha_rc_stream(
+  check_treatments = c("CHK1", "CHK2"),
+  check_families   = c("CHECK", "CHECK"),
+  entry_treatments = rep_plan$p_rep_treatments,
+  entry_families   = x$treatment_info$Family[
+                       match(rep_plan$p_rep_treatments,
+                             x$treatment_info$Treatment)],
+  n_reps         = 2L,
+  n_rows         = 10L,
+  n_cols         = 12L,
+  min_block_size = 8L,
+  max_block_size = 12L,
+  order          = "row",
+  serpentine     = TRUE,
+  seed           = 123
+)
+
+design_E2$layout_matrix
+design_E2$field_book
+design_E2$design_info   # n_reps, n_blocks_per_rep, total_used_plots
+```
+
+## 10.3 Design engine selection guide
+
+Use `met_prep_famoptg()` when:
+
+- Repeated check distribution across blocks is a structural requirement
+- The design needs to support p-rep, augmented, or RCBD-type structure
+- The field is subdivided into blocks but row-column spatial modeling is
+  not the primary concern
+
+Use `met_alpha_rc_stream()` when:
+
+- The field is large and continuous, with both row and column gradients
+- Spatial models (AR1 or AR1×AR1) will be used at analysis
+- The design needs fixed-grid compatibility for automated plot management
+
+The engines can be mixed across environments within the same trial.
+
+---
+
+# 11. Efficiency Evaluation
+
+## 11.1 Block-based designs: `met_evaluate_famoptg_efficiency()`
+
+For designs produced by `met_prep_famoptg()`, efficiency is evaluated under a
+model with a block random effect:
+
+$$y = X\beta + Zg + Wb + e$$
+
+where $b \sim N(0,\, I\sigma_b^2)$ is the block effect. The variance
+components are specified in `varcomp` using `sigma_b2` for the block variance.
+Note that this model has a **single block variance component** — there is no
+separate replicate or incomplete-block-within-replicate structure.
+
+The function computes A-criterion, D-criterion (for fixed treatment effects),
+and CDmean (for random treatment effects), under any of three residual
+structures: `"IID"`, `"AR1"` (along rows or columns), or `"AR1xAR1"` (spatial
+gradient in both dimensions).
+
+```{r eval-famoptg, eval=FALSE}
+eff_E1 <- met_evaluate_famoptg_efficiency(
+  field_book       = design_E1$field_book,
+  n_rows           = 10L,
+  n_cols           = 12L,
+  check_treatments = c("CHK1", "CHK2"),
+  varcomp = list(
+    sigma_e2  = 1.0,   # residual variance
+    sigma_g2  = 0.5,   # genetic variance (for CDmean)
+    sigma_b2  = 0.3,   # block variance
+    sigma_r2  = 0.05,  # row variance (for spatial structures)
+    sigma_c2  = 0.05   # column variance
+  ),
+  treatment_effect    = "random",
+  prediction_type     = "IID",
+  residual_structure  = "IID"
+)
+
+eff_E1$CDmean     # in [0, 1]: higher is better
+eff_E1$mean_PEV   # mean prediction error variance
+eff_E1$A          # A-efficiency (1 / A_criterion): higher is better
+eff_E1$D          # D-efficiency: higher is better
+```
+
+## 11.2 Row-column designs: `met_evaluate_alpha_efficiency()`
+
+For designs produced by `met_alpha_rc_stream()`, efficiency is evaluated under
+a model with replicate and incomplete-block-within-replicate random effects:
+
+$$y = X\beta + Zg + W_r r + W_{b} b + e$$
+
+where $r \sim N(0,\, I\sigma_{\text{rep}}^2)$ and
+$b \sim N(0,\, I\sigma_{\text{ib}}^2)$ are the replicate and incomplete block
+effects respectively. The `varcomp` list must contain `sigma_rep2` and
+`sigma_ib2` (not `sigma_b2`). This two-level blocking structure reflects the
+hierarchical design of alpha row-column layouts.
+
+```{r eval-alpha, eval=FALSE}
+eff_E2 <- met_evaluate_alpha_efficiency(
+  field_book       = design_E2$field_book,
+  n_rows           = 10L,
+  n_cols           = 12L,
+  check_treatments = c("CHK1", "CHK2"),
+  varcomp = list(
+    sigma_e2   = 1.0,
+    sigma_g2   = 0.5,
+    sigma_rep2 = 0.4,   # replicate variance
+    sigma_ib2  = 0.2,   # incomplete block within replicate
+    sigma_r2   = 0.05,
+    sigma_c2   = 0.05
+  ),
+  treatment_effect   = "random",
+  prediction_type    = "IID",
+  residual_structure = "IID"
+)
+
+eff_E2$CDmean
+eff_E2$mean_PEV
+```
+
+> **Key distinction**: `met_evaluate_famoptg_efficiency()` uses `sigma_b2`
+> (one block level); `met_evaluate_alpha_efficiency()` uses `sigma_rep2` +
+> `sigma_ib2` (two block levels: replicate and incomplete block within
+> replicate). Using the wrong function for the wrong design will produce an
+> error or incorrect results.
+
+---
+
+# 12. Design Optimisation
+
+Once a base design is constructed and its efficiency evaluated, the optimizer
+functions search for a better arrangement of the same treatments within the
+same blocking structure.
+
+## 12.1 `met_optimize_famoptg()` — block-based optimisation
+
+`met_optimize_famoptg()` uses Random Restart (RS): it generates multiple
+independent random designs, evaluates each, and returns the best. All
+structural guarantees of `met_prep_famoptg()` are enforced in every candidate
+design.
+
+```{r optimize-famoptg, eval=FALSE}
+opt_E1 <- met_optimize_famoptg(
+  # All arguments of met_prep_famoptg(), plus:
+  check_treatments        = c("CHK1", "CHK2"),
+  check_families          = c("CHECK", "CHECK"),
+  p_rep_treatments        = rep_plan$p_rep_treatments,
+  p_rep_reps              = rep_plan$p_rep_reps,
+  p_rep_families          = x$treatment_info$Family[
+                              match(rep_plan$p_rep_treatments,
+                                    x$treatment_info$Treatment)],
+  unreplicated_treatments = rep_plan$unreplicated_treatments,
+  unreplicated_families   = x$treatment_info$Family[
+                              match(rep_plan$unreplicated_treatments,
+                                    x$treatment_info$Treatment)],
+  n_blocks            = 4L,
+  n_rows              = 10L,
+  n_cols              = 12L,
+  # Optimisation arguments:
+  treatment_effect    = "random",
+  prediction_type     = "IID",
+  criterion           = "CDmean",
+  varcomp = list(sigma_e2=1, sigma_g2=0.5, sigma_b2=0.3,
+                 sigma_r2=0.05, sigma_c2=0.05),
+  n_restarts          = 20L,
+  seed                = 123
+)
+
+opt_E1$optimization$best_score    # best CDmean found
+opt_E1$optimization$score_history # CDmean at each restart
+opt_E1$optimization$n_failed      # restarts that produced invalid designs
+opt_E1$field_book                 # the best design's field book
+opt_E1$efficiency                 # efficiency metrics of the best design
+```
+
+## 12.2 `met_optimize_alpha_rc()` — row-column optimisation
+
+`met_optimize_alpha_rc()` supports three optimisation algorithms:
+
+**RS (Random Restart)**: Same as `met_optimize_famoptg()`. Generates multiple
+independent candidates and keeps the best. Simple and parallelizable.
+
+**SA (Simulated Annealing)**: Starts from one design and iteratively perturbs
+it. At each step, a worse design is accepted with probability
+$\exp(-\Delta / T)$, where $\Delta$ is the score decrease and $T$ is the
+current temperature. As $T$ decreases from `sa_temp_start` to `sa_temp_end`,
+the algorithm transitions from broad exploration to local refinement. SA is
+effective when the fitness landscape has many local optima.
+
+**GA (Genetic Algorithm)**: Maintains a population of designs. At each
+generation, pairs of high-scoring designs are combined ("crossover") and
+random perturbations are applied ("mutation"). Elite designs are carried
+forward unchanged. GA explores a broader search space than RS or SA for the
+same number of objective function evaluations, at the cost of higher
+implementation complexity.
+
+```{r optimize-alpha, eval=FALSE}
+# Simulated Annealing
+opt_E2_sa <- met_optimize_alpha_rc(
+  check_treatments = c("CHK1", "CHK2"),
+  check_families   = c("CHECK", "CHECK"),
+  entry_treatments = rep_plan$p_rep_treatments,
+  entry_families   = x$treatment_info$Family[
+                       match(rep_plan$p_rep_treatments,
+                             x$treatment_info$Treatment)],
+  n_reps            = 2L,
+  n_rows            = 10L,
+  n_cols            = 12L,
+  method            = "SA",
+  treatment_effect  = "random",
+  prediction_type   = "IID",
+  criterion         = "CDmean",
+  varcomp = list(sigma_e2=1, sigma_g2=0.5, sigma_rep2=0.4,
+                 sigma_ib2=0.2, sigma_r2=0.05, sigma_c2=0.05),
+  sa_max_iter       = 500L,
+  sa_temp_start     = 1.0,
+  sa_temp_end       = 0.01,
+  seed              = 123
+)
+
+opt_E2_sa$optimization$best_score
+opt_E2_sa$optimization$sa_params   # SA-specific settings
+opt_E2_sa$optimization$ga_params   # NULL (not used)
+
+# Genetic Algorithm
+opt_E2_ga <- met_optimize_alpha_rc(
+  check_treatments = c("CHK1", "CHK2"),
+  check_families   = c("CHECK", "CHECK"),
+  entry_treatments = rep_plan$p_rep_treatments,
+  entry_families   = x$treatment_info$Family[
+                       match(rep_plan$p_rep_treatments,
+                             x$treatment_info$Treatment)],
+  n_reps            = 2L,
+  n_rows            = 10L,
+  n_cols            = 12L,
+  method            = "GA",
+  treatment_effect  = "random",
+  prediction_type   = "IID",
+  criterion         = "CDmean",
+  varcomp = list(sigma_e2=1, sigma_g2=0.5, sigma_rep2=0.4,
+                 sigma_ib2=0.2, sigma_r2=0.05, sigma_c2=0.05),
+  ga_pop_size       = 20L,
+  ga_n_generations  = 50L,
+  ga_elitism        = 4L,
+  seed              = 123
+)
+
+opt_E2_ga$optimization$best_score
+opt_E2_ga$optimization$ga_params
+```
+
+---
+
+# 13. Full Pipeline Example
+
+## 13.1 Step-by-step
+
+```{r full-pipeline-steps, eval=FALSE}
+library(OptiSparseMET)
+
+data("OptiSparseMET_example_data")
+x <- OptiSparseMET_example_data
+
+# Stage 0: verify capacity
+k_safe <- suggest_safe_k(x$treatments, x$environments,
+                         common_treatments = x$common_treatments,
+                         buffer = 3)   # 39
+
+# Stage 1: allocation
+# k_safe = 39 does not satisfy the slot identity for M4 (112*1=112 ≠ 4*31=124).
+# Use random_balanced (M3) here, or adjust k for M4 slot identity.
+# For M4 with r=1: k* = 112/4 = 28, k = 36.
+alloc <- allocate_sparse_met(
+  treatments                     = x$treatments,
+  environments                   = x$environments,
+  allocation_method              = "random_balanced",
+  n_test_entries_per_environment = k_safe,
+  target_replications            = 1,
+  common_treatments              = x$common_treatments,
+  allocation_group_source        = "Family",
+  treatment_info                 = x$treatment_info,
+  seed                           = 123
+)
+
+alloc$summary
+alloc$overlap_matrix   # environments x environments: how many lines shared
+
+# Stage 2: seed-aware replication
+rep_plan <- assign_replication_by_seed(
+  treatments             = x$treatments,
+  seed_available         = x$seed_info,
+  seed_required_per_plot = 8,
+  replication_mode       = "p_rep",
+  desired_replications   = 2,
+  max_prep               = 15,
+  shortage_action        = "downgrade",
+  seed                   = 123
+)
+
+# Stage 3: design per environment (example for Env_A)
+design_A <- met_prep_famoptg(
+  check_treatments        = x$env_design_specs$Env_A$check_treatments,
+  check_families          = x$env_design_specs$Env_A$check_families,
+  p_rep_treatments        = rep_plan$p_rep_treatments,
+  p_rep_reps              = rep_plan$p_rep_reps,
+  p_rep_families          = x$treatment_info$Family[
+                              match(rep_plan$p_rep_treatments,
+                                    x$treatment_info$Treatment)],
+  unreplicated_treatments = rep_plan$unreplicated_treatments,
+  unreplicated_families   = x$treatment_info$Family[
+                              match(rep_plan$unreplicated_treatments,
+                                    x$treatment_info$Treatment)],
+  n_blocks   = x$env_design_specs$Env_A$n_blocks,
+  n_rows     = x$env_design_specs$Env_A$n_rows,
+  n_cols     = x$env_design_specs$Env_A$n_cols,
+  seed       = 123
+)
+
+# Stage 4: combine field books
+met_book <- combine_met_fieldbooks(
+  field_books       = list(Env_A = design_A$field_book),
+  local_designs     = c(Env_A = "met_prep_famoptg"),
+  replication_modes = c(Env_A = "p_rep"),
+  sparse_method     = "balanced_incomplete",
+  common_treatments = x$common_treatments
+)
+
+head(met_book)
+```
+
+## 13.2 End-to-end pipeline
+
+`plan_sparse_met_design()` executes all four stages in a single call. Each
+environment's local design is controlled by `env_design_specs`, a named list
+where the `design` field specifies `"met_prep_famoptg"` or
+`"met_alpha_rc_stream"`:
+
+```{r pipeline-full, eval=FALSE}
 out <- plan_sparse_met_design(
   treatments                     = x$treatments,
   environments                   = x$environments,
   allocation_method              = "random_balanced",
-  n_test_entries_per_environment = 40,
+  n_test_entries_per_environment = 39,
+  target_replications            = 1,
   common_treatments              = x$common_treatments,
   env_design_specs               = x$env_design_specs,
   treatment_info                 = x$treatment_info,
@@ -338,76 +1092,76 @@ out <- plan_sparse_met_design(
 )
 
 names(out)
+# "sparse_allocation"    "environment_designs"   "combined_field_book"
+# "environment_summary"  "group_environment_summary"
+# "efficiency_summary"   "summary"  "seed_used"
+
 head(out$combined_field_book)
-head(out$environment_summary)
+out$environment_summary         # one row per environment
+out$efficiency_summary          # efficiency metrics per environment
 ```
 
----
+## 13.3 Environment-specific design specifications
 
-# 15. Environment-Specific Design Choice
-
-One of the main strengths of the package is that the local design engine can differ across environments. This is controlled through `env_design_specs`, a named list with one element per environment. Each element contains the design arguments for that environment plus a `design` field specifying which engine to use.
+The `env_design_specs` list allows each environment to use a different design
+engine and replication mode. The `design` field routes to the correct
+constructor. Additional fields are passed directly as arguments:
 
 ```{r env-specs, eval=FALSE}
 env_design_specs <- list(
 
-  # p-rep repeated-check design
-  Env1 = list(
-    design               = "prep_famoptg",
+  # p-rep block design
+  Env_A = list(
+    design               = "met_prep_famoptg",
     replication_mode     = "p_rep",
-    desired_replications = 2,
+    desired_replications = 2L,
+    max_prep             = 15L,
+    shortage_action      = "downgrade",
     check_treatments     = c("CHK1", "CHK2"),
     check_families       = c("CHECK", "CHECK"),
-    n_blocks             = 4,
-    n_rows               = 10,
-    n_cols               = 10,
-    cluster_source       = "Family"
+    n_blocks             = 4L,
+    n_rows               = 10L,
+    n_cols               = 12L,
+    cluster_source       = "Family",
+    eval_efficiency      = TRUE
   ),
 
-  # alpha row-column stream design
-  Env2 = list(
-    design           = "alpha_rc_stream",
+  # Row-column alpha design
+  Env_B = list(
+    design                    = "met_alpha_rc_stream",
+    check_treatments          = c("CHK1", "CHK2"),
+    check_families            = c("CHECK", "CHECK"),
+    n_reps                    = 2L,
+    n_rows                    = 10L,
+    n_cols                    = 12L,
+    min_entry_slots_per_block = 8L,
+    cluster_source            = "Family",
+    eval_efficiency           = TRUE
+  ),
+
+  # Augmented repeated-check design
+  Env_C = list(
+    design           = "met_prep_famoptg",
+    replication_mode = "augmented",
     check_treatments = c("CHK1", "CHK2"),
     check_families   = c("CHECK", "CHECK"),
-    n_reps           = 2,
-    n_rows           = 10,
-    n_cols           = 10,
-    cluster_source   = "Family"
-  ),
-
-  # augmented repeated-check design
-  Env3 = list(
-    design               = "prep_famoptg",
-    replication_mode     = "augmented",
-    check_treatments     = c("CHK1", "CHK2"),
-    check_families       = c("CHECK", "CHECK"),
-    n_blocks             = 4,
-    n_rows               = 10,
-    n_cols               = 10,
-    cluster_source       = "Family"
+    n_blocks         = 4L,
+    n_rows           = 10L,
+    n_cols           = 10L,
+    cluster_source   = "Family",
+    eval_efficiency  = FALSE
   )
 )
 ```
 
-This allows the MET-level design to adapt to environment-specific operational and logistical realities, including different field geometries, different check sets, and different replication requirements.
-
 ---
 
-# 16. Efficiency Evaluation
+# 14. Connectivity and Genomic Prediction: Simulation Illustration
 
-When local designs are built with efficiency evaluation enabled, `plan_sparse_met_design()` extracts the resulting metrics and stores them in `environment_summary`. This makes it possible to compare design quality across environments within the same MET before committing resources to field deployment.
-
-Typical metrics include A-optimality-based summaries, D-efficiency, mean prediction error variance (PEV), and the residual structure used in the evaluation model.
-
-```{r efficiency, eval=FALSE}
-out$environment_summary
-```
-
----
-
-# 17. Connectivity and Genomic Prediction: Simulation Illustration
-
-The benefit of better cross-environment connectivity can be explored through simulation. The following code generates sparse allocations under M3 and M4, simulates phenotypic data under a genomic model, and fits a GBLUP model to each dataset. In many settings, the more regular co-occurrence structure of M4 leads to lower average PEV, more stable BLUPs, and stronger cross-environment connectivity. The exact magnitude of the advantage depends on the covariance structure and degree of imbalance.
+The benefit of better cross-environment connectivity can be explored through
+simulation. The following code generates sparse allocations under M3 and M4,
+simulates phenotypic data under a genomic model, fits a GBLUP model to each
+dataset, and compares the resulting prediction quality.
 
 ```{r simulation, eval=FALSE}
 library(sommer)
@@ -418,13 +1172,16 @@ set.seed(1)
 n_geno <- 200
 n_env  <- 4
 
+# Simulate a genomic relationship matrix
 G0 <- matrix(rnorm(n_geno^2), n_geno)
 G0 <- tcrossprod(G0) / n_geno
+diag(G0) <- diag(G0) + 0.5
 
 simulate_MET <- function(allocation_matrix) {
   geno_ids <- rownames(allocation_matrix)
   env_ids  <- colnames(allocation_matrix)
 
+  # Simulate genetic values from GRM-based covariance structure
   g_eff <- MASS::mvrnorm(1, mu = rep(0, length(geno_ids)), Sigma = G0)
   e_eff <- rnorm(length(env_ids), 0, 1)
 
@@ -438,64 +1195,115 @@ simulate_MET <- function(allocation_matrix) {
   dat
 }
 
+# M3 allocation: n=200, I=4, k=80, r~=1.6 (total=320, target=2 but approx)
 alloc_M3 <- allocate_sparse_met(
-  treatments                     = paste0("L", 1:n_geno),
-  environments                   = paste0("E", 1:n_env),
+  treatments                     = paste0("L", seq_len(n_geno)),
+  environments                   = paste0("E", seq_len(n_env)),
   allocation_method              = "random_balanced",
-  n_test_entries_per_environment = 80,
-  target_replications            = 2,
-  seed                           = 1
-)
-
-alloc_M4 <- allocate_sparse_met(
-  treatments                     = paste0("L", 1:n_geno),
-  environments                   = paste0("E", 1:n_env),
-  allocation_method              = "balanced_incomplete",
   n_test_entries_per_environment = 80,
   target_replications            = 2,
   allow_approximate              = TRUE,
   seed                           = 1
 )
 
+# M4 allocation: equal replication (allow_approximate = FALSE).
+# J=200, I=4, r=2: k = J*r/I = 200*2/4 = 100. Slot identity: 200*2=4*100=400.
+alloc_M4 <- allocate_sparse_met(
+  treatments                     = paste0("L", seq_len(n_geno)),
+  environments                   = paste0("E", seq_len(n_env)),
+  allocation_method              = "balanced_incomplete",
+  n_test_entries_per_environment = 100,
+  target_replications            = 2,
+  allow_approximate              = FALSE,
+  seed                           = 1
+)
+
 dat_M3 <- simulate_MET(alloc_M3$allocation_matrix)
 dat_M4 <- simulate_MET(alloc_M4$allocation_matrix)
 
+# Fit GBLUP model to each dataset
 fit_M3 <- sommer::mmer(
   y ~ Env,
-  random = ~ vsr(Geno, Gu = G0),
+  random = ~ sommer::vsr(Geno, Gu = G0),
   data   = dat_M3
 )
 
 fit_M4 <- sommer::mmer(
   y ~ Env,
-  random = ~ vsr(Geno, Gu = G0),
+  random = ~ sommer::vsr(Geno, Gu = G0),
   data   = dat_M4
 )
+
+# Compare mean PEV: lower is better (more precise prediction)
+mean(fit_M3$PevU$`u:Geno`$y)
+mean(fit_M4$PevU$`u:Geno`$y)
 ```
 
----
-
-# 18. Design Component Summary
-
-| Component | Governing principle |
-|---|---|
-| Across-environment allocation | Balance replication depth against coverage breadth |
-| Genetic connectivity | Common treatments provide model-free cross-environment linkage |
-| Genetic structure | GRM / $A$ / family grouping prevents clustering and supports prediction |
-| Within-environment design | Block and spatial structure control local heterogeneity |
-| Replication feasibility | Seed inventory determines what is deployable |
-| Efficiency evaluation | Mixed-model diagnostics quantify design quality prior to deployment |
+In many settings the more uniform co-occurrence structure of M4 leads to lower
+average PEV and stronger cross-environment connectivity. The magnitude of the
+advantage depends on the degree of imbalance, the genetic covariance structure,
+and the ratio of genetic to residual variance.
 
 ---
 
-# 19. Conclusions
+# 15. Design Component Summary
 
-`OptiSparseMET` treats MET design as a two-level problem and provides machinery to solve both levels in a consistent statistical framework. Allocation decisions are tied to within-environment design through shared constraints on genetic structure and connectivity. Seed feasibility is evaluated against replication targets before a design is finalized. Efficiency can be evaluated locally and summarized globally across environments.
-
-The result is a pipeline that produces designs which are statistically grounded and operationally deployable, rather than optimizing one at the expense of the other.
+| Component | Governing principle | Package function(s) |
+|-----------|--------------------|--------------------|
+| Capacity verification | All treatments must be assignable at least once | `suggest_safe_k()`, `min_k_for_full_coverage()` |
+| Allocation | Balance replication depth against coverage breadth | `allocate_sparse_met()` |
+| BIBD feasibility | Slot identity $J^* \\times r = I \\times k^*$ must hold for equal replication | `check_balanced_incomplete_feasibility()` |
+| Genetic structure | Prevent clustering; improve prediction conditions | `derive_allocation_groups()` |
+| Connectivity | Common treatments provide model-free cross-site linkage | `common_treatments` argument |
+| Seed feasibility | Replication must be achievable with available seed | `assign_replication_by_seed()` |
+| Block design | Control local heterogeneity within environments | `met_prep_famoptg()` |
+| Row-column design | Control spatial gradients in large fixed-grid fields | `met_alpha_rc_stream()` |
+| Efficiency evaluation | Quantify design quality before field deployment | `met_evaluate_famoptg_efficiency()`, `met_evaluate_alpha_efficiency()` |
+| Optimisation | Search for higher-efficiency arrangements | `met_optimize_famoptg()`, `met_optimize_alpha_rc()` |
+| Assembly | Produce a unified field book for all environments | `combine_met_fieldbooks()`, `plan_sparse_met_design()` |
 
 ---
 
-# 20. References
+# 16. Conclusions
 
-Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J., Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic prediction under balanced incomplete block design. *The Plant Genome*, 16, e20305.
+Sparse MET design is a two-level problem and requires a framework that
+addresses both levels consistently. `OptiSparseMET` provides the following:
+
+**At the allocation level**: two complementary strategies (M3 for flexible
+approximate balance, M4 for design-based uniformity), diagnostic tools for
+verifying feasibility before any allocation is attempted, and genetic structure
+awareness through family, GRM, or pedigree-based grouping.
+
+**At the field design level**: two design engines with complementary strengths
+(`met_prep_famoptg()` for block-based repeated-check layouts, `met_alpha_rc_stream()`
+for fixed-grid row-column designs), efficiency evaluation under A, D, and
+CDmean criteria, and criterion-driven optimisation via three methods (RS, SA,
+GA).
+
+**Linking both levels**: seed feasibility verification ensures designs are
+operationally deployable; common treatment support ensures design-based
+connectivity; the pipeline functions (`plan_sparse_met_design()`,
+`combine_met_fieldbooks()`) ensure that outputs from both levels are
+consistent and assembled into a unified MET field book.
+
+The result is a workflow that produces designs that are statistically grounded
+and operationally deployable — rather than optimizing one at the expense of
+the other.
+
+---
+
+# 17. References
+
+Montesinos-López, O. A., Mosqueda-González, B. A., Salinas-Ruiz, J.,
+Montesinos-López, A., & Crossa, J. (2023). Sparse multi-trait genomic
+prediction under balanced incomplete block design. *The Plant Genome*, 16,
+e20305. <https://doi.org/10.1002/tpg2.20305>
+
+Rincent, R., Laloe, D., Nicolas, S., Altmann, T., Brunel, D., Revilla, P.,
+Rodriguez, V. M., Moreno-Gonzalez, J., Melchinger, A., Bauer, E., Schoen,
+C.-C., Meyer, N., Giauffret, C., Bauland, C., Jamin, P., Laborde, J.,
+Monod, H., Flament, P., Charcosset, A., & Moreau, L. (2012). Maximizing the
+reliability of genomic selection by optimizing the calibration set of reference
+individuals: Comparison of methods in two diverse groups of maize inbreds
+(*Zea mays* L.). *Genetics*, 192, 715–728.
+<https://doi.org/10.1534/genetics.112.141473>

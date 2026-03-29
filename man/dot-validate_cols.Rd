@@ -2,18 +2,22 @@
 % Please edit documentation in R/utils_internal.R
 \name{.validate_cols}
 \alias{.validate_cols}
-\title{Validate that a data frame or data.table contains required columns}
+\title{Internal data frame column validator}
 \usage{
 .validate_cols(dt, cols, nm = "data")
 }
 \arguments{
-\item{dt}{A data.frame or data.table.}
+\item{dt}{A data frame.}
 
 \item{cols}{Character vector of required column names.}
 
-\item{nm}{Object name for messages.}
+\item{nm}{Character scalar. Object name used in error messages.}
+}
+\value{
+Invisibly returns \code{TRUE} if validation passes.
 }
 \description{
-Validate that a data frame or data.table contains required columns
+Checks that a data frame contains all required column names.
+Used internally across allocation and seed-planning functions.
 }
 \keyword{internal}

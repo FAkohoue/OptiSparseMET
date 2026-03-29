@@ -1,12 +1,35 @@
+# RStudio project files
 ^.*\.Rproj$
 ^\.Rproj\.user$
+
+# Git and GitHub
 ^\.github$
-^data-raw$
-^scripts$
-^docs$
+^\.gitignore$
+
+# pkgdown site configuration and assets
+# _pkgdown.yml is excluded to avoid a CRAN note about non-standard files.
+# This does not break pkgdown: the site is built from the repo, not the tarball.
 ^_pkgdown\.yml$
+^pkgdown$
+
+# Built pkgdown site output
+^docs$
+
+# Data generation scripts (not needed in the installed package)
+^data-raw$
+
+# Ad-hoc and maintenance scripts
+^scripts$
+
+# CRAN submission notes
+^cran-comments\.md$
+
+# License and README source files
 ^LICENSE\.md$
 ^README\.Rmd$
-^\.gitignore$
+
+# Auto-generated directories created by R CMD build / devtools::build()
+# These appear in the source tree during development but must not be
+# included in the distributed tarball.
 ^doc$
 ^Meta$

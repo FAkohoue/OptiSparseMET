@@ -51,32 +51,37 @@ user toward a valid configuration without stopping.
 Checks whether the supplied \code{n_test_entries_per_environment} provides enough
 sparse slots to assign every non-common treatment at least once. If not,
 emits a warning that states the deficit and the minimum capacity needed to
-resolve it. Execution continues regardless — this function is a diagnostic
+resolve it. Execution continues regardless -- this function is a diagnostic
 aid, not a hard stop.
 }
 \examples{
 trt <- paste0("L", sprintf("\%03d", 1:80))
 env <- c("Env1", "Env2", "Env3")
 
-## k = 20: total sparse slots = 3 x 20 = 60 < 80 — warns and suggests k = 27
+## k = 20: total sparse slots = 60 < 80 -- warns and suggests k = 27
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,
   n_test_entries_per_environment = 20
 )
 
-## k = 27: total sparse slots = 3 x 27 = 81 >= 80 — no warning
+## k = 27: total sparse slots = 81 >= 80 -- no warning
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,
   n_test_entries_per_environment = 27
 )
 
-## Heterogeneous capacities: total = 20 + 25 + 20 = 65 < 80 — warns
+## Heterogeneous capacities: total = 65 < 80 -- warns
 warn_if_k_too_small(
   treatments                     = trt,
   environments                   = env,
   n_test_entries_per_environment = c(20, 25, 20)
 )
 
+}
+\seealso{
+\code{\link[=suggest_safe_k]{suggest_safe_k()}} and \code{\link[=min_k_for_full_coverage]{min_k_for_full_coverage()}} for functions
+that compute a feasible capacity. \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} which enforces
+this condition with a hard stop via \code{.check_full_coverage_feasibility()}.
 }
