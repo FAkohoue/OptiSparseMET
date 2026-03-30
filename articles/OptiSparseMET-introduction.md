@@ -13,15 +13,15 @@ estimate the performance of each line across environments, partition
 genetic from environment effects, and identify lines with broad or
 specific adaptation.
 
-The fundamental constraint is that the number of candidate lines $J$
+The fundamental constraint is that the number of candidate lines \\J\\
 almost always exceeds the number of plots available in any single
-environment. Testing all $J$ lines in all $I$ environments is
+environment. Testing all \\J\\ lines in all \\I\\ environments is
 infeasible; some form of incomplete testing is unavoidable. The question
 is not whether to test incompletely, but how to structure that
 incompleteness so the resulting data still support reliable inference.
 
 **Sparse testing** is the formal approach. A sparse MET design
-specifies, for each line $j$ and environment $e$, whether that
+specifies, for each line \\j\\ and environment \\e\\, whether that
 combination appears in the trial. The goal is a structure that is
 statistically efficient, genetically connected, and operationally
 deployable given seed and plot constraints.
@@ -49,48 +49,49 @@ possible.
 #### How the two levels are linked
 
 **Link 1 — The incidence matrix couples allocation to estimation.** In
-the linear mixed model $y = X\beta + Zg + e$, the design matrix $Z$ has
-entry $Z_{pj} = 1$ if plot $p$ is assigned to line $j$, and $0$
-otherwise. The coefficient matrix for line effects is:
+the linear mixed model \\y = X\beta + Zg + e\\, the design matrix \\Z\\
+has entry \\Z\_{pj} = 1\\ if plot \\p\\ is assigned to line \\j\\, and
+\\0\\ otherwise. The coefficient matrix for line effects is:
 
-$$C = Z^{\top}V^{- 1}Z - Z^{\top}V^{- 1}X\left( X^{\top}V^{- 1}X \right)^{- 1}X^{\top}V^{- 1}Z$$
+\\C = Z^\top V^{-1} Z - Z^\top V^{-1} X (X^\top V^{-1} X)^{-1} X^\top
+V^{-1} Z\\
 
-where $V = ZKZ^{\top}\sigma_{g}^{2} + R\sigma_{e}^{2}$ is the phenotypic
-variance matrix, $K$ is the genomic relationship matrix, and $R$ encodes
-the residual covariance structure. The precision of every genetic value
-estimate — and therefore every selection decision — depends on $C$. The
-allocation decision (which lines appear where) determines the sparsity
-pattern of $Z$, which directly shapes $C$. The within-environment
-blocking structure determines $R$, which enters $V$ and therefore
-$C^{- 1}$ as well. **You cannot optimize $C$ by fixing $Z$ and $R$
-independently: they interact inside $V$.**
+where \\V = ZKZ^\top \sigma_g^2 + R\sigma_e^2\\ is the phenotypic
+variance matrix, \\K\\ is the genomic relationship matrix, and \\R\\
+encodes the residual covariance structure. The precision of every
+genetic value estimate — and therefore every selection decision —
+depends on \\C\\. The allocation decision (which lines appear where)
+determines the sparsity pattern of \\Z\\, which directly shapes \\C\\.
+The within-environment blocking structure determines \\R\\, which enters
+\\V\\ and therefore \\C^{-1}\\ as well. **You cannot optimize \\C\\ by
+fixing \\Z\\ and \\R\\ independently: they interact inside \\V\\.**
 
 **Link 2 — Allocation fixes which within-environment designs are
-feasible.** The number of lines assigned to environment $e$ is
-$k_{e} = \sum_{j}Z_{pj}$ summed over plots $p$ in environment $e$. Once
-allocation is complete, $k_{e}$ is fixed. The within-environment design
-must then arrange exactly $k_{e}$ treatments across the available
-$n_{\text{rows}} \times n_{\text{cols}}$ plots. If $k_{e}$ is
-incompatible with the blocking structure — for example, if $k_{e}$ is
-not a multiple of the block size, or if $k_{e}$ exceeds field capacity —
+feasible.** The number of lines assigned to environment \\e\\ is \\k_e =
+\sum_j Z\_{pj}\\ summed over plots \\p\\ in environment \\e\\. Once
+allocation is complete, \\k_e\\ is fixed. The within-environment design
+must then arrange exactly \\k_e\\ treatments across the available
+\\n\_{\text{rows}} \times n\_{\text{cols}}\\ plots. If \\k_e\\ is
+incompatible with the blocking structure — for example, if \\k_e\\ is
+not a multiple of the block size, or if \\k_e\\ exceeds field capacity —
 the within-environment design is infeasible regardless of how good the
 allocation was. **Allocation and field geometry must be co-designed.**
 
 **Link 3 — Block structure affects cross-environment inference.**
-Consider two environments sharing $n_{\text{shared}}$ lines. The
+Consider two environments sharing \\n\_{\text{shared}}\\ lines. The
 precision of the cross-environment genetic correlation estimate depends
 on how well those shared lines are estimated within each environment,
 which in turn depends on the block efficiency within each environment.
-Formally, the effective replication of a shared line $j$ across
-environments is modulated by the efficiency factor $e_{j}$ of the
+Formally, the effective replication of a shared line \\j\\ across
+environments is modulated by the efficiency factor \\e_j\\ of the
 within-environment design:
 
-$$\text{Var}\left( {\widehat{g}}_{j}^{(e)} \right) = \frac{\sigma_{e}^{2}}{e_{j}\, r_{j}^{(e)}}$$
+\\\text{Var}(\hat{g}\_j^{(e)}) = \frac{\sigma_e^2}{e_j \\ r_j^{(e)}}\\
 
-where $r_{j}^{(e)}$ is the number of plots for line $j$ in environment
-$e$ and $e_{j} \in (0,1\rbrack$ is the efficiency factor relative to a
+where \\r_j^{(e)}\\ is the number of plots for line \\j\\ in environment
+\\e\\ and \\e_j \in (0, 1\]\\ is the efficiency factor relative to a
 completely randomized design. A poor within-environment design (low
-$e_{j}$) inflates the variance of each BLUP, which propagates into the
+\\e_j\\) inflates the variance of each BLUP, which propagates into the
 cross-environment covariance estimates and degrades G×E inference even
 when the allocation incidence structure is ideal. **The block design
 within each environment affects the quality of cross-environment
@@ -99,17 +100,17 @@ comparisons.**
 **Link 4 — CDmean depends on both levels simultaneously.** The CDmean
 criterion for genomic selection,
 
-$$\text{CDmean} = 1 - \frac{1}{J}\sum\limits_{j = 1}^{J}\frac{\text{PEV}_{j}}{\sigma_{g}^{2}}$$
+\\\text{CDmean} = 1 - \frac{1}{J} \sum\_{j=1}^{J}
+\frac{\text{PEV}\_j}{\sigma_g^2}\\
 
-where
-$\text{PEV}_{j} = \left\lbrack \left( K^{- 1} + Z^{\top}R^{- 1}Z\,/\,\sigma_{e}^{2} \right)^{- 1} \right\rbrack_{jj}\sigma_{g}^{- 2}$,
-depends on $Z$ through allocation (which environments each line enters)
-and on $R$ through within-environment design (how plots are blocked and
-arranged). A sparse allocation that spreads diverse lines across
-environments improves the genomic connectivity encoded in the numerator
-$K$-weighted terms, while efficient blocking reduces the residual
-variance $R$ that appears in the denominator. Neither level can
-substitute for the other.
+where \\\text{PEV}\_j = \left\[(K^{-1} + Z^\top R^{-1} Z \\ / \\
+\sigma_e^2)^{-1}\right\]\_{jj} \sigma_g^{-2}\\, depends on \\Z\\ through
+allocation (which environments each line enters) and on \\R\\ through
+within-environment design (how plots are blocked and arranged). A sparse
+allocation that spreads diverse lines across environments improves the
+genomic connectivity encoded in the numerator \\K\\-weighted terms,
+while efficient blocking reduces the residual variance \\R\\ that
+appears in the denominator. Neither level can substitute for the other.
 
 Standard MET tools address one level at a time: either choosing an
 allocation strategy without regard to field feasibility, or constructing
@@ -132,33 +133,33 @@ optimized consistently within the same statistical framework.
 Phenotypic observations in plant breeding trials are analyzed using a
 linear mixed model. For a single environment, a typical form is:
 
-$$y = X\beta + Zg + e$$
+\\y = X\beta + Zg + e\\
 
 where:
 
-- $y$ is the vector of observed phenotypic values (one per plot)
-- $X\beta$ captures fixed effects: the overall mean, environment
+- \\y\\ is the vector of observed phenotypic values (one per plot)
+- \\X\beta\\ captures fixed effects: the overall mean, environment
   effects, check effects, and any fixed treatment contrasts
-- $Zg$ captures random line effects:
-  $g \sim N\left( 0,\, K\sigma_{g}^{2} \right)$, where $K$ is a
-  relationship matrix (genomic or pedigree-based) and $\sigma_{g}^{2}$
-  is the genetic variance
-- $e \sim N\left( 0,\, R\sigma_{e}^{2} \right)$ is the vector of
-  residuals, with $R$ encoding the spatial covariance structure
+- \\Zg\\ captures random line effects: \\g \sim N(0,\\ K\sigma_g^2)\\,
+  where \\K\\ is a relationship matrix (genomic or pedigree-based) and
+  \\\sigma_g^2\\ is the genetic variance
+- \\e \sim N(0,\\ R\sigma_e^2)\\ is the vector of residuals, with \\R\\
+  encoding the spatial covariance structure
 
-The design matrix $Z$ — whose columns correspond to lines and whose rows
-correspond to plots — is determined entirely by the experimental design.
-**A good design is one that makes $Z$ well-conditioned for estimation.**
+The design matrix \\Z\\ — whose columns correspond to lines and whose
+rows correspond to plots — is determined entirely by the experimental
+design. **A good design is one that makes \\Z\\ well-conditioned for
+estimation.**
 
 ### 2.2 Why design affects inference
 
-When $Z$ is sparse, not all lines are observed in all environments.
+When \\Z\\ is sparse, not all lines are observed in all environments.
 Cross-environment inference then depends on either:
 
 - **Design-based connectivity**: lines that co-occur in the same
   environment create direct comparisons; common treatments that appear
   in every environment create bridges between sites.
-- **Model-based connectivity**: the relationship matrix $K$ propagates
+- **Model-based connectivity**: the relationship matrix \\K\\ propagates
   information between genetically related lines, even if they never
   appear in the same environment.
 
@@ -174,31 +175,31 @@ it supports estimation and prediction of genetic values. The three main
 criteria used by `OptiSparseMET` are:
 
 **A-optimality** minimizes the average variance of treatment comparison
-estimates (contrasts). Formally it minimizes
-$\text{trace}\left( C^{- 1} \right)$ where $C$ is the coefficient matrix
-of the treatment effects. A lower value is better. Its reciprocal,
-**A-efficiency** $= 1/A_{\text{criterion}}$, is sometimes more
-interpretable because larger values are better.
+estimates (contrasts). Formally it minimizes \\\text{trace}(C^{-1})\\
+where \\C\\ is the coefficient matrix of the treatment effects. A lower
+value is better. Its reciprocal, **A-efficiency** \\= 1 /
+A\_{\text{criterion}}\\, is sometimes more interpretable because larger
+values are better.
 
-**D-optimality** maximizes the determinant $|C|$, which corresponds to
-maximizing the volume of the confidence ellipsoid for treatment
+**D-optimality** maximizes the determinant \\\|C\|\\, which corresponds
+to maximizing the volume of the confidence ellipsoid for treatment
 estimates. It is more sensitive to the overall spread of information
 across all contrasts than A-optimality, which focuses on the average.
-Again, **D-efficiency** $= 1/D_{\text{criterion}}$ is used so larger
-values are better.
+Again, **D-efficiency** \\= 1 / D\_{\text{criterion}}\\ is used so
+larger values are better.
 
 **CDmean** (coefficient of determination of the mean) is the criterion
 most directly tied to genomic prediction. It is defined as:
 
-$$\text{CDmean} = 1 - \frac{\overline{\text{PEV}}}{\sigma_{g}^{2}}$$
+\\\text{CDmean} = 1 - \frac{\overline{\text{PEV}}}{\sigma_g^2}\\
 
-where $\overline{\text{PEV}}$ is the mean prediction error variance
-(PEV) of the BLUP estimates and $\sigma_{g}^{2}$ is the genetic
-variance. CDmean lies in $\lbrack 0,1\rbrack$; values close to 1
-indicate that the design supports precise prediction. It captures how
-accurately genomic estimated breeding values (GEBVs) can be recovered
-from the design, incorporating both the relationship matrix $K$ and the
-block structure.
+where \\\overline{\text{PEV}}\\ is the mean prediction error variance
+(PEV) of the BLUP estimates and \\\sigma_g^2\\ is the genetic variance.
+CDmean lies in \\\[0, 1\]\\; values close to 1 indicate that the design
+supports precise prediction. It captures how accurately genomic
+estimated breeding values (GEBVs) can be recovered from the design,
+incorporating both the relationship matrix \\K\\ and the block
+structure.
 
 > **For novice readers**: Think of CDmean as “what fraction of the true
 > genetic value the design allows you to recover on average.” A CDmean
@@ -213,48 +214,48 @@ block structure.
 
 The resource identity underlying balanced sparse allocation is:
 
-$$N = J \times r = I \times k$$
+\\N = J \times r = I \times k\\
 
 where:
 
 | Symbol | Meaning                                                     |
 |--------|-------------------------------------------------------------|
-| $N$    | Total number of line-by-environment observations            |
-| $J$    | Total number of candidate lines                             |
-| $r$    | Number of environments each line enters (replication depth) |
-| $I$    | Number of environments                                      |
-| $k$    | Number of lines tested per environment (coverage breadth)   |
+| \\N\\  | Total number of line-by-environment observations            |
+| \\J\\  | Total number of candidate lines                             |
+| \\r\\  | Number of environments each line enters (replication depth) |
+| \\I\\  | Number of environments                                      |
+| \\k\\  | Number of lines tested per environment (coverage breadth)   |
 
-Given a fixed total resource $N$, this identity formalizes a fundamental
-tradeoff: **increasing coverage breadth** (testing more lines per
-environment, larger $k$) **necessarily reduces replication depth** (each
-line appears in fewer environments, smaller $r$). No design can
-simultaneously maximize both.
+Given a fixed total resource \\N\\, this identity formalizes a
+fundamental tradeoff: **increasing coverage breadth** (testing more
+lines per environment, larger \\k\\) **necessarily reduces replication
+depth** (each line appears in fewer environments, smaller \\r\\). No
+design can simultaneously maximize both.
 
 > **For novice readers**: If you have 100 lines, 4 environments, and
 > enough seed for 400 plots total, you could test 100 lines in 4
 > environments (full replication, but only if all 400 plots are
 > available per environment), or test 50 lines per environment and have
-> each line appear in 2 environments ($r = 2,k = 100$), or test 25 lines
-> per environment and have each appear in 4 environments
-> ($r = 4,k = 100$). The product $J \times r$ always equals
-> $N = I \times k$.
+> each line appear in 2 environments (\\r = 2, k = 100\\), or test 25
+> lines per environment and have each appear in 4 environments (\\r = 4,
+> k = 100\\). The product \\J \times r\\ always equals \\N = I \times
+> k\\.
 
-The practical constraint is that $k$ is bounded by the number of plots
-available per environment, and $r$ is bounded by seed availability. The
-allocation problem is to choose which lines go to which environments,
-subject to these bounds.
+The practical constraint is that \\k\\ is bounded by the number of plots
+available per environment, and \\r\\ is bounded by seed availability.
+The allocation problem is to choose which lines go to which
+environments, subject to these bounds.
 
-When common treatments are included, a number $C$ of lines are assigned
-to **every** environment before sparse allocation begins. Their count is
-subtracted from each environment’s capacity:
+When common treatments are included, a number \\C\\ of lines are
+assigned to **every** environment before sparse allocation begins. Their
+count is subtracted from each environment’s capacity:
 
-$$k_{e}^{*} = k_{e} - C$$
+\\k_e^\* = k_e - C\\
 
-The sparse-allocatable lines number $J^{*} = J - C$, and the modified
+The sparse-allocatable lines number \\J^\* = J - C\\, and the modified
 resource identity applies to them:
 
-$$J^{*} \times r = I \times k^{*}$$
+\\J^\* \times r = I \times k^\*\\
 
 ### 3.2 Within-environment design
 
@@ -325,25 +326,26 @@ digraph OptiSparseMET {
 ## 5. Feasibility Helpers
 
 Before any allocation, it is essential to verify that the chosen
-per-environment capacity $k$ is large enough to assign every non-common
-line at least once. Passing a capacity that is too small causes
+per-environment capacity \\k\\ is large enough to assign every
+non-common line at least once. Passing a capacity that is too small
+causes
 [`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)
 to stop with an informative error.
 
 The minimum capacity for full coverage under equal environment sizes is:
 
-$$k_{\min} = \left\lceil \frac{J^{*}}{I} \right\rceil + C$$
+\\k\_{\min} = \left\lceil \frac{J^\*}{I} \right\rceil + C\\
 
-where $\lceil \cdot \rceil$ is the ceiling function. This is the floor
+where \\\lceil \cdot \rceil\\ is the ceiling function. This is the floor
 below which any sparse allocation must leave some lines unassigned.
 
 `OptiSparseMET` provides three helpers:
 
-| Function                                                                                                     | Action                                        |
-|--------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
-| [`min_k_for_full_coverage()`](https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.md) | Returns $k_{\min}$ exactly                    |
-| [`suggest_safe_k()`](https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.md)                   | Returns $k_{\min}$ plus a user-defined buffer |
-| [`warn_if_k_too_small()`](https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.md)         | Emits a non-fatal warning if $k < k_{\min}$   |
+| Function                                                                                                     | Action                                           |
+|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| [`min_k_for_full_coverage()`](https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.md) | Returns \\k\_{\min}\\ exactly                    |
+| [`suggest_safe_k()`](https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.md)                   | Returns \\k\_{\min}\\ plus a user-defined buffer |
+| [`warn_if_k_too_small()`](https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.md)         | Emits a non-fatal warning if \\k \< k\_{\min}\\  |
 
 Always call one of these before
 [`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md).
@@ -581,13 +583,13 @@ The `"balanced_incomplete"` method implements the M4 allocation of
 Montesinos-López et al. (2023). It enforces two structural guarantees:
 
 **Condition 1 — Equal replication**: every non-common line appears in
-exactly $r$ environments. This ensures no line is systematically
+exactly \\r\\ environments. This ensures no line is systematically
 under-evaluated and is the defining property that distinguishes M4 from
 M3.
 
 **Condition 2 — Equal environment sizes**: every environment receives
-exactly $k^{*}$ sparse lines. This ensures environments are comparable
-and the resource identity $J^{*} \times r = I \times k^{*}$ holds
+exactly \\k^\*\\ sparse lines. This ensures environments are comparable
+and the resource identity \\J^\* \times r = I \times k^\*\\ holds
 exactly.
 
 These two conditions are what matter in plant breeding programs where
@@ -602,7 +604,7 @@ evaluated — a fundamental fairness and precision requirement.
 > estimates and a systematic advantage in selection.
 
 `allow_approximate = FALSE` (the default) enforces both conditions
-strictly. The slot identity $J^{*} \times r = I \times k^{*}$ must hold
+strictly. The slot identity \\J^\* \times r = I \times k^\*\\ must hold
 exactly, and the function stops with a clear error if it does not. Use
 [`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)
 to verify the slot identity before allocating:
@@ -631,10 +633,8 @@ check_balanced_incomplete_feasibility(
 # feasible = TRUE (difference = 0)
 ```
 
-Construction proceeds via
-[`crossdes::find.BIB()`](https://rdrr.io/pkg/crossdes/man/find.BIB.html)
-when the `crossdes` package is installed, falling back to a greedy
-load-balanced constructor otherwise.
+Construction uses a greedy load-balanced constructor that guarantees
+equal replication.
 
 `allow_approximate = TRUE` relaxes the slot identity and accepts minor
 replication imbalances. This is a fallback for exploratory use when
@@ -642,15 +642,15 @@ exact slot identity cannot be achieved, not the primary path.
 
 ### 6.3 M3 versus M4: choosing the right strategy
 
-| Feature                                  | M3 `"random_balanced"`              | M4 `"balanced_incomplete"`                                                         |
-|------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------|
-| Equal replication guarantee              | No (approximate)                    | Yes (`allow_approximate = FALSE`)                                                  |
-| Equal environment sizes                  | No                                  | Yes (both modes)                                                                   |
-| Pairwise co-occurrence                   | Stochastic                          | Approximately uniform; compute from `$allocation_matrix %*% t($allocation_matrix)` |
-| Handles unequal environment sizes        | Yes                                 | Only with `allow_approximate = TRUE`                                               |
-| Requires slot identity $J^{*}r = Ik^{*}$ | No                                  | Yes (strict mode)                                                                  |
-| Coverage guarantee                       | Yes (phase 1)                       | Yes                                                                                |
-| Typical use                              | Heterogeneous programs, exploratory | Standard MET networks with equal replication                                       |
+| Feature                                    | M3 `"random_balanced"`              | M4 `"balanced_incomplete"`                                                         |
+|--------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------|
+| Equal replication guarantee                | No (approximate)                    | Yes (`allow_approximate = FALSE`)                                                  |
+| Equal environment sizes                    | No                                  | Yes (both modes)                                                                   |
+| Pairwise co-occurrence                     | Stochastic                          | Approximately uniform; compute from `$allocation_matrix %*% t($allocation_matrix)` |
+| Handles unequal environment sizes          | Yes                                 | Only with `allow_approximate = TRUE`                                               |
+| Requires slot identity \\J^\* r = I k^\*\\ | No                                  | Yes (strict mode)                                                                  |
+| Coverage guarantee                         | Yes (phase 1)                       | Yes                                                                                |
+| Typical use                                | Heterogeneous programs, exploratory | Standard MET networks with equal replication                                       |
 
 In practice, M3 is more flexible and tolerates heterogeneous
 constraints. M4 with `allow_approximate = FALSE` (the default) is the
@@ -658,9 +658,9 @@ correct choice whenever equal replication is a hard requirement — which
 it should be in most standard breeding programs. Verify the slot
 identity first with
 [`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)
-and adjust $k$ or $r$ so that $J^{*} \times r = I \times k^{*}$ holds.
-M4 with `allow_approximate = TRUE` is a fallback when the slot identity
-cannot be satisfied.
+and adjust \\k\\ or \\r\\ so that \\J^\* \times r = I \times k^\*\\
+holds. M4 with `allow_approximate = TRUE` is a fallback when the slot
+identity cannot be satisfied.
 
 ``` r
 library(OptiSparseMET)
@@ -707,71 +707,72 @@ alloc_M4$summary$max_sparse_replication  # equals min_sparse_replication: equal 
 
 ## 6.4 Slot identity feasibility by J\*, I, and r
 
-The slot identity $J^{*} \times r = I \times k^{*}$ requires that
-$J^{*} \times r$ be exactly divisible by $I$. Whether this is achievable
-for a given combination of sparse treatments ($J^{*}$), environments
-($I$), and replication ($r$) depends on the shared factors of these
+The slot identity \\J^\* \times r = I \times k^\*\\ requires that \\J^\*
+\times r\\ be exactly divisible by \\I\\. Whether this is achievable for
+a given combination of sparse treatments (\\J^\*\\), environments
+(\\I\\), and replication (\\r\\) depends on the shared factors of these
 three numbers.
 
 ### The divisibility rule
 
-For the slot identity to hold, $I$ must divide $J^{*} \times r$ exactly.
-Every prime factor of $I$ that is absent from $J^{*}$ must be supplied
-by $r$. This has a practical consequence for the most common case in
-plant breeding:
+For the slot identity to hold, \\I\\ must divide \\J^\* \times r\\
+exactly. Every prime factor of \\I\\ that is absent from \\J^\*\\ must
+be supplied by \\r\\. This has a practical consequence for the most
+common case in plant breeding:
 
-- **$I = 4$ environments, $J^{*}$ odd**: $J^{*} \times 1 = \text{odd}$
-  (not divisible by 4); $J^{*} \times 2 = 2 \times \text{odd}$
-  (divisible by 2 but not by 4 for odd $J^{*}$); only $r = 4$ guarantees
-  divisibility. But $r = 4$ gives $k^{*} = J^{*}$ — full replication —
-  which defeats the purpose of sparse testing. **Practical fix**: adjust
-  $C$ by 1 so that $J^{*} = J - C$ becomes even.
+- **\\I = 4\\ environments, \\J^\*\\ odd**: \\J^\* \times 1 =
+  \text{odd}\\ (not divisible by 4); \\J^\* \times 2 = 2 \times
+  \text{odd}\\ (divisible by 2 but not by 4 for odd \\J^\*\\); only \\r
+  = 4\\ guarantees divisibility. But \\r = 4\\ gives \\k^\* = J^\*\\ —
+  full replication — which defeats the purpose of sparse testing.
+  **Practical fix**: adjust \\C\\ by 1 so that \\J^\* = J - C\\ becomes
+  even.
 
-- **$I = 4$ environments, $J^{*}$ even but not divisible by 4**: $r = 2$
-  always works (e.g. $J^{*} = 110$: $110 \times 2/4 = 55$).
+- **\\I = 4\\ environments, \\J^\*\\ even but not divisible by 4**: \\r
+  = 2\\ always works (e.g. \\J^\* = 110\\: \\110 \times 2 / 4 = 55\\).
 
-- **$I = 3$ environments**: feasibility depends on divisibility by 3. If
-  $J^{*}$ is divisible by 3, any $r$ works. Otherwise $r$ must be a
-  multiple of 3.
+- **\\I = 3\\ environments**: feasibility depends on divisibility by 3.
+  If \\J^\*\\ is divisible by 3, any \\r\\ works. Otherwise \\r\\ must
+  be a multiple of 3.
 
-- **$I = 6$ environments**: requires divisibility by $2 \times 3 = 6$.
-  Odd $J^{*}$ not divisible by 3 requires $r$ divisible by 6.
+- **\\I = 6\\ environments**: requires divisibility by \\2 \times 3 =
+  6\\. Odd \\J^\*\\ not divisible by 3 requires \\r\\ divisible by 6.
 
-### Feasibility table: $r = 2$
+### Feasibility table: \\r = 2\\
 
-The table shows $k^{*}$ when the slot identity holds, and `--` when it
-does not for that combination. Add $C$ (common treatments) to $k^{*}$ to
-get the `n_test_entries_per_environment` argument.
+The table shows \\k^\*\\ when the slot identity holds, and `--` when it
+does not for that combination. Add \\C\\ (common treatments) to \\k^\*\\
+to get the `n_test_entries_per_environment` argument.
 
-| $J^{*}$ | $I = 3$ | $I = 4$ | $I = 5$ | $I = 6$ | $I = 7$ | $I = 8$ | $I = 9$ | $I = 10$ |
-|--------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|---------:|
-|      60 |      40 |      30 |      24 |      20 |       – |      15 |       – |       12 |
-|      70 |       – |      35 |      28 |       – |      20 |       – |       – |       14 |
-|      75 |      50 |       – |      30 |      25 |       – |       – |       – |       15 |
-|      80 |       – |      40 |      32 |       – |       – |      20 |       – |       16 |
-|      90 |      60 |      45 |      36 |      30 |       – |       – |      20 |       18 |
-|     100 |       – |      50 |      40 |       – |       – |      25 |       – |       20 |
-|     110 |       – |      55 |      44 |       – |       – |       – |       – |       22 |
-|     112 |       – |      56 |       – |       – |      32 |      28 |       – |        – |
-|     120 |      80 |      60 |      48 |      40 |       – |      30 |       – |       24 |
-|     150 |     100 |      75 |      60 |      50 |       – |       – |       – |       30 |
-|     200 |       – |     100 |      80 |       – |       – |      50 |       – |       40 |
+| \\J^\*\\ | \\I=3\\ | \\I=4\\ | \\I=5\\ | \\I=6\\ | \\I=7\\ | \\I=8\\ | \\I=9\\ | \\I=10\\ |
+|---------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|---------:|
+|       60 |      40 |      30 |      24 |      20 |       – |      15 |       – |       12 |
+|       70 |       – |      35 |      28 |       – |      20 |       – |       – |       14 |
+|       75 |      50 |       – |      30 |      25 |       – |       – |       – |       15 |
+|       80 |       – |      40 |      32 |       – |       – |      20 |       – |       16 |
+|       90 |      60 |      45 |      36 |      30 |       – |       – |      20 |       18 |
+|      100 |       – |      50 |      40 |       – |       – |      25 |       – |       20 |
+|      110 |       – |      55 |      44 |       – |       – |       – |       – |       22 |
+|      112 |       – |      56 |       – |       – |      32 |      28 |       – |        – |
+|      120 |      80 |      60 |      48 |      40 |       – |      30 |       – |       24 |
+|      150 |     100 |      75 |      60 |      50 |       – |       – |       – |       30 |
+|      200 |       – |     100 |      80 |       – |       – |      50 |       – |       40 |
 
-### Feasibility table: $r = 3$
+### Feasibility table: \\r = 3\\
 
-| $J^{*}$ | $I = 3$ | $I = 4$ | $I = 5$ | $I = 6$ | $I = 7$ | $I = 8$ | $I = 9$ | $I = 10$ |
-|--------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|---------:|
-|      60 |      60 |      45 |      36 |      30 |       – |       – |      20 |       18 |
-|      70 |      70 |       – |      42 |      35 |      30 |       – |       – |       21 |
-|      75 |      75 |       – |      45 |       – |       – |       – |      25 |        – |
-|      80 |      80 |      60 |      48 |      40 |       – |      30 |       – |       24 |
-|      90 |      90 |       – |      54 |      45 |       – |       – |      30 |       27 |
-|     100 |     100 |      75 |      60 |      50 |       – |       – |       – |       30 |
-|     110 |     110 |       – |      66 |      55 |       – |       – |       – |       33 |
-|     112 |     112 |      84 |       – |      56 |      48 |      42 |       – |        – |
-|     120 |     120 |      90 |      72 |      60 |       – |      45 |      40 |       36 |
-|     150 |     150 |       – |      90 |      75 |       – |       – |      50 |       45 |
-|     200 |     200 |     150 |     120 |     100 |       – |      75 |       – |       60 |
+| \\J^\*\\ | \\I=3\\ | \\I=4\\ | \\I=5\\ | \\I=6\\ | \\I=7\\ | \\I=8\\ | \\I=9\\ | \\I=10\\ |
+|---------:|--------:|--------:|--------:|--------:|--------:|--------:|--------:|---------:|
+|       60 |      60 |      45 |      36 |      30 |       – |       – |      20 |       18 |
+|       70 |      70 |       – |      42 |      35 |      30 |       – |       – |       21 |
+|       75 |      75 |       – |      45 |       – |       – |       – |      25 |        – |
+|       80 |      80 |      60 |      48 |      40 |       – |      30 |       – |       24 |
+|       90 |      90 |       – |      54 |      45 |       – |       – |      30 |       27 |
+|      100 |     100 |      75 |      60 |      50 |       – |       – |       – |       30 |
+|      110 |     110 |       – |      66 |      55 |       – |       – |       – |       33 |
+|      112 |     112 |      84 |       – |      56 |      48 |      42 |       – |        – |
+|      120 |     120 |      90 |      72 |      60 |       – |      45 |      40 |       36 |
+|      150 |     150 |       – |      90 |      75 |       – |       – |      50 |       45 |
+|      200 |     200 |     150 |     120 |     100 |       – |      75 |       – |       60 |
 
 ### What to do when your combination gives `--`
 
@@ -779,13 +780,14 @@ Use
 [`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)
 to diagnose the problem and try one of these adjustments:
 
-1.  **Adjust $C$ by 1**: adding or removing one common treatment changes
-    $J^{*}$ by 1, which may make it divisible by $I$ for the chosen $r$.
-2.  **Try $r = 2$ instead of $r = 1$**, or $r = 3$ instead of $r = 2$ —
-    the extra factor may resolve the divisibility.
+1.  **Adjust \\C\\ by 1**: adding or removing one common treatment
+    changes \\J^\*\\ by 1, which may make it divisible by \\I\\ for the
+    chosen \\r\\.
+2.  **Try \\r = 2\\ instead of \\r = 1\\**, or \\r = 3\\ instead of \\r
+    = 2\\ — the extra factor may resolve the divisibility.
 3.  **Use `random_balanced` (M3)** if exact equal replication is not
     essential. M3 does not require the slot identity and tolerates odd
-    $J^{*}$ freely.
+    \\J^\*\\ freely.
 4.  **Use `allow_approximate = TRUE`** as a fallback — the allocation
     proceeds with the closest possible balance, accepting minor
     replication differences.
@@ -859,9 +861,9 @@ lines are spread across environments.
 ### 7.3 Pedigree-based allocation (`"A"`)
 
 When genomic data are unavailable, the pedigree numerator relationship
-matrix $A$ plays the same role as the GRM. PCA is performed on $A$ and
-clustering proceeds identically. The resulting groups reflect pedigree
-relatedness rather than marker-estimated genomic similarity.
+matrix \\A\\ plays the same role as the GRM. PCA is performed on \\A\\
+and clustering proceeds identically. The resulting groups reflect
+pedigree relatedness rather than marker-estimated genomic similarity.
 
 ### 7.4 Why this matters for prediction
 
@@ -904,14 +906,14 @@ alloc_grm$group_overlap_matrix  # how many groups are shared across env pairs
 ## 8. Common Treatments
 
 Common treatments are lines assigned to **every** environment before
-sparse allocation begins. If $C$ is the number of common treatments,
+sparse allocation begins. If \\C\\ is the number of common treatments,
 each environment has its effective sparse capacity reduced:
 
-$$k_{e}^{*} = k_{e} - C$$
+\\k_e^\* = k_e - C\\
 
 and the number of sparse-allocatable lines is:
 
-$$J^{*} = J - C$$
+\\J^\* = J - C\\
 
 ### 8.1 Why common treatments matter
 
@@ -919,7 +921,7 @@ Common treatments serve two statistically distinct purposes.
 
 **Design-based connectivity**: Two environments that share no tested
 lines can only be linked through the model — through the assumed
-structure of $K$. Common treatments provide direct comparisons that do
+structure of \\K\\. Common treatments provide direct comparisons that do
 not depend on any model assumption. This is important when environments
 are weakly genetically correlated or when the researcher wants robust
 cross-site inference.
@@ -945,7 +947,7 @@ without assuming a specific genetic covariance structure - A stable
 reference set is needed for cross-trial benchmarking
 
 Minimize the number of common treatments when: - All environments are
-similar and $K$-based connectivity is sufficient - Sparse capacity is
+similar and \\K\\-based connectivity is sufficient - Sparse capacity is
 already tight and common treatments would leave too few slots for the
 experimental lines
 
@@ -957,20 +959,20 @@ experimental lines
 
 A design that requests replication without accounting for available seed
 cannot be deployed. The feasibility condition for assigning replication
-$r_{i}$ to line $i$ in environment $e$ is:
+\\r_i\\ to line \\i\\ in environment \\e\\ is:
 
-$$s_{i} \geq r_{i} \times q_{e} + b$$
+\\s_i \geq r_i \times q_e + b\\
 
-where: - $s_{i}$ = seeds available for line $i$ - $r_{i}$ = desired
-replication level - $q_{e}$ = seeds required per plot in environment
-$e$ - $b$ = optional safety buffer (e.g., for germination losses)
+where: - \\s_i\\ = seeds available for line \\i\\ - \\r_i\\ = desired
+replication level - \\q_e\\ = seeds required per plot in environment
+\\e\\ - \\b\\ = optional safety buffer (e.g., for germination losses)
 
 ### 9.2 Replication roles
 
 [`assign_replication_by_seed()`](https://FAkohoue.github.io/OptiSparseMET/reference/assign_replication_by_seed.md)
 evaluates this condition for every line and assigns one of three roles:
 
-- **`"p_rep"`** — sufficient seed for $r_{i}$ plots; assigned
+- **`"p_rep"`** — sufficient seed for \\r_i\\ plots; assigned
   `desired_replications` plots
 - **`"unreplicated"`** — sufficient seed for one plot but not for
   `desired_replications` plots (downgraded)
@@ -980,8 +982,8 @@ Three design modes control how these roles are assigned:
 
 | Mode            | `"augmented"`               | `"p_rep"`                         | `"rcbd_type"`                           |
 |-----------------|-----------------------------|-----------------------------------|-----------------------------------------|
-| Target          | 1 plot per line             | $r$ plots for a feasible subset   | $r$ plots for all lines                 |
-| Downgrade       | Excluded if seed \< $q_{e}$ | Non-candidates get 1 plot         | Yes, if `shortage_action = "downgrade"` |
+| Target          | 1 plot per line             | \\r\\ plots for a feasible subset | \\r\\ plots for all lines               |
+| Downgrade       | Excluded if seed \< \\q_e\\ | Non-candidates get 1 plot         | Yes, if `shortage_action = "downgrade"` |
 | P-rep selection | —                           | By priority (seed, order, random) | —                                       |
 
 ``` r
@@ -1155,13 +1157,13 @@ For designs produced by
 [`met_prep_famoptg()`](https://FAkohoue.github.io/OptiSparseMET/reference/met_prep_famoptg.md),
 efficiency is evaluated under a model with a block random effect:
 
-$$y = X\beta + Zg + Wb + e$$
+\\y = X\beta + Zg + Wb + e\\
 
-where $b \sim N\left( 0,\, I\sigma_{b}^{2} \right)$ is the block effect.
-The variance components are specified in `varcomp` using `sigma_b2` for
-the block variance. Note that this model has a **single block variance
-component** — there is no separate replicate or
-incomplete-block-within-replicate structure.
+where \\b \sim N(0,\\ I\sigma_b^2)\\ is the block effect. The variance
+components are specified in `varcomp` using `sigma_b2` for the block
+variance. Note that this model has a **single block variance component**
+— there is no separate replicate or incomplete-block-within-replicate
+structure.
 
 The function computes A-criterion, D-criterion (for fixed treatment
 effects), and CDmean (for random treatment effects), under any of three
@@ -1199,14 +1201,13 @@ For designs produced by
 efficiency is evaluated under a model with replicate and
 incomplete-block-within-replicate random effects:
 
-$$y = X\beta + Zg + W_{r}r + W_{b}b + e$$
+\\y = X\beta + Zg + W_r r + W\_{b} b + e\\
 
-where $r \sim N\left( 0,\, I\sigma_{\text{rep}}^{2} \right)$ and
-$b \sim N\left( 0,\, I\sigma_{\text{ib}}^{2} \right)$ are the replicate
-and incomplete block effects respectively. The `varcomp` list must
-contain `sigma_rep2` and `sigma_ib2` (not `sigma_b2`). This two-level
-blocking structure reflects the hierarchical design of alpha row-column
-layouts.
+where \\r \sim N(0,\\ I\sigma\_{\text{rep}}^2)\\ and \\b \sim N(0,\\
+I\sigma\_{\text{ib}}^2)\\ are the replicate and incomplete block effects
+respectively. The `varcomp` list must contain `sigma_rep2` and
+`sigma_ib2` (not `sigma_b2`). This two-level blocking structure reflects
+the hierarchical design of alpha row-column layouts.
 
 ``` r
 eff_E2 <- met_evaluate_alpha_efficiency(
@@ -1302,8 +1303,8 @@ parallelizable.
 
 **SA (Simulated Annealing)**: Starts from one design and iteratively
 perturbs it. At each step, a worse design is accepted with probability
-$\exp( - \Delta/T)$, where $\Delta$ is the score decrease and $T$ is the
-current temperature. As $T$ decreases from `sa_temp_start` to
+\\\exp(-\Delta / T)\\, where \\\Delta\\ is the score decrease and \\T\\
+is the current temperature. As \\T\\ decreases from `sa_temp_start` to
 `sa_temp_end`, the algorithm transitions from broad exploration to local
 refinement. SA is effective when the fitness landscape has many local
 optima.
@@ -1635,7 +1636,7 @@ variance.
 |-----------------------|-----------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Capacity verification | All treatments must be assignable at least once                                   | [`suggest_safe_k()`](https://FAkohoue.github.io/OptiSparseMET/reference/suggest_safe_k.md), [`min_k_for_full_coverage()`](https://FAkohoue.github.io/OptiSparseMET/reference/min_k_for_full_coverage.md)                                               |
 | Allocation            | Balance replication depth against coverage breadth                                | [`allocate_sparse_met()`](https://FAkohoue.github.io/OptiSparseMET/reference/allocate_sparse_met.md)                                                                                                                                                   |
-| BIBD feasibility      | Slot identity \$J^\* \\times r = I \\times k^\*\$ must hold for equal replication | [`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)                                                                                                               |
+| BIBD feasibility      | Slot identity \\J^\* \\times r = I \\times k^\*\\ must hold for equal replication | [`check_balanced_incomplete_feasibility()`](https://FAkohoue.github.io/OptiSparseMET/reference/check_balanced_incomplete_feasibility.md)                                                                                                               |
 | Genetic structure     | Prevent clustering; improve prediction conditions                                 | [`derive_allocation_groups()`](https://FAkohoue.github.io/OptiSparseMET/reference/derive_allocation_groups.md)                                                                                                                                         |
 | Connectivity          | Common treatments provide model-free cross-site linkage                           | `common_treatments` argument                                                                                                                                                                                                                           |
 | Seed feasibility      | Replication must be achievable with available seed                                | [`assign_replication_by_seed()`](https://FAkohoue.github.io/OptiSparseMET/reference/assign_replication_by_seed.md)                                                                                                                                     |
