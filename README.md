@@ -42,7 +42,7 @@ field heterogeneity.
 
 These two levels are not merely sequential steps — they are statistically
 coupled, and optimizing them independently produces inferior designs. The
-linkage operates through four mechanisms:
+linkage operates through four mechanisms.
 
 **1. The incidence matrix couples both levels inside the information matrix.**
 In the linear mixed model $y = X\beta + Zg + e$, the precision of all
@@ -142,9 +142,7 @@ If the slot identity $J^* \times r = I \times k^*$ does not hold for the
 chosen dimensions, the function stops with a clear error before any allocation
 is attempted. Use `check_balanced_incomplete_feasibility()` to verify the
 slot identity first, or adjust $k$ and $r$ so that the identity holds.
-Construction proceeds via `crossdes::find.BIB()` when the
-[crossdes](https://CRAN.R-project.org/package=crossdes) package is installed,
-falling back to a greedy load-balanced constructor otherwise.
+Construction uses a greedy load-balanced constructor that guarantees equal replication.
 
 `allow_approximate = TRUE` relaxes the slot identity and allows minor
 replication imbalances. This is a fallback for exploratory use, not the
@@ -684,8 +682,7 @@ when equal replication is a hard requirement -- every sparse treatment must
 appear in exactly $r$ environments. Verify the slot identity
 $J^* \times r = I \times k^*$ first with `check_balanced_incomplete_feasibility()`.
 The function stops with a clear error if the identity does not hold, so you
-always know whether the equal-replication guarantee was met. Install the
-`crossdes` package for guaranteed construction when available.
+always know whether the equal-replication guarantee was met.
 
 **Use `balanced_incomplete` with `allow_approximate = TRUE`** as a fallback
 when the slot identity cannot be satisfied for the chosen dimensions but you
@@ -729,12 +726,6 @@ remotes::install_github("FAkohoue/OptiSparseMET",
   build_vignettes = FALSE,
   dependencies    = TRUE
 )
-```
-
-For guaranteed exact BIBD construction via `crossdes`:
-
-```r
-install.packages("crossdes")
 ```
 
 ---
@@ -784,4 +775,4 @@ Issues, bug reports, and feature suggestions are welcome:
 
 ## License
 
-MIT License (c) Felicien Akohoue
+MIT License (c) Félicien Akohoue

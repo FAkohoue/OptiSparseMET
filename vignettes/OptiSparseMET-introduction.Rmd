@@ -623,8 +623,7 @@ check_balanced_incomplete_feasibility(
 # feasible = TRUE (difference = 0)
 ```
 
-Construction proceeds via `crossdes::find.BIB()` when the `crossdes` package
-is installed, falling back to a greedy load-balanced constructor otherwise.
+Construction uses a greedy load-balanced constructor that guarantees equal replication.
 
 `allow_approximate = TRUE` relaxes the slot identity and accepts minor
 replication imbalances. This is a fallback for exploratory use when exact

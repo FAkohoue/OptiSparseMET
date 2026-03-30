@@ -47,7 +47,6 @@ Imports:
     stats,
     utils
 Suggests:
-    crossdes,
     knitr,
     rmarkdown,
     tinytex,

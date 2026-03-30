@@ -11,7 +11,13 @@
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
 <link rel="icon" sizes="any" href="../favicon.ico">
 <link rel="manifest" href="../site.webmanifest">
-<script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<!-- mathjax math --><script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js" integrity="sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI=" crossorigin="anonymous"></script><script>
+  window.MathJax = {
+    chtml: {
+      fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
+    }
+  };
+</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/Inter-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/Fira_Code-0.4.10/font.css" rel="stylesheet">
@@ -91,24 +97,17 @@ estimate the performance of each line across environments, partition
 genetic from environment effects, and identify lines with broad or
 specific adaptation.</p>
 <p>The fundamental constraint is that the number of candidate lines
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
-almost always exceeds the number of plots available in any single
-environment. Testing all
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
-lines in all
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-environments is infeasible; some form of incomplete testing is
-unavoidable. The question is not whether to test incompletely, but how
-to structure that incompleteness so the resulting data still support
-reliable inference.</p>
+<span class="math inline">\(J\)</span> almost always exceeds the number
+of plots available in any single environment. Testing all <span class="math inline">\(J\)</span> lines in all <span class="math inline">\(I\)</span> environments is infeasible; some form
+of incomplete testing is unavoidable. The question is not whether to
+test incompletely, but how to structure that incompleteness so the
+resulting data still support reliable inference.</p>
 <p><strong>Sparse testing</strong> is the formal approach. A sparse MET
-design specifies, for each line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
-and environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>,
-whether that combination appears in the trial. The goal is a structure
-that is statistically efficient, genetically connected, and
-operationally deployable given seed and plot constraints.</p>
+design specifies, for each line <span class="math inline">\(j\)</span>
+and environment <span class="math inline">\(e\)</span>, whether that
+combination appears in the trial. The goal is a structure that is
+statistically efficient, genetically connected, and operationally
+deployable given seed and plot constraints.</p>
 </div>
 <div class="section level3">
 <h3 id="what-optisparsemet-does">1.2 What OptiSparseMET does<a class="anchor" aria-label="anchor" href="#what-optisparsemet-does"></a>
@@ -134,118 +133,64 @@ possible.</p>
 <h4 id="how-the-two-levels-are-linked">How the two levels are linked<a class="anchor" aria-label="anchor" href="#how-the-two-levels-are-linked"></a>
 </h4>
 <p><strong>Link 1 — The incidence matrix couples allocation to
-estimation.</strong> In the linear mixed model
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + e</annotation></semantics></math>,
-the design matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-has entry
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Z</mi><mrow><mi>p</mi><mi>j</mi></mrow></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Z_{pj} = 1</annotation></semantics></math>
-if plot
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
-is assigned to line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>,
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
-otherwise. The coefficient matrix for line effects is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi><mo>=</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi><mo>−</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>X</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><msup><mi>X</mi><mi>⊤</mi></msup><msup><mi>V</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi></mrow><annotation encoding="application/x-tex">C = Z^\top V^{-1} Z - Z^\top V^{-1} X (X^\top V^{-1} X)^{-1} X^\top V^{-1} Z</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo>=</mo><mi>Z</mi><mi>K</mi><msup><mi>Z</mi><mi>⊤</mi></msup><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><mo>+</mo><mi>R</mi><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">V = ZKZ^\top \sigma_g^2 + R\sigma_e^2</annotation></semantics></math>
-is the phenotypic variance matrix,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-is the genomic relationship matrix, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-encodes the residual covariance structure. The precision of every
-genetic value estimate — and therefore every selection decision —
-depends on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>.
-The allocation decision (which lines appear where) determines the
-sparsity pattern of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>,
-which directly shapes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>.
-The within-environment blocking structure determines
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>,
-which enters
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-and therefore
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>C</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><annotation encoding="application/x-tex">C^{-1}</annotation></semantics></math>
-as well. <strong>You cannot optimize
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-by fixing
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-independently: they interact inside
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>.</strong></p>
+estimation.</strong> In the linear mixed model <span class="math inline">\(y = X\beta + Zg + e\)</span>, the design matrix
+<span class="math inline">\(Z\)</span> has entry <span class="math inline">\(Z_{pj} = 1\)</span> if plot <span class="math inline">\(p\)</span> is assigned to line <span class="math inline">\(j\)</span>, and <span class="math inline">\(0\)</span> otherwise. The coefficient matrix for
+line effects is:</p>
+<p><span class="math display">\[C = Z^\top V^{-1} Z - Z^\top V^{-1} X
+(X^\top V^{-1} X)^{-1} X^\top V^{-1} Z\]</span></p>
+<p>where <span class="math inline">\(V = ZKZ^\top \sigma_g^2 +
+R\sigma_e^2\)</span> is the phenotypic variance matrix, <span class="math inline">\(K\)</span> is the genomic relationship matrix, and
+<span class="math inline">\(R\)</span> encodes the residual covariance
+structure. The precision of every genetic value estimate — and therefore
+every selection decision — depends on <span class="math inline">\(C\)</span>. The allocation decision (which lines
+appear where) determines the sparsity pattern of <span class="math inline">\(Z\)</span>, which directly shapes <span class="math inline">\(C\)</span>. The within-environment blocking
+structure determines <span class="math inline">\(R\)</span>, which
+enters <span class="math inline">\(V\)</span> and therefore <span class="math inline">\(C^{-1}\)</span> as well. <strong>You cannot
+optimize <span class="math inline">\(C\)</span> by fixing <span class="math inline">\(Z\)</span> and <span class="math inline">\(R\)</span> independently: they interact inside
+<span class="math inline">\(V\)</span>.</strong></p>
 <p><strong>Link 2 — Allocation fixes which within-environment designs
-are feasible.</strong> The number of lines assigned to environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
-is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>k</mi><mi>e</mi></msub><mo>=</mo><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>Z</mi><mrow><mi>p</mi><mi>j</mi></mrow></msub></mrow><annotation encoding="application/x-tex">k_e = \sum_j Z_{pj}</annotation></semantics></math>
-summed over plots
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
-in environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>.
-Once allocation is complete,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
-is fixed. The within-environment design must then arrange exactly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
-treatments across the available
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mtext mathvariant="normal">rows</mtext></msub><mo>×</mo><msub><mi>n</mi><mtext mathvariant="normal">cols</mtext></msub></mrow><annotation encoding="application/x-tex">n_{\text{rows}} \times n_{\text{cols}}</annotation></semantics></math>
-plots. If
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
-is incompatible with the blocking structure — for example, if
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
-is not a multiple of the block size, or if
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mi>e</mi></msub><annotation encoding="application/x-tex">k_e</annotation></semantics></math>
-exceeds field capacity — the within-environment design is infeasible
-regardless of how good the allocation was. <strong>Allocation and field
-geometry must be co-designed.</strong></p>
+are feasible.</strong> The number of lines assigned to environment <span class="math inline">\(e\)</span> is <span class="math inline">\(k_e =
+\sum_j Z_{pj}\)</span> summed over plots <span class="math inline">\(p\)</span> in environment <span class="math inline">\(e\)</span>. Once allocation is complete, <span class="math inline">\(k_e\)</span> is fixed. The within-environment
+design must then arrange exactly <span class="math inline">\(k_e\)</span> treatments across the available <span class="math inline">\(n_{\text{rows}} \times n_{\text{cols}}\)</span>
+plots. If <span class="math inline">\(k_e\)</span> is incompatible with
+the blocking structure — for example, if <span class="math inline">\(k_e\)</span> is not a multiple of the block size,
+or if <span class="math inline">\(k_e\)</span> exceeds field capacity —
+the within-environment design is infeasible regardless of how good the
+allocation was. <strong>Allocation and field geometry must be
+co-designed.</strong></p>
 <p><strong>Link 3 — Block structure affects cross-environment
-inference.</strong> Consider two environments sharing
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mtext mathvariant="normal">shared</mtext></msub><annotation encoding="application/x-tex">n_{\text{shared}}</annotation></semantics></math>
-lines. The precision of the cross-environment genetic correlation
-estimate depends on how well those shared lines are estimated within
-each environment, which in turn depends on the block efficiency within
-each environment. Formally, the effective replication of a shared line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
-across environments is modulated by the efficiency factor
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>e</mi><mi>j</mi></msub><annotation encoding="application/x-tex">e_j</annotation></semantics></math>
-of the within-environment design:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">Var</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mover><mi>g</mi><mo accent="true">̂</mo></mover><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mrow><msub><mi>e</mi><mi>j</mi></msub><mspace width="0.167em"></mspace><msubsup><mi>r</mi><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup></mrow></mfrac></mrow><annotation encoding="application/x-tex">\text{Var}(\hat{g}_j^{(e)}) = \frac{\sigma_e^2}{e_j \, r_j^{(e)}}</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>r</mi><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>e</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><annotation encoding="application/x-tex">r_j^{(e)}</annotation></semantics></math>
-is the number of plots for line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
-in environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>j</mi></msub><mo>∈</mo><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">e_j \in (0, 1]</annotation></semantics></math>
-is the efficiency factor relative to a completely randomized design. A
-poor within-environment design (low
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>e</mi><mi>j</mi></msub><annotation encoding="application/x-tex">e_j</annotation></semantics></math>)
-inflates the variance of each BLUP, which propagates into the
-cross-environment covariance estimates and degrades G×E inference even
-when the allocation incidence structure is ideal. <strong>The block
-design within each environment affects the quality of cross-environment
+inference.</strong> Consider two environments sharing <span class="math inline">\(n_{\text{shared}}\)</span> lines. The precision of
+the cross-environment genetic correlation estimate depends on how well
+those shared lines are estimated within each environment, which in turn
+depends on the block efficiency within each environment. Formally, the
+effective replication of a shared line <span class="math inline">\(j\)</span> across environments is modulated by the
+efficiency factor <span class="math inline">\(e_j\)</span> of the
+within-environment design:</p>
+<p><span class="math display">\[\text{Var}(\hat{g}_j^{(e)}) =
+\frac{\sigma_e^2}{e_j \, r_j^{(e)}}\]</span></p>
+<p>where <span class="math inline">\(r_j^{(e)}\)</span> is the number of
+plots for line <span class="math inline">\(j\)</span> in environment
+<span class="math inline">\(e\)</span> and <span class="math inline">\(e_j \in (0, 1]\)</span> is the efficiency factor
+relative to a completely randomized design. A poor within-environment
+design (low <span class="math inline">\(e_j\)</span>) inflates the
+variance of each BLUP, which propagates into the cross-environment
+covariance estimates and degrades G×E inference even when the allocation
+incidence structure is ideal. <strong>The block design within each
+environment affects the quality of cross-environment
 comparisons.</strong></p>
 <p><strong>Link 4 — CDmean depends on both levels
 simultaneously.</strong> The CDmean criterion for genomic selection,</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDmean</mtext><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mn>1</mn><mi>J</mi></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>J</mi></munderover><mfrac><msub><mtext mathvariant="normal">PEV</mtext><mi>j</mi></msub><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup></mfrac></mrow><annotation encoding="application/x-tex">\text{CDmean} = 1 - \frac{1}{J} \sum_{j=1}^{J} \frac{\text{PEV}_j}{\sigma_g^2}</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">PEV</mtext><mi>j</mi></msub><mo>=</mo><msub><mrow><mo stretchy="true" form="prefix">[</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>K</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo>+</mo><msup><mi>Z</mi><mi>⊤</mi></msup><msup><mi>R</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>Z</mi><mspace width="0.167em"></mspace><mi>/</mi><mspace width="0.167em"></mspace><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="true" form="postfix">]</mo></mrow><mrow><mi>j</mi><mi>j</mi></mrow></msub><msubsup><mi>σ</mi><mi>g</mi><mrow><mi>−</mi><mn>2</mn></mrow></msubsup></mrow><annotation encoding="application/x-tex">\text{PEV}_j = \left[(K^{-1} + Z^\top R^{-1} Z \, / \, \sigma_e^2)^{-1}\right]_{jj} \sigma_g^{-2}</annotation></semantics></math>,
-depends on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-through allocation (which environments each line enters) and on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-through within-environment design (how plots are blocked and arranged).
-A sparse allocation that spreads diverse lines across environments
-improves the genomic connectivity encoded in the numerator
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>-weighted
-terms, while efficient blocking reduces the residual variance
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
-that appears in the denominator. Neither level can substitute for the
-other.</p>
+<p><span class="math display">\[\text{CDmean} = 1 - \frac{1}{J}
+\sum_{j=1}^{J} \frac{\text{PEV}_j}{\sigma_g^2}\]</span></p>
+<p>where <span class="math inline">\(\text{PEV}_j = \left[(K^{-1} +
+Z^\top R^{-1} Z \, / \, \sigma_e^2)^{-1}\right]_{jj}
+\sigma_g^{-2}\)</span>, depends on <span class="math inline">\(Z\)</span> through allocation (which environments
+each line enters) and on <span class="math inline">\(R\)</span> through
+within-environment design (how plots are blocked and arranged). A sparse
+allocation that spreads diverse lines across environments improves the
+genomic connectivity encoded in the numerator <span class="math inline">\(K\)</span>-weighted terms, while efficient
+blocking reduces the residual variance <span class="math inline">\(R\)</span> that appears in the denominator.
+Neither level can substitute for the other.</p>
 <p>Standard MET tools address one level at a time: either choosing an
 allocation strategy without regard to field feasibility, or constructing
 within-environment designs without regard to how many lines the
@@ -270,46 +215,38 @@ framework.</p>
 </h3>
 <p>Phenotypic observations in plant breeding trials are analyzed using a
 linear mixed model. For a single environment, a typical form is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + e</annotation></semantics></math></p>
+<p><span class="math display">\[y = X\beta + Zg + e\]</span></p>
 <p>where:</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>y</mi><annotation encoding="application/x-tex">y</annotation></semantics></math>
-is the vector of observed phenotypic values (one per plot)</li>
+<span class="math inline">\(y\)</span> is the vector of observed
+phenotypic values (one per plot)</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mi>β</mi></mrow><annotation encoding="application/x-tex">X\beta</annotation></semantics></math>
-captures fixed effects: the overall mean, environment effects, check
-effects, and any fixed treatment contrasts</li>
+<span class="math inline">\(X\beta\)</span> captures fixed effects:
+the overall mean, environment effects, check effects, and any fixed
+treatment contrasts</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>g</mi></mrow><annotation encoding="application/x-tex">Zg</annotation></semantics></math>
-captures random line effects:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>K</mi><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">g \sim N(0,\, K\sigma_g^2)</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-is a relationship matrix (genomic or pedigree-based) and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma_g^2</annotation></semantics></math>
-is the genetic variance</li>
+<span class="math inline">\(Zg\)</span> captures random line
+effects: <span class="math inline">\(g \sim N(0,\,
+K\sigma_g^2)\)</span>, where <span class="math inline">\(K\)</span> is a
+relationship matrix (genomic or pedigree-based) and <span class="math inline">\(\sigma_g^2\)</span> is the genetic variance</li>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>R</mi><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">e \sim N(0,\, R\sigma_e^2)</annotation></semantics></math>
-is the vector of residuals, with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+<span class="math inline">\(e \sim N(0,\, R\sigma_e^2)\)</span> is
+the vector of residuals, with <span class="math inline">\(R\)</span>
 encoding the spatial covariance structure</li>
 </ul>
-<p>The design matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-— whose columns correspond to lines and whose rows correspond to plots —
-is determined entirely by the experimental design. <strong>A good design
-is one that makes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-well-conditioned for estimation.</strong></p>
+<p>The design matrix <span class="math inline">\(Z\)</span> — whose
+columns correspond to lines and whose rows correspond to plots — is
+determined entirely by the experimental design. <strong>A good design is
+one that makes <span class="math inline">\(Z\)</span> well-conditioned
+for estimation.</strong></p>
 </div>
 <div class="section level3">
 <h3 id="why-design-affects-inference">2.2 Why design affects inference<a class="anchor" aria-label="anchor" href="#why-design-affects-inference"></a>
 </h3>
-<p>When
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-is sparse, not all lines are observed in all environments.
-Cross-environment inference then depends on either:</p>
+<p>When <span class="math inline">\(Z\)</span> is sparse, not all lines
+are observed in all environments. Cross-environment inference then
+depends on either:</p>
 <ul>
 <li>
 <strong>Design-based connectivity</strong>: lines that co-occur in
@@ -317,9 +254,9 @@ the same environment create direct comparisons; common treatments that
 appear in every environment create bridges between sites.</li>
 <li>
 <strong>Model-based connectivity</strong>: the relationship matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-propagates information between genetically related lines, even if they
-never appear in the same environment.</li>
+<span class="math inline">\(K\)</span> propagates information between
+genetically related lines, even if they never appear in the same
+environment.</li>
 </ul>
 <p>Both mechanisms are important, but model-based connectivity is less
 robust because it depends on the assumed covariance structure being
@@ -333,37 +270,29 @@ as a safeguard.</p>
 well it supports estimation and prediction of genetic values. The three
 main criteria used by <code>OptiSparseMET</code> are:</p>
 <p><strong>A-optimality</strong> minimizes the average variance of
-treatment comparison estimates (contrasts). Formally it minimizes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">trace</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>C</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{trace}(C^{-1})</annotation></semantics></math>
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-is the coefficient matrix of the treatment effects. A lower value is
-better. Its reciprocal, <strong>A-efficiency</strong>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mn>1</mn><mi>/</mi><msub><mi>A</mi><mtext mathvariant="normal">criterion</mtext></msub></mrow><annotation encoding="application/x-tex">= 1 / A_{\text{criterion}}</annotation></semantics></math>,
-is sometimes more interpretable because larger values are better.</p>
-<p><strong>D-optimality</strong> maximizes the determinant
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">|</mo><mi>C</mi><mo stretchy="true" form="postfix">|</mo></mrow><annotation encoding="application/x-tex">|C|</annotation></semantics></math>,
-which corresponds to maximizing the volume of the confidence ellipsoid
-for treatment estimates. It is more sensitive to the overall spread of
-information across all contrasts than A-optimality, which focuses on the
-average. Again, <strong>D-efficiency</strong>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mn>1</mn><mi>/</mi><msub><mi>D</mi><mtext mathvariant="normal">criterion</mtext></msub></mrow><annotation encoding="application/x-tex">= 1 / D_{\text{criterion}}</annotation></semantics></math>
-is used so larger values are better.</p>
+treatment comparison estimates (contrasts). Formally it minimizes <span class="math inline">\(\text{trace}(C^{-1})\)</span> where <span class="math inline">\(C\)</span> is the coefficient matrix of the
+treatment effects. A lower value is better. Its reciprocal,
+<strong>A-efficiency</strong> <span class="math inline">\(= 1 /
+A_{\text{criterion}}\)</span>, is sometimes more interpretable because
+larger values are better.</p>
+<p><strong>D-optimality</strong> maximizes the determinant <span class="math inline">\(|C|\)</span>, which corresponds to maximizing the
+volume of the confidence ellipsoid for treatment estimates. It is more
+sensitive to the overall spread of information across all contrasts than
+A-optimality, which focuses on the average. Again,
+<strong>D-efficiency</strong> <span class="math inline">\(= 1 /
+D_{\text{criterion}}\)</span> is used so larger values are better.</p>
 <p><strong>CDmean</strong> (coefficient of determination of the mean) is
 the criterion most directly tied to genomic prediction. It is defined
 as:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDmean</mtext><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mover><mtext mathvariant="normal">PEV</mtext><mo accent="true">¯</mo></mover><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup></mfrac></mrow><annotation encoding="application/x-tex">\text{CDmean} = 1 - \frac{\overline{\text{PEV}}}{\sigma_g^2}</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mtext mathvariant="normal">PEV</mtext><mo accent="true">¯</mo></mover><annotation encoding="application/x-tex">\overline{\text{PEV}}</annotation></semantics></math>
-is the mean prediction error variance (PEV) of the BLUP estimates and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>g</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma_g^2</annotation></semantics></math>
-is the genetic variance. CDmean lies in
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, 1]</annotation></semantics></math>;
-values close to 1 indicate that the design supports precise prediction.
-It captures how accurately genomic estimated breeding values (GEBVs) can
-be recovered from the design, incorporating both the relationship matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-and the block structure.</p>
+<p><span class="math display">\[\text{CDmean} = 1 -
+\frac{\overline{\text{PEV}}}{\sigma_g^2}\]</span></p>
+<p>where <span class="math inline">\(\overline{\text{PEV}}\)</span> is
+the mean prediction error variance (PEV) of the BLUP estimates and <span class="math inline">\(\sigma_g^2\)</span> is the genetic variance.
+CDmean lies in <span class="math inline">\([0, 1]\)</span>; values close
+to 1 indicate that the design supports precise prediction. It captures
+how accurately genomic estimated breeding values (GEBVs) can be
+recovered from the design, incorporating both the relationship matrix
+<span class="math inline">\(K\)</span> and the block structure.</p>
 <blockquote>
 <p><strong>For novice readers</strong>: Think of CDmean as “what
 fraction of the true genetic value the design allows you to recover on
@@ -380,7 +309,7 @@ the genetic signal.</p>
 <h3 id="across-environment-allocation">3.1 Across-environment allocation<a class="anchor" aria-label="anchor" href="#across-environment-allocation"></a>
 </h3>
 <p>The resource identity underlying balanced sparse allocation is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>J</mi><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = J \times r = I \times k</annotation></semantics></math></p>
+<p><span class="math display">\[N = J \times r = I \times k\]</span></p>
 <p>where:</p>
 <table class="table">
 <thead><tr class="header">
@@ -389,66 +318,56 @@ the genetic signal.</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math></td>
+<td><span class="math inline">\(N\)</span></td>
 <td>Total number of line-by-environment observations</td>
 </tr>
 <tr class="even">
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math></td>
+<td><span class="math inline">\(J\)</span></td>
 <td>Total number of candidate lines</td>
 </tr>
 <tr class="odd">
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math></td>
+<td><span class="math inline">\(r\)</span></td>
 <td>Number of environments each line enters (replication depth)</td>
 </tr>
 <tr class="even">
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math></td>
+<td><span class="math inline">\(I\)</span></td>
 <td>Number of environments</td>
 </tr>
 <tr class="odd">
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math></td>
+<td><span class="math inline">\(k\)</span></td>
 <td>Number of lines tested per environment (coverage breadth)</td>
 </tr>
 </tbody>
 </table>
-<p>Given a fixed total resource
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>,
+<p>Given a fixed total resource <span class="math inline">\(N\)</span>,
 this identity formalizes a fundamental tradeoff: <strong>increasing
 coverage breadth</strong> (testing more lines per environment, larger
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>)
-<strong>necessarily reduces replication depth</strong> (each line
-appears in fewer environments, smaller
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>).
-No design can simultaneously maximize both.</p>
+<span class="math inline">\(k\)</span>) <strong>necessarily reduces
+replication depth</strong> (each line appears in fewer environments,
+smaller <span class="math inline">\(r\)</span>). No design can
+simultaneously maximize both.</p>
 <blockquote>
 <p><strong>For novice readers</strong>: If you have 100 lines, 4
 environments, and enough seed for 400 plots total, you could test 100
 lines in 4 environments (full replication, but only if all 400 plots are
 available per environment), or test 50 lines per environment and have
-each line appear in 2 environments
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn><mo>,</mo><mi>k</mi><mo>=</mo><mn>100</mn></mrow><annotation encoding="application/x-tex">r = 2, k = 100</annotation></semantics></math>),
-or test 25 lines per environment and have each appear in 4 environments
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn><mo>,</mo><mi>k</mi><mo>=</mo><mn>100</mn></mrow><annotation encoding="application/x-tex">r = 4, k = 100</annotation></semantics></math>).
-The product
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>J</mi><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J \times r</annotation></semantics></math>
-always equals
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mi>I</mi><mo>×</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">N = I \times k</annotation></semantics></math>.</p>
+each line appear in 2 environments (<span class="math inline">\(r = 2, k
+= 100\)</span>), or test 25 lines per environment and have each appear
+in 4 environments (<span class="math inline">\(r = 4, k = 100\)</span>).
+The product <span class="math inline">\(J \times r\)</span> always
+equals <span class="math inline">\(N = I \times k\)</span>.</p>
 </blockquote>
-<p>The practical constraint is that
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
-is bounded by the number of plots available per environment, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-is bounded by seed availability. The allocation problem is to choose
-which lines go to which environments, subject to these bounds.</p>
-<p>When common treatments are included, a number
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-of lines are assigned to <strong>every</strong> environment before
-sparse allocation begins. Their count is subtracted from each
-environment’s capacity:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>k</mi><mi>e</mi><mo>*</mo></msubsup><mo>=</mo><msub><mi>k</mi><mi>e</mi></msub><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_e^* = k_e - C</annotation></semantics></math></p>
-<p>The sparse-allocatable lines number
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math>,
-and the modified resource identity applies to them:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math></p>
+<p>The practical constraint is that <span class="math inline">\(k\)</span> is bounded by the number of plots
+available per environment, and <span class="math inline">\(r\)</span> is
+bounded by seed availability. The allocation problem is to choose which
+lines go to which environments, subject to these bounds.</p>
+<p>When common treatments are included, a number <span class="math inline">\(C\)</span> of lines are assigned to
+<strong>every</strong> environment before sparse allocation begins.
+Their count is subtracted from each environment’s capacity:</p>
+<p><span class="math display">\[k_e^* = k_e - C\]</span></p>
+<p>The sparse-allocatable lines number <span class="math inline">\(J^* =
+J - C\)</span>, and the modified resource identity applies to them:</p>
+<p><span class="math display">\[J^* \times r = I \times k^*\]</span></p>
 </div>
 <div class="section level3">
 <h3 id="within-environment-design">3.2 Within-environment design<a class="anchor" aria-label="anchor" href="#within-environment-design"></a>
@@ -519,18 +438,17 @@ STAGE 4   Assemble the combined MET field book
 <h2 id="feasibility-helpers">5. Feasibility Helpers<a class="anchor" aria-label="anchor" href="#feasibility-helpers"></a>
 </h2>
 <p>Before any allocation, it is essential to verify that the chosen
-per-environment capacity
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
-is large enough to assign every non-common line at least once. Passing a
-capacity that is too small causes <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> to
-stop with an informative error.</p>
+per-environment capacity <span class="math inline">\(k\)</span> is large
+enough to assign every non-common line at least once. Passing a capacity
+that is too small causes <code><a href="../reference/allocate_sparse_met.html">allocate_sparse_met()</a></code> to stop with
+an informative error.</p>
 <p>The minimum capacity for full coverage under equal environment sizes
 is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>k</mi><mo>min</mo></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">⌈</mo><mfrac><msup><mi>J</mi><mo>*</mo></msup><mi>I</mi></mfrac><mo stretchy="true" form="postfix">⌉</mo></mrow><mo>+</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_{\min} = \left\lceil \frac{J^*}{I} \right\rceil + C</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⌈</mo><mi>⋅</mi><mo stretchy="false" form="postfix">⌉</mo></mrow><annotation encoding="application/x-tex">\lceil \cdot \rceil</annotation></semantics></math>
-is the ceiling function. This is the floor below which any sparse
-allocation must leave some lines unassigned.</p>
+<p><span class="math display">\[k_{\min} = \left\lceil \frac{J^*}{I}
+\right\rceil + C\]</span></p>
+<p>where <span class="math inline">\(\lceil \cdot \rceil\)</span> is the
+ceiling function. This is the floor below which any sparse allocation
+must leave some lines unassigned.</p>
 <p><code>OptiSparseMET</code> provides three helpers:</p>
 <table class="table">
 <colgroup>
@@ -544,20 +462,17 @@ allocation must leave some lines unassigned.</p>
 <tbody>
 <tr class="odd">
 <td><code><a href="../reference/min_k_for_full_coverage.html">min_k_for_full_coverage()</a></code></td>
-<td>Returns
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mo>min</mo></msub><annotation encoding="application/x-tex">k_{\min}</annotation></semantics></math>
-exactly</td>
+<td>Returns <span class="math inline">\(k_{\min}\)</span> exactly</td>
 </tr>
 <tr class="even">
 <td><code><a href="../reference/suggest_safe_k.html">suggest_safe_k()</a></code></td>
-<td>Returns
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>k</mi><mo>min</mo></msub><annotation encoding="application/x-tex">k_{\min}</annotation></semantics></math>
-plus a user-defined buffer</td>
+<td>Returns <span class="math inline">\(k_{\min}\)</span> plus a
+user-defined buffer</td>
 </tr>
 <tr class="odd">
 <td><code><a href="../reference/warn_if_k_too_small.html">warn_if_k_too_small()</a></code></td>
-<td>Emits a non-fatal warning if
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>&lt;</mo><msub><mi>k</mi><mo>min</mo></msub></mrow><annotation encoding="application/x-tex">k &lt; k_{\min}</annotation></semantics></math>
+<td>Emits a non-fatal warning if <span class="math inline">\(k &lt;
+k_{\min}\)</span>
 </td>
 </tr>
 </tbody>
@@ -1138,17 +1053,14 @@ replication.</p>
 allocation of Montesinos-López et al. (2023). It enforces two structural
 guarantees:</p>
 <p><strong>Condition 1 — Equal replication</strong>: every non-common
-line appears in exactly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
+line appears in exactly <span class="math inline">\(r\)</span>
 environments. This ensures no line is systematically under-evaluated and
 is the defining property that distinguishes M4 from M3.</p>
 <p><strong>Condition 2 — Equal environment sizes</strong>: every
-environment receives exactly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
+environment receives exactly <span class="math inline">\(k^*\)</span>
 sparse lines. This ensures environments are comparable and the resource
-identity
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
-holds exactly.</p>
+identity <span class="math inline">\(J^* \times r = I \times
+k^*\)</span> holds exactly.</p>
 <p>These two conditions are what matter in plant breeding programs where
 thousands of candidate lines are tested across a few environments.
 Enforcing them means every line gets the same number of chances to be
@@ -1161,11 +1073,11 @@ Without equal replication, lines tested more often have lower-variance
 estimates and a systematic advantage in selection.</p>
 </blockquote>
 <p><code>allow_approximate = FALSE</code> (the default) enforces both
-conditions strictly. The slot identity
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
-must hold exactly, and the function stops with a clear error if it does
-not. Use <code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify
-the slot identity before allocating:</p>
+conditions strictly. The slot identity <span class="math inline">\(J^*
+\times r = I \times k^*\)</span> must hold exactly, and the function
+stops with a clear error if it does not. Use
+<code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify the slot
+identity before allocating:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># With k=39, J*=112, I=4, r=1: available slots = 4*(39-8) = 124,</span></span>
 <span><span class="co"># required slots = 112*1 = 112. 124 ≠ 112 -&gt; slot identity fails.</span></span>
@@ -1188,9 +1100,8 @@ the slot identity before allocating:</p>
 <span>  n_common_treatments            <span class="op">=</span> <span class="fl">8</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co"># feasible = TRUE (difference = 0)</span></span></code></pre></div>
-<p>Construction proceeds via <code><a href="https://rdrr.io/pkg/crossdes/man/find.BIB.html" class="external-link">crossdes::find.BIB()</a></code> when the
-<code>crossdes</code> package is installed, falling back to a greedy
-load-balanced constructor otherwise.</p>
+<p>Construction uses a greedy load-balanced constructor that guarantees
+equal replication.</p>
 <p><code>allow_approximate = TRUE</code> relaxes the slot identity and
 accepts minor replication imbalances. This is a fallback for exploratory
 use when exact slot identity cannot be achieved, not the primary
@@ -1237,8 +1148,8 @@ path.</p>
 </td>
 </tr>
 <tr class="odd">
-<td>Requires slot identity
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mi>r</mi><mo>=</mo><mi>I</mi><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* r = I k^*</annotation></semantics></math>
+<td>Requires slot identity <span class="math inline">\(J^* r = I
+k^*\)</span>
 </td>
 <td>No</td>
 <td>Yes (strict mode)</td>
@@ -1260,14 +1171,10 @@ constraints. M4 with <code>allow_approximate = FALSE</code> (the
 default) is the correct choice whenever equal replication is a hard
 requirement — which it should be in most standard breeding programs.
 Verify the slot identity first with
-<code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> and adjust
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
-or
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-so that
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
-holds. M4 with <code>allow_approximate = TRUE</code> is a fallback when
-the slot identity cannot be satisfied.</p>
+<code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> and adjust <span class="math inline">\(k\)</span> or <span class="math inline">\(r\)</span> so that <span class="math inline">\(J^*
+\times r = I \times k^*\)</span> holds. M4 with
+<code>allow_approximate = TRUE</code> is a fallback when the slot
+identity cannot be satisfied.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
@@ -1313,94 +1220,48 @@ the slot identity cannot be satisfied.</p>
 <div class="section level2">
 <h2 id="slot-identity-feasibility-by-j-i-and-r">6.4 Slot identity feasibility by J*, I, and r<a class="anchor" aria-label="anchor" href="#slot-identity-feasibility-by-j-i-and-r"></a>
 </h2>
-<p>The slot identity
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi><mo>=</mo><mi>I</mi><mo>×</mo><msup><mi>k</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">J^* \times r = I \times k^*</annotation></semantics></math>
-requires that
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J^* \times r</annotation></semantics></math>
-be exactly divisible by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>.
-Whether this is achievable for a given combination of sparse treatments
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>),
-environments
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>),
-and replication
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>)
-depends on the shared factors of these three numbers.</p>
+<p>The slot identity <span class="math inline">\(J^* \times r = I \times
+k^*\)</span> requires that <span class="math inline">\(J^* \times
+r\)</span> be exactly divisible by <span class="math inline">\(I\)</span>. Whether this is achievable for a given
+combination of sparse treatments (<span class="math inline">\(J^*\)</span>), environments (<span class="math inline">\(I\)</span>), and replication (<span class="math inline">\(r\)</span>) depends on the shared factors of these
+three numbers.</p>
 <div class="section level3">
 <h3 id="the-divisibility-rule">The divisibility rule<a class="anchor" aria-label="anchor" href="#the-divisibility-rule"></a>
 </h3>
-<p>For the slot identity to hold,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-must divide
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mi>r</mi></mrow><annotation encoding="application/x-tex">J^* \times r</annotation></semantics></math>
-exactly. Every prime factor of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-that is absent from
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-must be supplied by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>.
-This has a practical consequence for the most common case in plant
-breeding:</p>
+<p>For the slot identity to hold, <span class="math inline">\(I\)</span>
+must divide <span class="math inline">\(J^* \times r\)</span> exactly.
+Every prime factor of <span class="math inline">\(I\)</span> that is
+absent from <span class="math inline">\(J^*\)</span> must be supplied by
+<span class="math inline">\(r\)</span>. This has a practical consequence
+for the most common case in plant breeding:</p>
 <ul>
-<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I = 4</annotation></semantics></math>
-environments,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-odd</strong>:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mn>1</mn><mo>=</mo><mtext mathvariant="normal">odd</mtext></mrow><annotation encoding="application/x-tex">J^* \times 1 = \text{odd}</annotation></semantics></math>
-(not divisible by 4);
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>×</mo><mn>2</mn><mo>=</mo><mn>2</mn><mo>×</mo><mtext mathvariant="normal">odd</mtext></mrow><annotation encoding="application/x-tex">J^* \times 2 = 2 \times \text{odd}</annotation></semantics></math>
-(divisible by 2 but not by 4 for odd
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>);
-only
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">r = 4</annotation></semantics></math>
-guarantees divisibility. But
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">r = 4</annotation></semantics></math>
-gives
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>k</mi><mo>*</mo></msup><mo>=</mo><msup><mi>J</mi><mo>*</mo></msup></mrow><annotation encoding="application/x-tex">k^* = J^*</annotation></semantics></math>
-— full replication — which defeats the purpose of sparse testing.
-<strong>Practical fix</strong>: adjust
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-by 1 so that
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math>
-becomes even.</p></li>
-<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I = 4</annotation></semantics></math>
-environments,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-even but not divisible by 4</strong>:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
-always works
-(e.g. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mn>110</mn></mrow><annotation encoding="application/x-tex">J^* = 110</annotation></semantics></math>:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>110</mn><mo>×</mo><mn>2</mn><mi>/</mi><mn>4</mn><mo>=</mo><mn>55</mn></mrow><annotation encoding="application/x-tex">110 \times 2 / 4 = 55</annotation></semantics></math>).</p></li>
-<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I = 3</annotation></semantics></math>
+<li><p><strong><span class="math inline">\(I = 4\)</span> environments,
+<span class="math inline">\(J^*\)</span> odd</strong>: <span class="math inline">\(J^* \times 1 = \text{odd}\)</span> (not divisible
+by 4); <span class="math inline">\(J^* \times 2 = 2 \times
+\text{odd}\)</span> (divisible by 2 but not by 4 for odd <span class="math inline">\(J^*\)</span>); only <span class="math inline">\(r
+= 4\)</span> guarantees divisibility. But <span class="math inline">\(r
+= 4\)</span> gives <span class="math inline">\(k^* = J^*\)</span> — full
+replication — which defeats the purpose of sparse testing.
+<strong>Practical fix</strong>: adjust <span class="math inline">\(C\)</span> by 1 so that <span class="math inline">\(J^* = J - C\)</span> becomes even.</p></li>
+<li><p><strong><span class="math inline">\(I = 4\)</span> environments,
+<span class="math inline">\(J^*\)</span> even but not divisible by
+4</strong>: <span class="math inline">\(r = 2\)</span> always works
+(e.g. <span class="math inline">\(J^* = 110\)</span>: <span class="math inline">\(110 \times 2 / 4 = 55\)</span>).</p></li>
+<li><p><strong><span class="math inline">\(I = 3\)</span>
 environments</strong>: feasibility depends on divisibility by 3. If
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-is divisible by 3, any
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-works. Otherwise
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-must be a multiple of 3.</p></li>
-<li><p><strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I = 6</annotation></semantics></math>
-environments</strong>: requires divisibility by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mn>3</mn><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">2 \times 3 = 6</annotation></semantics></math>.
-Odd
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-not divisible by 3 requires
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-divisible by 6.</p></li>
+<span class="math inline">\(J^*\)</span> is divisible by 3, any <span class="math inline">\(r\)</span> works. Otherwise <span class="math inline">\(r\)</span> must be a multiple of 3.</p></li>
+<li><p><strong><span class="math inline">\(I = 6\)</span>
+environments</strong>: requires divisibility by <span class="math inline">\(2 \times 3 = 6\)</span>. Odd <span class="math inline">\(J^*\)</span> not divisible by 3 requires <span class="math inline">\(r\)</span> divisible by 6.</p></li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="feasibility-table-r-2">Feasibility table:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math><a class="anchor" aria-label="anchor" href="#feasibility-table-r-2"></a>
+<h3 id="feasibility-table-r-2">Feasibility table: <span class="math inline">\(r = 2\)</span><a class="anchor" aria-label="anchor" href="#feasibility-table-r-2"></a>
 </h3>
-<p>The table shows
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
-when the slot identity holds, and <code>--</code> when it does not for
-that combination. Add
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-(common treatments) to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>k</mi><mo>*</mo></msup><annotation encoding="application/x-tex">k^*</annotation></semantics></math>
-to get the <code>n_test_entries_per_environment</code> argument.</p>
+<p>The table shows <span class="math inline">\(k^*\)</span> when the
+slot identity holds, and <code>--</code> when it does not for that
+combination. Add <span class="math inline">\(C\)</span> (common
+treatments) to <span class="math inline">\(k^*\)</span> to get the
+<code>n_test_entries_per_environment</code> argument.</p>
 <table class="table">
 <colgroup>
 <col width="10%">
@@ -1414,15 +1275,15 @@ to get the <code>n_test_entries_per_environment</code> argument.</p>
 <col width="12%">
 </colgroup>
 <thead><tr class="header">
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I=3</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I=4</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">I=5</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I=6</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>7</mn></mrow><annotation encoding="application/x-tex">I=7</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">I=8</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">I=9</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>10</mn></mrow><annotation encoding="application/x-tex">I=10</annotation></semantics></math></th>
+<th align="right"><span class="math inline">\(J^*\)</span></th>
+<th align="right"><span class="math inline">\(I=3\)</span></th>
+<th align="right"><span class="math inline">\(I=4\)</span></th>
+<th align="right"><span class="math inline">\(I=5\)</span></th>
+<th align="right"><span class="math inline">\(I=6\)</span></th>
+<th align="right"><span class="math inline">\(I=7\)</span></th>
+<th align="right"><span class="math inline">\(I=8\)</span></th>
+<th align="right"><span class="math inline">\(I=9\)</span></th>
+<th align="right"><span class="math inline">\(I=10\)</span></th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -1550,8 +1411,7 @@ to get the <code>n_test_entries_per_environment</code> argument.</p>
 </table>
 </div>
 <div class="section level3">
-<h3 id="feasibility-table-r-3">Feasibility table:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">r = 3</annotation></semantics></math><a class="anchor" aria-label="anchor" href="#feasibility-table-r-3"></a>
+<h3 id="feasibility-table-r-3">Feasibility table: <span class="math inline">\(r = 3\)</span><a class="anchor" aria-label="anchor" href="#feasibility-table-r-3"></a>
 </h3>
 <table class="table">
 <colgroup>
@@ -1566,15 +1426,15 @@ to get the <code>n_test_entries_per_environment</code> argument.</p>
 <col width="12%">
 </colgroup>
 <thead><tr class="header">
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">I=3</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">I=4</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">I=5</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">I=6</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>7</mn></mrow><annotation encoding="application/x-tex">I=7</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">I=8</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">I=9</annotation></semantics></math></th>
-<th align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>=</mo><mn>10</mn></mrow><annotation encoding="application/x-tex">I=10</annotation></semantics></math></th>
+<th align="right"><span class="math inline">\(J^*\)</span></th>
+<th align="right"><span class="math inline">\(I=3\)</span></th>
+<th align="right"><span class="math inline">\(I=4\)</span></th>
+<th align="right"><span class="math inline">\(I=5\)</span></th>
+<th align="right"><span class="math inline">\(I=6\)</span></th>
+<th align="right"><span class="math inline">\(I=7\)</span></th>
+<th align="right"><span class="math inline">\(I=8\)</span></th>
+<th align="right"><span class="math inline">\(I=9\)</span></th>
+<th align="right"><span class="math inline">\(I=10\)</span></th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -1708,29 +1568,17 @@ to get the <code>n_test_entries_per_environment</code> argument.</p>
 the problem and try one of these adjustments:</p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>Adjust
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-by 1</strong>: adding or removing one common treatment changes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
-by 1, which may make it divisible by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
-for the chosen
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>.</li>
+<strong>Adjust <span class="math inline">\(C\)</span> by 1</strong>:
+adding or removing one common treatment changes <span class="math inline">\(J^*\)</span> by 1, which may make it divisible by
+<span class="math inline">\(I\)</span> for the chosen <span class="math inline">\(r\)</span>.</li>
 <li>
-<strong>Try
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
-instead of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">r = 1</annotation></semantics></math></strong>,
-or
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">r = 3</annotation></semantics></math>
-instead of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">r = 2</annotation></semantics></math>
-— the extra factor may resolve the divisibility.</li>
+<strong>Try <span class="math inline">\(r = 2\)</span> instead of
+<span class="math inline">\(r = 1\)</span></strong>, or <span class="math inline">\(r = 3\)</span> instead of <span class="math inline">\(r = 2\)</span> — the extra factor may resolve the
+divisibility.</li>
 <li>
 <strong>Use <code>random_balanced</code> (M3)</strong> if exact
 equal replication is not essential. M3 does not require the slot
-identity and tolerates odd
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>J</mi><mo>*</mo></msup><annotation encoding="application/x-tex">J^*</annotation></semantics></math>
+identity and tolerates odd <span class="math inline">\(J^*\)</span>
 freely.</li>
 <li>
 <strong>Use <code>allow_approximate = TRUE</code></strong> as a
@@ -1807,13 +1655,10 @@ genomically similar lines are spread across environments.</p>
 <h3 id="pedigree-based-allocation-a">7.3 Pedigree-based allocation (<code>"A"</code>)<a class="anchor" aria-label="anchor" href="#pedigree-based-allocation-a"></a>
 </h3>
 <p>When genomic data are unavailable, the pedigree numerator
-relationship matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-plays the same role as the GRM. PCA is performed on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-and clustering proceeds identically. The resulting groups reflect
-pedigree relatedness rather than marker-estimated genomic
-similarity.</p>
+relationship matrix <span class="math inline">\(A\)</span> plays the
+same role as the GRM. PCA is performed on <span class="math inline">\(A\)</span> and clustering proceeds identically.
+The resulting groups reflect pedigree relatedness rather than
+marker-estimated genomic similarity.</p>
 </div>
 <div class="section level3">
 <h3 id="why-this-matters-for-prediction">7.4 Why this matters for prediction<a class="anchor" aria-label="anchor" href="#why-this-matters-for-prediction"></a>
@@ -1856,25 +1701,21 @@ calibrating the prediction model.</p>
 <h2 id="common-treatments">8. Common Treatments<a class="anchor" aria-label="anchor" href="#common-treatments"></a>
 </h2>
 <p>Common treatments are lines assigned to <strong>every</strong>
-environment before sparse allocation begins. If
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-is the number of common treatments, each environment has its effective
-sparse capacity reduced:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>k</mi><mi>e</mi><mo>*</mo></msubsup><mo>=</mo><msub><mi>k</mi><mi>e</mi></msub><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">k_e^* = k_e - C</annotation></semantics></math></p>
+environment before sparse allocation begins. If <span class="math inline">\(C\)</span> is the number of common treatments,
+each environment has its effective sparse capacity reduced:</p>
+<p><span class="math display">\[k_e^* = k_e - C\]</span></p>
 <p>and the number of sparse-allocatable lines is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>J</mi><mo>*</mo></msup><mo>=</mo><mi>J</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">J^* = J - C</annotation></semantics></math></p>
+<p><span class="math display">\[J^* = J - C\]</span></p>
 <div class="section level3">
 <h3 id="why-common-treatments-matter">8.1 Why common treatments matter<a class="anchor" aria-label="anchor" href="#why-common-treatments-matter"></a>
 </h3>
 <p>Common treatments serve two statistically distinct purposes.</p>
 <p><strong>Design-based connectivity</strong>: Two environments that
 share no tested lines can only be linked through the model — through the
-assumed structure of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>.
-Common treatments provide direct comparisons that do not depend on any
-model assumption. This is important when environments are weakly
-genetically correlated or when the researcher wants robust cross-site
-inference.</p>
+assumed structure of <span class="math inline">\(K\)</span>. Common
+treatments provide direct comparisons that do not depend on any model
+assumption. This is important when environments are weakly genetically
+correlated or when the researcher wants robust cross-site inference.</p>
 <p><strong>Estimation stability</strong>: Common treatments appear in
 every environment, so their effects are estimated with the highest
 precision. They function as stable benchmarks against which the
@@ -1898,10 +1739,9 @@ seasons) - Direct cross-environment comparisons need to be reliable
 without assuming a specific genetic covariance structure - A stable
 reference set is needed for cross-trial benchmarking</p>
 <p>Minimize the number of common treatments when: - All environments are
-similar and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>-based
-connectivity is sufficient - Sparse capacity is already tight and common
-treatments would leave too few slots for the experimental lines</p>
+similar and <span class="math inline">\(K\)</span>-based connectivity is
+sufficient - Sparse capacity is already tight and common treatments
+would leave too few slots for the experimental lines</p>
 <hr>
 </div>
 </div>
@@ -1913,27 +1753,12 @@ treatments would leave too few slots for the experimental lines</p>
 </h3>
 <p>A design that requests replication without accounting for available
 seed cannot be deployed. The feasibility condition for assigning
-replication
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
-to line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-in environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
-is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>s</mi><mi>i</mi></msub><mo>≥</mo><msub><mi>r</mi><mi>i</mi></msub><mo>×</mo><msub><mi>q</mi><mi>e</mi></msub><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">s_i \geq r_i \times q_e + b</annotation></semantics></math></p>
-<p>where: -
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mi>i</mi></msub><annotation encoding="application/x-tex">s_i</annotation></semantics></math>
-= seeds available for line
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
--
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
-= desired replication level -
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>e</mi></msub><annotation encoding="application/x-tex">q_e</annotation></semantics></math>
-= seeds required per plot in environment
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
--
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math>
-= optional safety buffer (e.g., for germination losses)</p>
+replication <span class="math inline">\(r_i\)</span> to line <span class="math inline">\(i\)</span> in environment <span class="math inline">\(e\)</span> is:</p>
+<p><span class="math display">\[s_i \geq r_i \times q_e + b\]</span></p>
+<p>where: - <span class="math inline">\(s_i\)</span> = seeds available
+for line <span class="math inline">\(i\)</span> - <span class="math inline">\(r_i\)</span> = desired replication level - <span class="math inline">\(q_e\)</span> = seeds required per plot in
+environment <span class="math inline">\(e\)</span> - <span class="math inline">\(b\)</span> = optional safety buffer (e.g., for
+germination losses)</p>
 </div>
 <div class="section level3">
 <h3 id="replication-roles">9.2 Replication roles<a class="anchor" aria-label="anchor" href="#replication-roles"></a>
@@ -1942,9 +1767,8 @@ is:</p>
 for every line and assigns one of three roles:</p>
 <ul>
 <li>
-<strong><code>"p_rep"</code></strong> — sufficient seed for
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>i</mi></msub><annotation encoding="application/x-tex">r_i</annotation></semantics></math>
-plots; assigned <code>desired_replications</code> plots</li>
+<strong><code>"p_rep"</code></strong> — sufficient seed for <span class="math inline">\(r_i\)</span> plots; assigned
+<code>desired_replications</code> plots</li>
 <li>
 <strong><code>"unreplicated"</code></strong> — sufficient seed for
 one plot but not for <code>desired_replications</code> plots
@@ -1972,16 +1796,14 @@ for one plot</li>
 <td>Target</td>
 <td>1 plot per line</td>
 <td>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-plots for a feasible subset</td>
+<span class="math inline">\(r\)</span> plots for a feasible
+subset</td>
 <td>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>
-plots for all lines</td>
+<span class="math inline">\(r\)</span> plots for all lines</td>
 </tr>
 <tr class="even">
 <td>Downgrade</td>
-<td>Excluded if seed &lt;
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>e</mi></msub><annotation encoding="application/x-tex">q_e</annotation></semantics></math>
+<td>Excluded if seed &lt; <span class="math inline">\(q_e\)</span>
 </td>
 <td>Non-candidates get 1 plot</td>
 <td>Yes, if <code>shortage_action = "downgrade"</code>
@@ -2167,9 +1989,8 @@ trial.</p>
 </h3>
 <p>For designs produced by <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code>, efficiency
 is evaluated under a model with a block random effect:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><mi>W</mi><mi>b</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + Wb + e</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mi>b</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">b \sim N(0,\, I\sigma_b^2)</annotation></semantics></math>
+<p><span class="math display">\[y = X\beta + Zg + Wb + e\]</span></p>
+<p>where <span class="math inline">\(b \sim N(0,\, I\sigma_b^2)\)</span>
 is the block effect. The variance components are specified in
 <code>varcomp</code> using <code>sigma_b2</code> for the block variance.
 Note that this model has a <strong>single block variance
@@ -2210,16 +2031,15 @@ dimensions).</p>
 <p>For designs produced by <code><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code>,
 efficiency is evaluated under a model with replicate and
 incomplete-block-within-replicate random effects:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mi>X</mi><mi>β</mi><mo>+</mo><mi>Z</mi><mi>g</mi><mo>+</mo><msub><mi>W</mi><mi>r</mi></msub><mi>r</mi><mo>+</mo><msub><mi>W</mi><mi>b</mi></msub><mi>b</mi><mo>+</mo><mi>e</mi></mrow><annotation encoding="application/x-tex">y = X\beta + Zg + W_r r + W_{b} b + e</annotation></semantics></math></p>
-<p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mtext mathvariant="normal">rep</mtext><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">r \sim N(0,\, I\sigma_{\text{rep}}^2)</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>∼</mo><mi>N</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>I</mi><msubsup><mi>σ</mi><mtext mathvariant="normal">ib</mtext><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">b \sim N(0,\, I\sigma_{\text{ib}}^2)</annotation></semantics></math>
-are the replicate and incomplete block effects respectively. The
-<code>varcomp</code> list must contain <code>sigma_rep2</code> and
-<code>sigma_ib2</code> (not <code>sigma_b2</code>). This two-level
-blocking structure reflects the hierarchical design of alpha row-column
-layouts.</p>
+<p><span class="math display">\[y = X\beta + Zg + W_r r + W_{b} b +
+e\]</span></p>
+<p>where <span class="math inline">\(r \sim N(0,\,
+I\sigma_{\text{rep}}^2)\)</span> and <span class="math inline">\(b \sim
+N(0,\, I\sigma_{\text{ib}}^2)\)</span> are the replicate and incomplete
+block effects respectively. The <code>varcomp</code> list must contain
+<code>sigma_rep2</code> and <code>sigma_ib2</code> (not
+<code>sigma_b2</code>). This two-level blocking structure reflects the
+hierarchical design of alpha row-column layouts.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eff_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency</a></span><span class="op">(</span></span>
 <span>  field_book       <span class="op">=</span> <span class="va">design_E2</span><span class="op">$</span><span class="va">field_book</span>,</span>
@@ -2313,17 +2133,13 @@ algorithms:</p>
 candidates and keeps the best. Simple and parallelizable.</p>
 <p><strong>SA (Simulated Annealing)</strong>: Starts from one design and
 iteratively perturbs it. At each step, a worse design is accepted with
-probability
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mi>Δ</mi><mi>/</mi><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\Delta / T)</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Δ</mi><annotation encoding="application/x-tex">\Delta</annotation></semantics></math>
-is the score decrease and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
-is the current temperature. As
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
-decreases from <code>sa_temp_start</code> to <code>sa_temp_end</code>,
-the algorithm transitions from broad exploration to local refinement. SA
-is effective when the fitness landscape has many local optima.</p>
+probability <span class="math inline">\(\exp(-\Delta / T)\)</span>,
+where <span class="math inline">\(\Delta\)</span> is the score decrease
+and <span class="math inline">\(T\)</span> is the current temperature.
+As <span class="math inline">\(T\)</span> decreases from
+<code>sa_temp_start</code> to <code>sa_temp_end</code>, the algorithm
+transitions from broad exploration to local refinement. SA is effective
+when the fitness landscape has many local optima.</p>
 <p><strong>GA (Genetic Algorithm)</strong>: Maintains a population of
 designs. At each generation, pairs of high-scoring designs are combined
 (“crossover”) and random perturbations are applied (“mutation”). Elite
@@ -2671,8 +2487,8 @@ variance.</p>
 </tr>
 <tr class="odd">
 <td>BIBD feasibility</td>
-<td>Slot identity <span class="math inline">$J^* \\times r = I \\times
-k^*$</span> must hold for equal replication</td>
+<td>Slot identity <span class="math inline">\(J^* \\times r = I \\times
+k^*\)</span> must hold for equal replication</td>
 <td><code><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code></td>
 </tr>
 <tr class="even">

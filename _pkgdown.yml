@@ -3,6 +3,7 @@ favicon: pkgdown/assets/favicon.ico
 
 template:
   bootstrap: 5
+  math-rendering: mathjax
   includes:
     in_header: pkgdown/assets/favicon.html
   bslib:

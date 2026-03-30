@@ -205,14 +205,15 @@ distinguishes M4 from M3 in the paper, and is always the goal in plant
 breeding programs where thousands of lines are tested across a few
 environments.
 
-\code{allow_approximate = FALSE} (the default) is the standard M4 path: the
+#' \code{allow_approximate = FALSE} (the default) is the standard M4 path: the
 slot identity must hold exactly, and the function stops with an informative
 error if it cannot be met, so the caller always knows whether equal
-replication was achieved. Construction first tries \code{crossdes::find.BIB()}
-(if \pkg{crossdes} is installed), then falls back to a greedy
-load-balanced constructor. \code{allow_approximate = TRUE} relaxes the slot
-identity and allows minor replication imbalances across lines; it is a
-fallback for exploratory use, not the intended primary path.
+replication was achieved. Construction uses a greedy load-balanced
+constructor that assigns each sparse treatment to environments in
+decreasing order of remaining capacity, guaranteeing equal replication
+for every non-common treatment. \code{allow_approximate = TRUE} relaxes the
+slot identity and allows minor replication imbalances across lines; it is
+a fallback for exploratory use, not the intended primary path.
 
 Before allocation begins, the function calls
 \code{.check_full_coverage_feasibility()} to verify that the total number of
@@ -315,10 +316,9 @@ the chosen \code{n_test_entries_per_environment} and \code{target_replications},
 function stops with an informative error. Use
 \code{\link[=check_balanced_incomplete_feasibility]{check_balanced_incomplete_feasibility()}} to verify the slot identity before
 calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
-I \times k^*}. Construction first tries \code{crossdes::find.BIB()} (if
-\pkg{crossdes} is installed), then falls back to a greedy load-balanced
-constructor that guarantees equal replication even when \pkg{crossdes} is
-absent.
+I \times k^*}. Construction uses a greedy load-balanced constructor that
+assigns each sparse treatment to the least-loaded eligible environments,
+guaranteeing equal replication for every non-common treatment.
 
 \code{allow_approximate = TRUE} relaxes the slot identity: the function
 constructs the most balanced allocation it can without stopping on

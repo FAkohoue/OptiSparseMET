@@ -40,6 +40,19 @@ jobs:
             local::.
           needs: website
 
+      - name: Check pkgdown version supports math-rendering
+        shell: Rscript {0}
+        run: |
+          v <- packageVersion("pkgdown")
+          message("pkgdown version: ", v)
+          if (v < "2.1.0") {
+            stop(
+              "pkgdown >= 2.1.0 is required for math-rendering: mathjax. ",
+              "Installed version: ", v, ". ",
+              "Pin pkgdown to a newer version in extra-packages."
+            )
+          }
+
       - name: Document package
         shell: Rscript {0}
         run: |

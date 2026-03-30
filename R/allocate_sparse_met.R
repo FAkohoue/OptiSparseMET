@@ -30,16 +30,17 @@
 #' distinguishes M4 from M3 in the paper, and is always the goal in plant
 #' breeding programs where thousands of lines are tested across a few
 #' environments.
-#'
-#' `allow_approximate = FALSE` (the default) is the standard M4 path: the
+#' 
+#' #' `allow_approximate = FALSE` (the default) is the standard M4 path: the
 #' slot identity must hold exactly, and the function stops with an informative
 #' error if it cannot be met, so the caller always knows whether equal
-#' replication was achieved. Construction first tries `crossdes::find.BIB()`
-#' (if \pkg{crossdes} is installed), then falls back to a greedy
-#' load-balanced constructor. `allow_approximate = TRUE` relaxes the slot
-#' identity and allows minor replication imbalances across lines; it is a
-#' fallback for exploratory use, not the intended primary path.
-#'
+#' replication was achieved. Construction uses a greedy load-balanced
+#' constructor that assigns each sparse treatment to environments in
+#' decreasing order of remaining capacity, guaranteeing equal replication
+#' for every non-common treatment. `allow_approximate = TRUE` relaxes the
+#' slot identity and allows minor replication imbalances across lines; it is
+#' a fallback for exploratory use, not the intended primary path.
+#' 
 #' Before allocation begins, the function calls
 #' `.check_full_coverage_feasibility()` to verify that the total number of
 #' sparse slots across all environments is sufficient to assign every non-common
@@ -121,17 +122,16 @@
 #'   \item Equal environment sizes: every environment receives exactly
 #'         \eqn{k^*} sparse treatments, so \eqn{J^* \times r = I \times k^*}.
 #' }
-#'
+#' 
 #' `allow_approximate = FALSE` (the default) enforces both conditions strictly.
 #' If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
 #' the chosen `n_test_entries_per_environment` and `target_replications`, the
 #' function stops with an informative error. Use
 #' [check_balanced_incomplete_feasibility()] to verify the slot identity before
 #' calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
-#' I \times k^*}. Construction first tries `crossdes::find.BIB()` (if
-#' \pkg{crossdes} is installed), then falls back to a greedy load-balanced
-#' constructor that guarantees equal replication even when \pkg{crossdes} is
-#' absent.
+#' I \times k^*}. Construction uses a greedy load-balanced constructor that
+#' assigns each sparse treatment to the least-loaded eligible environments,
+#' guaranteeing equal replication for every non-common treatment.
 #'
 #' `allow_approximate = TRUE` relaxes the slot identity: the function
 #' constructs the most balanced allocation it can without stopping on
