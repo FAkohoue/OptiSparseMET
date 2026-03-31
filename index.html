@@ -168,7 +168,7 @@
 <tr class="even">
 <td>M4 BIBD</td>
 <td><code>balanced_incomplete</code></td>
-<td>Enforces equal replication and equal environment sizes (slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span>); pairwise co-occurrence is computed and returned but not enforced</td>
+<td>Enforces equal replication and equal environment sizes (slot identity J* × r = I × k*); pairwise co-occurrence is computed and returned but not enforced</td>
 </tr>
 </tbody>
 </table>
@@ -180,10 +180,10 @@
 <li>
 <strong>Equal replication</strong> — every non-common treatment appears in exactly <span class="math inline">\(r\)</span> environments.</li>
 <li>
-<strong>Equal environment sizes</strong> — every environment receives exactly <span class="math inline">\(k^{*}\)</span> sparse treatments, enforcing the resource identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> exactly, where <span class="math inline">\(J^{*} = J - C\)</span> and <span class="math inline">\(k^{*} = k - C\)</span> (<span class="math inline">\(C\)</span> = number of common treatments).</li>
+<strong>Equal environment sizes</strong> — every environment receives exactly k* sparse treatments, enforcing the resource identity J* × r = I × k* exactly, where J* = J − C and k* = k − C (C = number of common treatments).</li>
 </ol>
 <p>These are the guarantees that distinguish M4 from M3 in the paper. In plant breeding programs where thousands of lines are tested across a few environments, equal replication means every candidate is evaluated the same number of times – a fundamental fairness and precision requirement.</p>
-<p><code>allow_approximate = FALSE</code> (the default) enforces both conditions strictly. If the slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> does not hold for the chosen dimensions, the function stops with a clear error before any allocation is attempted. Use <code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify the slot identity first, or adjust <span class="math inline">\(k\)</span> and <span class="math inline">\(r\)</span> so that the identity holds. Construction uses a greedy load-balanced constructor that guarantees equal replication.</p>
+<p><code>allow_approximate = FALSE</code> (the default) enforces both conditions strictly. If the slot identity J* × r = I × k* does not hold for the chosen dimensions, the function stops with a clear error before any allocation is attempted. Use <code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify the slot identity first, or adjust k and r so that the identity holds. Construction uses a greedy load-balanced constructor that guarantees equal replication.</p>
 <p><code>allow_approximate = TRUE</code> relaxes the slot identity and allows minor replication imbalances. This is a fallback for exploratory use, not the primary mode.</p>
 </div>
 </div>
@@ -221,7 +221,7 @@
 </tr>
 <tr class="even">
 <td><code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code></td>
-<td>Verify the slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> before attempting M4 allocation</td>
+<td>Verify the slot identity J* × r = I × k* before attempting M4 allocation</td>
 </tr>
 <tr class="odd">
 <td><code><a href="reference/derive_allocation_groups.html">derive_allocation_groups()</a></code></td>
@@ -1005,23 +1005,22 @@ STEP 4  Assemble the combined MET field book
 <div class="section level2">
 <h2 id="id_64-slot-identity-feasibility-by-j-i-and-r">6.4 Slot identity feasibility by J*, I, and r<a class="anchor" aria-label="anchor" href="#id_64-slot-identity-feasibility-by-j-i-and-r"></a>
 </h2>
-<p>The slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> requires that <span class="math inline">\(J^{*} \times r\)</span> be exactly divisible by <span class="math inline">\(I\)</span>. Whether this is achievable for a given combination of sparse treatments (<span class="math inline">\(J^{*}\)</span>), environments (<span class="math inline">\(I\)</span>), and replication (<span class="math inline">\(r\)</span>) depends on the shared factors of these three numbers.</p>
+<p>The slot identity J* × r = I × k* requires that J* × r be exactly divisible by I. Whether this is achievable for a given combination of sparse treatments (J*), environments (I), and replication (r) depends on the shared factors of these three numbers.</p>
 <div class="section level3">
 <h3 id="the-divisibility-rule">The divisibility rule<a class="anchor" aria-label="anchor" href="#the-divisibility-rule"></a>
 </h3>
-<p>For the slot identity to hold, <span class="math inline">\(I\)</span> must divide <span class="math inline">\(J^{*} \times r\)</span> exactly. Every prime factor of <span class="math inline">\(I\)</span> that is absent from <span class="math inline">\(J^{*}\)</span> must be supplied by <span class="math inline">\(r\)</span>. This has a practical consequence for the most common case in plant breeding:</p>
+<p>For the slot identity to hold, I must divide J* × r exactly. Every prime factor of I that is absent from J* must be supplied by r. This has a practical consequence for the most common case in plant breeding:</p>
 <ul>
-<li><p><strong><span class="math inline">\(I = 4\)</span> environments, <span class="math inline">\(J^{*}\)</span> odd</strong>: <span class="math inline">\(J^{*} \times 1 = \text{odd}\)</span> (not divisible by 4); <span class="math inline">\(J^{*} \times 2 = 2 \times \text{odd}\)</span> (divisible by 2 but not by 4 for odd <span class="math inline">\(J^{*}\)</span>); only <span class="math inline">\(r = 4\)</span> guarantees divisibility. But <span class="math inline">\(r = 4\)</span> gives <span class="math inline">\(k^{*} = J^{*}\)</span> — full replication — which defeats the purpose of sparse testing. <strong>Practical fix</strong>: adjust <span class="math inline">\(C\)</span> by 1 so that <span class="math inline">\(J^{*} = J - C\)</span> becomes even.</p></li>
-<li><p><strong><span class="math inline">\(I = 4\)</span> environments, <span class="math inline">\(J^{*}\)</span> even but not divisible by 4</strong>: <span class="math inline">\(r = 2\)</span> always works (e.g. <span class="math inline">\(J^{*} = 110\)</span>: <span class="math inline">\(110 \times 2 / 4 = 55\)</span>).</p></li>
-<li><p><strong><span class="math inline">\(I = 3\)</span> environments</strong>: feasibility depends on divisibility by 3. If <span class="math inline">\(J^{*}\)</span> is divisible by 3, any <span class="math inline">\(r\)</span> works. Otherwise <span class="math inline">\(r\)</span> must be a multiple of 3.</p></li>
-<li><p><strong><span class="math inline">\(I = 6\)</span> environments</strong>: requires divisibility by <span class="math inline">\(2 \times 3 = 6\)</span>. Odd <span class="math inline">\(J^{*}\)</span> not divisible by 3 requires <span class="math inline">\(r\)</span> divisible by 6.</p></li>
+<li><p><strong>I = 4 environments, J* odd</strong>: J* × 1 = odd (not divisible by 4); J* × 2 = 2 × odd (divisible by 2 but not by 4 for odd J<em>); only r = 4 guarantees divisibility. But r = 4 gives k</em> = J* — full replication — which defeats the purpose of sparse testing. <strong>Practical fix</strong>: adjust C by 1 so that J* = J − C becomes even.</p></li>
+<li><p><strong>I = 4 environments, J* even but not divisible by 4</strong>: r = 2 always works (e.g. J* = 110: 110 × 2 / 4 = 55).</p></li>
+<li><p><strong>I = 3 environments</strong>: feasibility depends on divisibility by 3. If J* is divisible by 3, any r works. Otherwise r must be a multiple of 3.</p></li>
+<li><p><strong>I = 6 environments</strong>: requires divisibility by 2 × 3 = 6. Odd J* not divisible by 3 requires r divisible by 6.</p></li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="feasibility-table-r--2">Feasibility table: <span class="math inline">\(r = 2\)</span>
-<a class="anchor" aria-label="anchor" href="#feasibility-table-r--2"></a>
+<h3 id="feasibility-table-r--2">Feasibility table: r = 2<a class="anchor" aria-label="anchor" href="#feasibility-table-r--2"></a>
 </h3>
-<p>The table shows <span class="math inline">\(k^{*}\)</span> when the slot identity holds, and <code>--</code> when it does not for that combination. Add <span class="math inline">\(C\)</span> (common treatments) to <span class="math inline">\(k^{*}\)</span> to get the <code>n_test_entries_per_environment</code> argument.</p>
+<p>The table shows k* when the slot identity holds, and <code>--</code> when it does not for that combination. Add C (common treatments) to k* to get the <code>n_test_entries_per_environment</code> argument.</p>
 <table class="table">
 <colgroup>
 <col width="10%">
@@ -1365,8 +1364,8 @@ STEP 4  Assemble the combined MET field book
 <h2 id="design-strategy-notes">Design Strategy Notes<a class="anchor" aria-label="anchor" href="#design-strategy-notes"></a>
 </h2>
 <p><strong>Use <code>random_balanced</code></strong> when environment capacities differ substantially, when exact BIBD parameters are not achievable, or when some stochasticity in allocation is acceptable. Unlike the original M3 of Montesinos-Lopez et al. (2023), this implementation guarantees every treatment appears in at least one environment before replication filling begins.</p>
-<p><strong>Use <code>balanced_incomplete</code> with <code>allow_approximate = FALSE</code></strong> (the default) when equal replication is a hard requirement – every sparse treatment must appear in exactly <span class="math inline">\(r\)</span> environments. Verify the slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> first with <code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code>. The function stops with a clear error if the identity does not hold, so you always know whether the equal-replication guarantee was met.</p>
-<p><strong>Use <code>balanced_incomplete</code> with <code>allow_approximate = TRUE</code></strong> as a fallback when the slot identity cannot be satisfied for the chosen dimensions but you still want to attempt a balanced allocation. Some lines will receive more or fewer replications than <span class="math inline">\(r\)</span>. This is an exploratory mode, not the primary path.</p>
+<p><strong>Use <code>balanced_incomplete</code> with <code>allow_approximate = FALSE</code></strong> (the default) when equal replication is a hard requirement – every sparse treatment must appear in exactly r environments. Verify the slot identity J* × r = I × k* first with <code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code>. The function stops with a clear error if the identity does not hold, so you always know whether the equal-replication guarantee was met.</p>
+<p><strong>Use <code>balanced_incomplete</code> with <code>allow_approximate = TRUE</code></strong> as a fallback when the slot identity cannot be satisfied for the chosen dimensions but you still want to attempt a balanced allocation. Some lines will receive more or fewer replications than r. This is an exploratory mode, not the primary path.</p>
 <p><strong>Use <code><a href="reference/met_prep_famoptg.html">met_prep_famoptg()</a></code></strong> for designs requiring repeated checks in every block, partial replication (p-rep), or RCBD-type structure. The optimizer <code><a href="reference/met_optimize_famoptg.html">met_optimize_famoptg()</a></code> accepts A, D, and CDmean criteria.</p>
 <p><strong>Use <code><a href="reference/met_alpha_rc_stream.html">met_alpha_rc_stream()</a></code></strong> for fixed-grid field deployments where spatial row-column control is a priority. The optimizer <code><a href="reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc()</a></code> supports Random Restart, Simulated Annealing, and Genetic Algorithm methods.</p>
 <p><strong>Use GRM/A-based grouping</strong> when genomic prediction is a primary objective, when family labels are too coarse to capture relevant genetic structure, or when related lines risk clustering into the same environments.</p>
