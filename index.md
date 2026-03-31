@@ -40,17 +40,20 @@ statistically coupled, and optimizing them independently produces
 inferior designs. The linkage operates through four mechanisms.
 
 **1. The incidence matrix couples both levels inside the information
-matrix.** In the linear mixed model \\y = X\beta + Zg + e\\, the
-precision of all genetic value estimates is governed by the coefficient
-matrix \\C = Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1}
-X^\top V^{-1} Z\\, where \\V = ZKZ^\top \sigma_g^2 + R\sigma_e^2\\. The
-allocation decision determines the sparsity pattern of \\Z\\ (which
-lines appear where); the within-environment blocking structure
-determines \\R\\ (the residual covariance). Both enter \\V\\ and
-therefore \\C^{-1}\\. Neither can be optimized in isolation because they
-interact inside the inversion of \\V\\.
+matrix.**
+
+In the linear mixed model: \\y = X\beta + Zg + e\\, the precision of all
+genetic value estimates is governed by the coefficient matrix: \\C =
+Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1} X^\top V^{-1}
+Z\\, where \\V = ZKZ^\top \sigma_g^2 + R\sigma_e^2\\. The allocation
+decision determines the sparsity pattern of \\Z\\ (which lines appear
+where); the within-environment blocking structure determines \\R\\ (the
+residual covariance). Both enter \\V\\ and therefore \\C^{-1}\\. Neither
+can be optimized in isolation because they interact inside the inversion
+of \\V\\.
 
 **2. Allocation fixes which within-environment designs are feasible.**
+
 Once allocation assigns \\k_e\\ lines to environment \\e\\, the
 within-environment design must arrange exactly those \\k_e\\ treatments
 across the available \\n\_{\text{rows}} \times n\_{\text{cols}}\\ field.
@@ -59,8 +62,9 @@ not a multiple of the target block size, or exceeding field capacity —
 the design is infeasible regardless of how statistically ideal the
 allocation was. Allocation and field geometry must be co-designed.
 
-**3. Block efficiency propagates into cross-environment inference.** The
-precision of a genetic value estimate for line \\j\\ in environment
+**3. Block efficiency propagates into cross-environment inference.**
+
+The precision of a genetic value estimate for line \\j\\ in environment
 \\e\\ is proportional to \\e_j \\ r_j^{(e)}\\, where \\r_j^{(e)}\\ is
 the number of plots and \\e_j \in (0, 1\]\\ is the efficiency factor of
 the within-environment design relative to a completely randomized
@@ -71,13 +75,15 @@ estimation even when the allocation incidence structure is perfectly
 balanced.
 
 **4. CDmean — the genomic prediction criterion — depends on both
-levels.** The CDmean criterion, \\\text{CDmean} = 1 -
-\overline{\text{PEV}} / \sigma_g^2\\, where PEV depends on both \\Z\\
-(allocation) and \\R^{-1}\\ (blocking), cannot be maximized by fixing
-either level independently. Spreading genetically diverse lines across
-environments improves the genomic connectivity captured in \\Z^\top
-R^{-1} Z\\; efficient blocking sharpens \\R^{-1}\\. Both contributions
-are necessary.
+levels.**
+
+The CDmean criterion, \\\text{CDmean} = 1 - \overline{\text{PEV}} /
+\sigma_g^2\\, where PEV depends on both \\Z\\ (allocation) and
+\\R^{-1}\\ (blocking), cannot be maximized by fixing either level
+independently. Spreading genetically diverse lines across environments
+improves the genomic connectivity captured in \\Z^\top R^{-1} Z\\;
+efficient blocking sharpens \\R^{-1}\\. Both contributions are
+necessary.
 
 `OptiSparseMET` formalizes the link between the two levels: the
 allocation output specifies exactly which lines enter each environment,
@@ -124,9 +130,9 @@ guarantees:
 1.  **Equal replication** — every non-common treatment appears in
     exactly \\r\\ environments.
 2.  **Equal environment sizes** — every environment receives exactly
-    \\k^{\\}\\ sparse treatments, enforcing the resource identity
-    \\J^{\\} \times r = I \times k^{\\}\\ exactly, where \\J^{\\} = J -
-    C\\ and \\k^{\\} = k - C\\ (\\C\\ = number of common treatments).
+    \\k^{\*}\\ sparse treatments, enforcing the resource identity
+    \\J^{\*} \times r = I \times k^{\*}\\ exactly, where \\J^{\*} = J -
+    C\\ and \\k^{\*} = k - C\\ (\\C\\ = number of common treatments).
 
 These are the guarantees that distinguish M4 from M3 in the paper. In
 plant breeding programs where thousands of lines are tested across a few
@@ -801,4 +807,4 @@ Issues, bug reports, and feature suggestions are welcome:
 
 ## License
 
-MIT License (c) Felicien Akohoue
+MIT License (c) Félicien Akohoue

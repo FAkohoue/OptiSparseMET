@@ -163,5 +163,5 @@ Useful links:
 
 ## Author
 
-**Maintainer**: Felicien Akohoue <akohoue.f@gmail.com>
+**Maintainer**: Félicien Akohoue <akohoue.f@gmail.com>
 ([ORCID](https://orcid.org/0000-0002-2160-0182))
