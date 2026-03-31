@@ -122,7 +122,7 @@ Montesinos-Lopez et al. (2023):
 | Strategy | Argument | Properties |
 |----------|----------|------------|
 | M3-inspired | `random_balanced` | Coverage-first stochastic allocation; guarantees every treatment appears at least once; tolerates unequal environment sizes |
-| M4 BIBD | `balanced_incomplete` | Enforces equal replication and equal environment sizes (slot identity $J^{*} \times r = I \times k^{*}$); pairwise co-occurrence is computed and returned but not enforced |
+| M4 BIBD | `balanced_incomplete` | Enforces equal replication and equal environment sizes (slot identity J* × r = I × k*); pairwise co-occurrence is computed and returned but not enforced |
 
 #### M4 -- equal replication and equal environment sizes
 
@@ -132,9 +132,9 @@ guarantees:
 1. **Equal replication** — every non-common treatment appears in exactly
    $r$ environments.
 2. **Equal environment sizes** — every environment receives exactly
-   $k^{*}$ sparse treatments, enforcing the resource identity
-   $J^{*} \times r = I \times k^{*}$ exactly, where $J^{*} = J - C$
-   and $k^{*} = k - C$ ($C$ = number of common treatments).
+   k* sparse treatments, enforcing the resource identity
+   J* × r = I × k* exactly, where J* = J − C and k* = k − C
+   (C = number of common treatments).
 
 These are the guarantees that distinguish M4 from M3 in the paper. In
 plant breeding programs where thousands of lines are tested across a few
@@ -142,10 +142,10 @@ environments, equal replication means every candidate is evaluated the
 same number of times -- a fundamental fairness and precision requirement.
 
 `allow_approximate = FALSE` (the default) enforces both conditions strictly.
-If the slot identity $J^{*} \times r = I \times k^{*}$ does not hold for the
-chosen dimensions, the function stops with a clear error before any allocation
-is attempted. Use `check_balanced_incomplete_feasibility()` to verify the
-slot identity first, or adjust $k$ and $r$ so that the identity holds.
+If the slot identity J* × r = I × k* does not hold for the chosen dimensions,
+the function stops with a clear error before any allocation is attempted. Use
+`check_balanced_incomplete_feasibility()` to verify the slot identity first,
+or adjust k and r so that the identity holds.
 Construction uses a greedy load-balanced constructor that guarantees equal replication.
 
 `allow_approximate = TRUE` relaxes the slot identity and allows minor
@@ -176,7 +176,7 @@ optimal.
 | Function | Description |
 |----------|-------------|
 | `allocate_sparse_met()` | Distribute treatments across environments (M3 or M4) with enforced equal replication under M4 |
-| `check_balanced_incomplete_feasibility()` | Verify the slot identity $J^{*} \times r = I \times k^{*}$ before attempting M4 allocation |
+| `check_balanced_incomplete_feasibility()` | Verify the slot identity J* × r = I × k* before attempting M4 allocation |
 | `derive_allocation_groups()` | Derive grouping structure from family labels, GRM, or pedigree matrix |
 
 ### Feasibility and capacity helpers
@@ -570,38 +570,36 @@ out$efficiency_summary   # efficiency metrics (when eval_efficiency = TRUE)
 
 ## 6.4 Slot identity feasibility by J\*, I, and r
 
-The slot identity $J^{*} \times r = I \times k^{*}$ requires that $J^{*} \times r$
-be exactly divisible by $I$. Whether this is achievable for a given
-combination of sparse treatments ($J^{*}$), environments ($I$), and replication
-($r$) depends on the shared factors of these three numbers.
+The slot identity J* × r = I × k* requires that J* × r be exactly divisible
+by I. Whether this is achievable for a given combination of sparse treatments
+(J*), environments (I), and replication (r) depends on the shared factors of
+these three numbers.
 
 ### The divisibility rule
 
-For the slot identity to hold, $I$ must divide $J^{*} \times r$ exactly.
-Every prime factor of $I$ that is absent from $J^{*}$ must be supplied by $r$.
+For the slot identity to hold, I must divide J* × r exactly.
+Every prime factor of I that is absent from J* must be supplied by r.
 This has a practical consequence for the most common case in plant breeding:
 
-- **$I = 4$ environments, $J^{*}$ odd**: $J^{*} \times 1 = \text{odd}$ (not
-  divisible by 4); $J^{*} \times 2 = 2 \times \text{odd}$ (divisible by 2
-  but not by 4 for odd $J^{*}$); only $r = 4$ guarantees divisibility. But
-  $r = 4$ gives $k^{*} = J^{*}$ — full replication — which defeats the purpose
-  of sparse testing. **Practical fix**: adjust $C$ by 1 so that $J^{*} = J - C$
-  becomes even.
+- **I = 4 environments, J* odd**: J* × 1 = odd (not divisible by 4);
+  J* × 2 = 2 × odd (divisible by 2 but not by 4 for odd J*); only r = 4
+  guarantees divisibility. But r = 4 gives k* = J* — full replication —
+  which defeats the purpose of sparse testing. **Practical fix**: adjust C
+  by 1 so that J* = J − C becomes even.
 
-- **$I = 4$ environments, $J^{*}$ even but not divisible by 4**: $r = 2$
-  always works (e.g. $J^{*} = 110$: $110 \times 2 / 4 = 55$).
+- **I = 4 environments, J* even but not divisible by 4**: r = 2 always
+  works (e.g. J* = 110: 110 × 2 / 4 = 55).
 
-- **$I = 3$ environments**: feasibility depends on divisibility by 3. If
-  $J^{*}$ is divisible by 3, any $r$ works. Otherwise $r$ must be a multiple
-  of 3.
+- **I = 3 environments**: feasibility depends on divisibility by 3. If J*
+  is divisible by 3, any r works. Otherwise r must be a multiple of 3.
 
-- **$I = 6$ environments**: requires divisibility by $2 \times 3 = 6$.
-  Odd $J^{*}$ not divisible by 3 requires $r$ divisible by 6.
+- **I = 6 environments**: requires divisibility by 2 × 3 = 6.
+  Odd J* not divisible by 3 requires r divisible by 6.
 
-### Feasibility table: $r = 2$
+### Feasibility table: r = 2
 
-The table shows $k^{*}$ when the slot identity holds, and `--` when it does
-not for that combination. Add $C$ (common treatments) to $k^{*}$ to get the
+The table shows k* when the slot identity holds, and `--` when it does
+not for that combination. Add C (common treatments) to k* to get the
 `n_test_entries_per_environment` argument.
 
 | $J^{*}$ | $I=3$ | $I=4$ | $I=5$ | $I=6$ | $I=7$ | $I=8$ | $I=9$ | $I=10$ |
@@ -683,15 +681,15 @@ environment before replication filling begins.
 
 **Use `balanced_incomplete` with `allow_approximate = FALSE`** (the default)
 when equal replication is a hard requirement -- every sparse treatment must
-appear in exactly $r$ environments. Verify the slot identity
-$J^{*} \times r = I \times k^{*}$ first with `check_balanced_incomplete_feasibility()`.
-The function stops with a clear error if the identity does not hold, so you
-always know whether the equal-replication guarantee was met.
+appear in exactly r environments. Verify the slot identity J* × r = I × k* first with
+`check_balanced_incomplete_feasibility()`. The function stops with a clear
+error if the identity does not hold, so you always know whether the
+equal-replication guarantee was met.
 
 **Use `balanced_incomplete` with `allow_approximate = TRUE`** as a fallback
 when the slot identity cannot be satisfied for the chosen dimensions but you
 still want to attempt a balanced allocation. Some lines will receive more or
-fewer replications than $r$. This is an exploratory mode, not the primary path.
+fewer replications than r. This is an exploratory mode, not the primary path.
 
 **Use `met_prep_famoptg()`** for designs requiring repeated checks in every
 block, partial replication (p-rep), or RCBD-type structure. The optimizer
