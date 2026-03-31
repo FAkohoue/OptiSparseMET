@@ -4,7 +4,7 @@ Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout
 Version: 0.1.0
 Authors@R:
     person(
-      given   = "Felicien",
+      given   = "Félicien",
       family  = "Akohoue",
       email   = "akohoue.f@gmail.com",
       role    = c("aut", "cre"),

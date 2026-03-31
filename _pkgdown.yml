@@ -5,7 +5,7 @@ template:
   bootstrap: 5
   math-rendering: mathjax
   includes:
-    in_header: pkgdown/assets/favicon.html
+    in_header: pkgdown/extra_head.html
   bslib:
     primary:      "#0C4C80"
     secondary:    "#3AA0FF"
@@ -15,7 +15,7 @@ template:
     code_font:    { google: "Fira Code" }
 
 authors:
-  Felicien Akohoue:
+  Félicien Akohoue:
     href: https://github.com/FAkohoue
 
 home:

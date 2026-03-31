@@ -41,7 +41,7 @@
 
 
 
-  pkgdown/assets/favicon.html
+  pkgdown/extra_head.html
 
   
 
@@ -99,10 +99,14 @@
 <p><strong>Level 1 — Across-environment allocation</strong> determines which treatments appear in which environments, how many times each treatment is replicated across the trial, and whether the resulting incidence structure preserves sufficient genetic connectivity for valid cross-environment inference.</p>
 <p><strong>Level 2 — Within-environment design</strong> determines blocking structure, spatial layout, replication within each environment, and local control of field heterogeneity.</p>
 <p>These two levels are not merely sequential steps — they are statistically coupled, and optimizing them independently produces inferior designs. The linkage operates through four mechanisms.</p>
-<p><strong>1. The incidence matrix couples both levels inside the information matrix.</strong> In the linear mixed model <span class="math inline">\(y = X\beta + Zg + e\)</span>, the precision of all genetic value estimates is governed by the coefficient matrix <span class="math inline">\(C = Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1} X^\top V^{-1} Z\)</span>, where <span class="math inline">\(V = ZKZ^\top \sigma_g^2 + R\sigma_e^2\)</span>. The allocation decision determines the sparsity pattern of <span class="math inline">\(Z\)</span> (which lines appear where); the within-environment blocking structure determines <span class="math inline">\(R\)</span> (the residual covariance). Both enter <span class="math inline">\(V\)</span> and therefore <span class="math inline">\(C^{-1}\)</span>. Neither can be optimized in isolation because they interact inside the inversion of <span class="math inline">\(V\)</span>.</p>
-<p><strong>2. Allocation fixes which within-environment designs are feasible.</strong> Once allocation assigns <span class="math inline">\(k_e\)</span> lines to environment <span class="math inline">\(e\)</span>, the within-environment design must arrange exactly those <span class="math inline">\(k_e\)</span> treatments across the available <span class="math inline">\(n_{\text{rows}} \times n_{\text{cols}}\)</span> field. If <span class="math inline">\(k_e\)</span> is incompatible with the blocking structure — for example, not a multiple of the target block size, or exceeding field capacity — the design is infeasible regardless of how statistically ideal the allocation was. Allocation and field geometry must be co-designed.</p>
-<p><strong>3. Block efficiency propagates into cross-environment inference.</strong> The precision of a genetic value estimate for line <span class="math inline">\(j\)</span> in environment <span class="math inline">\(e\)</span> is proportional to <span class="math inline">\(e_j \, r_j^{(e)}\)</span>, where <span class="math inline">\(r_j^{(e)}\)</span> is the number of plots and <span class="math inline">\(e_j \in (0, 1]\)</span> is the efficiency factor of the within-environment design relative to a completely randomized layout. A poor block design reduces <span class="math inline">\(e_j\)</span>, inflating the variance of each BLUP. These inflated variances propagate into cross-environment covariance estimates, degrading G×E inference and genetic correlation estimation even when the allocation incidence structure is perfectly balanced.</p>
-<p><strong>4. CDmean — the genomic prediction criterion — depends on both levels.</strong> The CDmean criterion, <span class="math inline">\(\text{CDmean} = 1 - \overline{\text{PEV}} / \sigma_g^2\)</span>, where PEV depends on both <span class="math inline">\(Z\)</span> (allocation) and <span class="math inline">\(R^{-1}\)</span> (blocking), cannot be maximized by fixing either level independently. Spreading genetically diverse lines across environments improves the genomic connectivity captured in <span class="math inline">\(Z^\top R^{-1} Z\)</span>; efficient blocking sharpens <span class="math inline">\(R^{-1}\)</span>. Both contributions are necessary.</p>
+<p><strong>1. The incidence matrix couples both levels inside the information matrix.</strong></p>
+<p>In the linear mixed model: <span class="math inline">\(y = X\beta + Zg + e\)</span>, the precision of all genetic value estimates is governed by the coefficient matrix: <span class="math inline">\(C = Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1} X^\top V^{-1} Z\)</span>, where <span class="math inline">\(V = ZKZ^\top \sigma_g^2 + R\sigma_e^2\)</span>. The allocation decision determines the sparsity pattern of <span class="math inline">\(Z\)</span> (which lines appear where); the within-environment blocking structure determines <span class="math inline">\(R\)</span> (the residual covariance). Both enter <span class="math inline">\(V\)</span> and therefore <span class="math inline">\(C^{-1}\)</span>. Neither can be optimized in isolation because they interact inside the inversion of <span class="math inline">\(V\)</span>.</p>
+<p><strong>2. Allocation fixes which within-environment designs are feasible.</strong></p>
+<p>Once allocation assigns <span class="math inline">\(k_e\)</span> lines to environment <span class="math inline">\(e\)</span>, the within-environment design must arrange exactly those <span class="math inline">\(k_e\)</span> treatments across the available <span class="math inline">\(n_{\text{rows}} \times n_{\text{cols}}\)</span> field. If <span class="math inline">\(k_e\)</span> is incompatible with the blocking structure — for example, not a multiple of the target block size, or exceeding field capacity — the design is infeasible regardless of how statistically ideal the allocation was. Allocation and field geometry must be co-designed.</p>
+<p><strong>3. Block efficiency propagates into cross-environment inference.</strong></p>
+<p>The precision of a genetic value estimate for line <span class="math inline">\(j\)</span> in environment <span class="math inline">\(e\)</span> is proportional to <span class="math inline">\(e_j \, r_j^{(e)}\)</span>, where <span class="math inline">\(r_j^{(e)}\)</span> is the number of plots and <span class="math inline">\(e_j \in (0, 1]\)</span> is the efficiency factor of the within-environment design relative to a completely randomized layout. A poor block design reduces <span class="math inline">\(e_j\)</span>, inflating the variance of each BLUP. These inflated variances propagate into cross-environment covariance estimates, degrading G×E inference and genetic correlation estimation even when the allocation incidence structure is perfectly balanced.</p>
+<p><strong>4. CDmean — the genomic prediction criterion — depends on both levels.</strong></p>
+<p>The CDmean criterion, <span class="math inline">\(\text{CDmean} = 1 - \overline{\text{PEV}} / \sigma_g^2\)</span>, where PEV depends on both <span class="math inline">\(Z\)</span> (allocation) and <span class="math inline">\(R^{-1}\)</span> (blocking), cannot be maximized by fixing either level independently. Spreading genetically diverse lines across environments improves the genomic connectivity captured in <span class="math inline">\(Z^\top R^{-1} Z\)</span>; efficient blocking sharpens <span class="math inline">\(R^{-1}\)</span>. Both contributions are necessary.</p>
 <p><code>OptiSparseMET</code> formalizes the link between the two levels: the allocation output specifies exactly which lines enter each environment, and the within-environment design engine receives precisely that set, ensuring that the incidence structure and the blocking structure are optimized consistently within the same statistical framework.</p>
 <hr>
 </div>
@@ -176,7 +180,7 @@
 <li>
 <strong>Equal replication</strong> — every non-common treatment appears in exactly <span class="math inline">\(r\)</span> environments.</li>
 <li>
-<strong>Equal environment sizes</strong> — every environment receives exactly <span class="math inline">\(k^{\*}\)</span> sparse treatments, enforcing the resource identity <span class="math inline">\(J^{\*} \times r = I \times k^{\*}\)</span> exactly, where <span class="math inline">\(J^{\*} = J - C\)</span> and <span class="math inline">\(k^{\*} = k - C\)</span> (<span class="math inline">\(C\)</span> = number of common treatments).</li>
+<strong>Equal environment sizes</strong> — every environment receives exactly <span class="math inline">\(k^{*}\)</span> sparse treatments, enforcing the resource identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> exactly, where <span class="math inline">\(J^{*} = J - C\)</span> and <span class="math inline">\(k^{*} = k - C\)</span> (<span class="math inline">\(C\)</span> = number of common treatments).</li>
 </ol>
 <p>These are the guarantees that distinguish M4 from M3 in the paper. In plant breeding programs where thousands of lines are tested across a few environments, equal replication means every candidate is evaluated the same number of times – a fundamental fairness and precision requirement.</p>
 <p><code>allow_approximate = FALSE</code> (the default) enforces both conditions strictly. If the slot identity <span class="math inline">\(J^{*} \times r = I \times k^{*}\)</span> does not hold for the chosen dimensions, the function stops with a clear error before any allocation is attempted. Use <code><a href="reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility()</a></code> to verify the slot identity first, or adjust <span class="math inline">\(k\)</span> and <span class="math inline">\(r\)</span> so that the identity holds. Construction uses a greedy load-balanced constructor that guarantees equal replication.</p>
@@ -1422,7 +1426,7 @@ https://github.com/FAkohoue/OptiSparseMET</code></pre>
 <div class="section level2">
 <h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
 </h2>
-<p>MIT License (c) Felicien Akohoue</p>
+<p>MIT License (c) Félicien Akohoue</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
@@ -1453,7 +1457,7 @@ https://github.com/FAkohoue/OptiSparseMET</code></pre>
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>
-<a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a> <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2160-0182" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a> <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2160-0182" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -1470,7 +1474,7 @@ https://github.com/FAkohoue/OptiSparseMET</code></pre>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Felicien Akohoue</a>.</p>
+  <p>Developed by <a href="https://github.com/FAkohoue" class="external-link">Félicien Akohoue</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

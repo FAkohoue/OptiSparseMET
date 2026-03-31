@@ -1,0 +1,25 @@
+<!-- Favicon -->
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+
+<!-- MathJax 3 configuration and loader -->
+<!-- Enables rendering of:
+     - Inline math:   $...$  and  \(...\)
+     - Display math:  $$...$$  and  \[...\]
+     on all pkgdown pages including the README-based home page. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath:  [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true,
+      tags: 'ams'
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.min.js"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+        async></script>

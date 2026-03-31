@@ -7,6 +7,7 @@ on:
 
 # Prevent concurrent deployments from overwriting each other on gh-pages.
 # A new push cancels any still-running deployment on the same branch.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
