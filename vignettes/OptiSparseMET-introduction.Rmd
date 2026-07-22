@@ -392,7 +392,7 @@ functions, distinguishing what is strictly required from what is optional.
 |----------|------|-------------|
 | `treatments` | character vector | All candidate line IDs (J total) |
 | `environments` | character vector | Environment names (≥ 2) |
-| `allocation_method` | character | `"random_balanced"` (M3) or `"balanced_incomplete"` (M4) |
+| `allocation_method` | character | `"random_balanced"` (M3) or `"equireplicate"` (M4) |
 | `n_test_entries_per_environment` | integer | Total entries per environment including common treatments (k) |
 
 **Optional inputs**
@@ -571,7 +571,7 @@ full coverage before attempting any additional replication.
 
 ## 6.2 The balanced incomplete strategy (M4)
 
-The `"balanced_incomplete"` method implements the M4 allocation of
+The `"equireplicate"` method implements the M4 allocation of
 Montesinos-López et al. (2023). It enforces two structural guarantees:
 
 **Condition 1 — Equal replication**: every non-common line appears in exactly
@@ -631,7 +631,7 @@ slot identity cannot be achieved, not the primary path.
 
 ## 6.3 M3 versus M4: choosing the right strategy
 
-| Feature | M3 `"random_balanced"` | M4 `"balanced_incomplete"` |
+| Feature | M3 `"random_balanced"` | M4 `"equireplicate"` |
 |---------|------------------------|----------------------------|
 | Equal replication guarantee | No (approximate) | Yes (`allow_approximate = FALSE`) |
 | Equal environment sizes | No | Yes (both modes) |
@@ -677,7 +677,7 @@ alloc_M3 <- allocate_sparse_met(
 alloc_M4 <- allocate_sparse_met(
   treatments                     = x$treatments,
   environments                   = x$environments,
-  allocation_method              = "balanced_incomplete",
+  allocation_method              = "equireplicate",
   n_test_entries_per_environment = 36,
   target_replications            = 1,
   common_treatments              = x$common_treatments,
@@ -1402,7 +1402,7 @@ met_book <- combine_met_fieldbooks(
   field_books       = list(Env_A = design_A$field_book),
   local_designs     = c(Env_A = "met_prep_famoptg"),
   replication_modes = c(Env_A = "p_rep"),
-  sparse_method     = "balanced_incomplete",
+  sparse_method     = "equireplicate",
   common_treatments = x$common_treatments
 )
 
@@ -1498,91 +1498,86 @@ env_design_specs <- list(
 
 # 14. Connectivity and Genomic Prediction: Simulation Illustration
 
-The benefit of better cross-environment connectivity can be explored through
-simulation. The following code generates sparse allocations under M3 and M4,
-simulates phenotypic data under a genomic model, fits a GBLUP model to each
-dataset, and compares the resulting prediction quality.
+Cross-environment connectivity only matters when genotype performance varies
+across environments -- that is, under genotype-by-environment interaction
+(G x E). We therefore evaluate designs under a genuine G x E model in which the
+genotype-by-environment effects have covariance `Sigma_E %x% G` (a genetic
+correlation structure across environments, not a single shared breeding value).
+`met_information()` returns the coupled across-TPE prediction-error variance
+(PEV) and reliability (CDmean); `simulate_met()` returns the realized selection
+accuracy and genetic gain those designs achieve.
 
 ```{r simulation, eval=FALSE}
-library(sommer)
-library(MASS)
-
 set.seed(1)
-
-n_geno <- 200
+n_geno <- 120
 n_env  <- 4
+lines  <- paste0("L", seq_len(n_geno))
+envs   <- paste0("E", seq_len(n_env))
 
-# Simulate a genomic relationship matrix
-G0 <- matrix(rnorm(n_geno^2), n_geno)
-G0 <- tcrossprod(G0) / n_geno
+# Genomic relationship matrix
+M  <- matrix(rnorm(n_geno^2), n_geno)
+G0 <- tcrossprod(M) / n_geno
 diag(G0) <- diag(G0) + 0.5
+dimnames(G0) <- list(lines, lines)
 
-simulate_MET <- function(allocation_matrix) {
-  geno_ids <- rownames(allocation_matrix)
-  env_ids  <- colnames(allocation_matrix)
+# Broad TPE: environments with a mix of positive and negative genetic
+# correlations (this is what makes connectivity matter).
+Sigma_E <- matrix(c( 1.0,  0.6,  0.2, -0.1,
+                     0.6,  1.0,  0.3,  0.0,
+                     0.2,  0.3,  1.0,  0.5,
+                    -0.1,  0.0,  0.5,  1.0), 4, 4)
 
-  # Simulate genetic values from GRM-based covariance structure
-  g_eff <- MASS::mvrnorm(1, mu = rep(0, length(geno_ids)), Sigma = G0)
-  e_eff <- rnorm(length(env_ids), 0, 1)
+# Fully balanced positive control: every line in every environment.
+alloc_full <- matrix(1L, n_geno, n_env, dimnames = list(lines, envs))
 
-  dat <- expand.grid(Geno = geno_ids, Env = env_ids, stringsAsFactors = FALSE)
-  dat$present <- as.vector(allocation_matrix)
-  dat <- dat[dat$present == 1, ]
-
-  dat$y <- g_eff[match(dat$Geno, geno_ids)] +
-            e_eff[match(dat$Env,  env_ids)]  +
-            rnorm(nrow(dat), 0, 1)
-  dat
-}
-
-# M3 allocation: n=200, I=4, k=80, r~=1.6 (total=320, target=2 but approx)
-alloc_M3 <- allocate_sparse_met(
-  treatments                     = paste0("L", seq_len(n_geno)),
-  environments                   = paste0("E", seq_len(n_env)),
+# Random sparse allocation, each line in ~2 of 4 environments.
+alloc_sparse <- allocate_sparse_met(
+  treatments                     = lines,
+  environments                   = envs,
   allocation_method              = "random_balanced",
-  n_test_entries_per_environment = 80,
+  n_test_entries_per_environment = 60,
   target_replications            = 2,
   allow_approximate              = TRUE,
   seed                           = 1
-)
+)$allocation_matrix
 
-# M4 allocation: equal replication (allow_approximate = FALSE).
-# J=200, I=4, r=2: k = J*r/I = 200*2/4 = 100. Slot identity: 200*2=4*100=400.
-alloc_M4 <- allocate_sparse_met(
-  treatments                     = paste0("L", seq_len(n_geno)),
-  environments                   = paste0("E", seq_len(n_env)),
-  allocation_method              = "balanced_incomplete",
-  n_test_entries_per_environment = 100,
+# Equireplicate allocation with environment-pair connectivity balancing
+# (near-balanced / regular-graph design).
+alloc_eqr <- allocate_sparse_met(
+  treatments                     = lines,
+  environments                   = envs,
+  allocation_method              = "equireplicate",
+  n_test_entries_per_environment = 60,
   target_replications            = 2,
-  allow_approximate              = FALSE,
+  balance                        = "env_pair",
   seed                           = 1
-)
+)$allocation_matrix
 
-dat_M3 <- simulate_MET(alloc_M3$allocation_matrix)
-dat_M4 <- simulate_MET(alloc_M4$allocation_matrix)
+# Refine the equireplicate allocation directly against the coupled G x E
+# objective (minimise across-TPE PEV).
+alloc_opt <- optimize_allocation_gxe(
+  alloc_eqr, G = G0, Sigma_E = Sigma_E, iter = 100, seed = 1
+)$allocation_matrix
 
-# Fit GBLUP model to each dataset
-fit_M3 <- sommer::mmer(
-  y ~ Env,
-  random = ~ sommer::vsr(Geno, Gu = G0),
-  data   = dat_M3
-)
+# Design-based coupled PEV / CDmean (lower PEV, higher CDmean is better).
+sapply(list(full = alloc_full, sparse = alloc_sparse,
+            equireplicate = alloc_eqr, optimised = alloc_opt),
+       function(A) met_information(A, G = G0, Sigma_E = Sigma_E)$mean_PEV)
 
-fit_M4 <- sommer::mmer(
-  y ~ Env,
-  random = ~ sommer::vsr(Geno, Gu = G0),
-  data   = dat_M4
-)
-
-# Compare mean PEV: lower is better (more precise prediction)
-mean(fit_M3$PevU$`u:Geno`$y)
-mean(fit_M4$PevU$`u:Geno`$y)
+# Realized selection accuracy and genetic gain across the TPE.
+sapply(list(full = alloc_full, sparse = alloc_sparse,
+            equireplicate = alloc_eqr, optimised = alloc_opt),
+       function(A) simulate_met(A, G = G0, Sigma_E = Sigma_E,
+                                n_sim = 50, seed = 1)$accuracy_mean)
 ```
 
-In many settings the more uniform co-occurrence structure of M4 leads to lower
-average PEV and stronger cross-environment connectivity. The magnitude of the
-advantage depends on the degree of imbalance, the genetic covariance structure,
-and the ratio of genetic to residual variance.
+The fully balanced design is the positive control (highest accuracy, lowest
+PEV). Among the sparse options, the environment-pair-balanced and
+`optimize_allocation_gxe()`-refined allocations recover more accuracy than a
+plain random sparse allocation, because they distribute cross-environment
+connectivity more evenly -- exactly the property the coupled information matrix
+rewards. The size of the advantage grows with the spread of genetic correlations
+in `Sigma_E` (a broad TPE) and shrinks as the TPE narrows.
 
 ---
 

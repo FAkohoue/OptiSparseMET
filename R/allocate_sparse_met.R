@@ -21,7 +21,7 @@
 #' treatment appears in at least one environment before replication filling
 #' begins.
 #'
-#' The \code{"balanced_incomplete"} method implements the M4 allocation of
+#' The \code{"equireplicate"} method implements the M4 allocation of
 #' Montesinos-Lopez et al. (2023): every non-common treatment appears in
 #' exactly \eqn{r} environments (equal replication) and every environment
 #' receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
@@ -81,7 +81,7 @@
 #'
 #' ## Two-phase allocation
 #'
-#' For `"random_balanced"` and approximate `"balanced_incomplete"`, phase one
+#' For `"random_balanced"` and approximate `"equireplicate"`, phase one
 #' iterates over sparse treatments in random order and assigns each to one
 #' environment, preferring environments where the treatment's genetic group is
 #' not yet represented when `allocation_group_source` is active. Phase two
@@ -127,7 +127,7 @@
 #' If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
 #' the chosen `n_test_entries_per_environment` and `target_replications`, the
 #' function stops with an informative error. Use
-#' [check_balanced_incomplete_feasibility()] to verify the slot identity before
+#' [check_equireplicate_feasibility()] to verify the slot identity before
 #' calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
 #' I \times k^*}. Construction uses a greedy load-balanced constructor that
 #' assigns each sparse treatment to the least-loaded eligible environments,
@@ -150,7 +150,7 @@
 #'
 #' @param allocation_method Character scalar. Sparse allocation strategy.
 #'   Accepted values are `"random_balanced"` (M3-inspired stochastic
-#'   allocation) and `"balanced_incomplete"` (M4-type BIBD allocation). The
+#'   allocation) and `"equireplicate"` (M4-type equal-replication allocation). The
 #'   aliases `"M3"` and `"M4"` are also accepted and translated internally to
 #'   their canonical names before any further processing.
 #'
@@ -164,7 +164,7 @@
 #' @param target_replications Optional positive integer. Target number of
 #'   environments in which each non-common treatment should appear. For
 #'   `"random_balanced"`, this is a soft target that guides the phase-two
-#'   filling. For `"balanced_incomplete"`, this is the strict replication level
+#'   filling. For `"equireplicate"`, this is the strict replication level
 #'   required for an exact balanced solution. If `NULL`, the function infers a
 #'   value as `floor(total_sparse_slots / n_sparse_treatments)`, with a minimum
 #'   of 1.
@@ -173,6 +173,22 @@
 #'   to all environments. Placed before sparse allocation begins and excluded
 #'   from the sparse pool. Values not present in `treatments` are silently
 #'   dropped.
+#'
+#' @param balance Character scalar. Post-construction refinement toward a
+#'   near-balanced (regular-graph) design, preserving equal replication and
+#'   equal environment size. `"none"` (default) skips it; `"env_pair"`
+#'   equalises the number of lines shared by each pair of environments
+#'   (cross-environment connectivity); `"line_pair"` equalises pairwise
+#'   treatment concurrence; `"both"` applies `"env_pair"` then `"line_pair"`.
+#'   Ignored (with a message) when genetic grouping is active. A strict BIBD is
+#'   generally unattainable when treatments greatly outnumber environments, so
+#'   this targets the achievable balance rather than constant \eqn{\lambda}.
+#'
+#' @param balance_iter Integer, default `2000`. Number of swap iterations per
+#'   balance pass.
+#'
+#' @param balance_seed Optional integer seed for the balance swap search
+#'   (independent of `seed`).
 #'
 #' @param allocation_group_source Character scalar. Controls whether and how
 #'   genetic group structure guides allocation. `"none"` disables group-guided
@@ -234,7 +250,7 @@
 #'   not `"none"` and `min_env_per_group` is not `NULL`.
 #'
 #' @param allow_approximate Logical, default `FALSE`. When `FALSE` and
-#'   `allocation_method = "balanced_incomplete"`, the slot identity
+#'   `allocation_method = "equireplicate"`, the slot identity
 #'   \eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
 #'   with an error if it does not. This is the standard M4 path and guarantees
 #'   equal replication for every non-common treatment. When `TRUE`, the slot
@@ -296,8 +312,8 @@
 #' @seealso
 #' [suggest_safe_k()] and [min_k_for_full_coverage()] for choosing a feasible
 #' `n_test_entries_per_environment` before calling this function.
-#' [check_balanced_incomplete_feasibility()] for verifying the slot identity
-#' before attempting a `"balanced_incomplete"` allocation.
+#' [check_equireplicate_feasibility()] for verifying the slot identity
+#' before attempting a `"equireplicate"` allocation.
 #' [derive_allocation_groups()] for inspecting the group structure that guides
 #' allocation when `allocation_group_source` is not `"none"`.
 #' [met_prep_famoptg()] and [met_alpha_rc_stream()] for the within-environment
@@ -350,7 +366,7 @@
 #' out2 <- allocate_sparse_met(
 #'   treatments                     = treatments,
 #'   environments                   = envs,
-#'   allocation_method              = "balanced_incomplete",
+#'   allocation_method              = "equireplicate",
 #'   n_test_entries_per_environment = 65,
 #'   target_replications            = 2,
 #'   common_treatments              = treatments[1:10],
@@ -367,10 +383,13 @@
 allocate_sparse_met <- function(
     treatments,
     environments,
-    allocation_method = c("random_balanced", "balanced_incomplete", "M3", "M4"),
+    allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
     n_test_entries_per_environment,
     target_replications = NULL,
     common_treatments = NULL,
+    balance = c("none", "env_pair", "line_pair", "both"),
+    balance_iter = 2000L,
+    balance_seed = NULL,
     allocation_group_source = c("none", "Family", "GRM", "A"),
     treatment_info = NULL,
     GRM = NULL,
@@ -395,9 +414,17 @@ allocate_sparse_met <- function(
   if (!is.null(seed_used)) set.seed(seed_used)
   
   allocation_method <- match.arg(allocation_method)
+  # "M3"/"M4" are convenience aliases for the two Montesinos-Lopez (2023)
+  # methods. "equireplicate" is the canonical name for the M4-type constructor:
+  # it guarantees equal replication and equal environment size (NOT a strict
+  # BIBD, which generally cannot exist when treatments greatly outnumber
+  # environments). Use `balance` to drive concurrence toward a near-balanced
+  # design.
   if (allocation_method == "M3") allocation_method <- "random_balanced"
-  if (allocation_method == "M4") allocation_method <- "balanced_incomplete"
-  
+  if (allocation_method == "M4") allocation_method <- "equireplicate"
+
+  balance <- match.arg(balance)
+
   allocation_group_source <- match.arg(allocation_group_source)
   group_method            <- match.arg(group_method)
   
@@ -478,15 +505,15 @@ allocate_sparse_met <- function(
   }
   
   # ============================================================
-  # 4. M4 feasibility checks
+  # 4. Equireplicate (M4) feasibility checks
   # ============================================================
-  if (allocation_method == "balanced_incomplete") {
-    
+  if (allocation_method == "equireplicate") {
+
     required_slots <- n_sparse * target_replications
-    
+
     if (!allow_approximate && required_slots != total_sparse_slots) {
       stop(paste0(
-        "Exact balanced incomplete allocation infeasible. ",
+        "Exact equireplicate allocation infeasible. ",
         "Required sparse slots = ", required_slots,
         ", available sparse slots = ", total_sparse_slots, ". ",
         "Adjust n_test_entries_per_environment, target_replications, or set ",
@@ -571,7 +598,7 @@ allocate_sparse_met <- function(
   # ------------------------------------------------------------------
   # 7A. Strict exact M4 constructor (allow_approximate = FALSE)
   # ------------------------------------------------------------------
-  if (allocation_method == "balanced_incomplete" && !allow_approximate) {
+  if (allocation_method == "equireplicate" && !allow_approximate) {
     
     sparse_env_load <- stats::setNames(integer(n_env), environments)
     target_env_load <- stats::setNames(as.integer(k_sparse), environments)
@@ -751,7 +778,7 @@ allocate_sparse_met <- function(
           score <- score + conn_term
         }
         
-        if (allocation_method == "balanced_incomplete" && allow_approximate)
+        if (allocation_method == "equireplicate" && allow_approximate)
           score[deficit[names(score)] < 0] <- score[deficit[names(score)] < 0] - 1000
         
         max_score <- max(score)
@@ -777,6 +804,40 @@ allocate_sparse_met <- function(
     }
   }
   
+  # ============================================================
+  # 7C. Near-balanced concurrence / connectivity refinement (P1.2/P1.3)
+  # ============================================================
+  # Swap-based improvement that drives the design toward a near-balanced
+  # (regular-graph) structure while preserving the equireplication and equal
+  # environment-size margins. Swaps exchange a sparse treatment between two
+  # environments, so every treatment keeps its replication count and every
+  # environment keeps its size. "env_pair" equalises the number of lines shared
+  # by each pair of environments (the connectivity property MET inference depends
+  # on); "line_pair" equalises pairwise treatment concurrence; "both" runs
+  # env_pair first, then line_pair.
+  balance_report <- NULL
+  if (balance != "none" && n_sparse >= 2L) {
+    if (n_groups > 0L) {
+      message("balance != 'none' ignored while genetic grouping is active, to ",
+              "preserve group-connectivity constraints.")
+    } else {
+      if (!is.null(balance_seed)) set.seed(balance_seed)
+      S0 <- alloc[sparse_treatments, , drop = FALSE]
+      storage.mode(S0) <- "integer"
+      kinds <- switch(balance,
+                      env_pair  = "env_pair",
+                      line_pair = "line_pair",
+                      both      = c("env_pair", "line_pair"))
+      before <- .balance_metrics(S0)
+      S1 <- S0
+      for (kd in kinds)
+        S1 <- .balance_allocation(S1, kind = kd, iter = balance_iter)
+      after <- .balance_metrics(S1)
+      alloc[sparse_treatments, ] <- S1
+      balance_report <- list(balance = balance, before = before, after = after)
+    }
+  }
+
   # ============================================================
   # 8. Outputs
   # ============================================================
@@ -877,6 +938,7 @@ allocate_sparse_met <- function(
     group_assignment     = group_assignment,
     group_by_environment = group_by_environment,
     group_overlap_matrix = group_overlap_matrix,
+    balance_report       = balance_report,
     summary              = summary_out,
     seed_used            = seed_used
   )

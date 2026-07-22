@@ -408,7 +408,9 @@ met_prep_famoptg <- function(
 
   if (field_size != total_required) {
     if (warn_and_correct) {
-      warning(paste0(
+      # Silent auto-correction (per the documented behaviour): emit an
+      # informational message only when verbose, not a warning.
+      if (verbose) message(paste0(
         "Field size (", n_rows, " x ", n_cols, " = ", field_size,
         ") does not match required plots (", total_required,
         "). Adjusting dimensions."

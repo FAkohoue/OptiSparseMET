@@ -38,9 +38,9 @@ when \code{prediction_type \%in\% c("GBLUP", "PBLUP")} or
 \item{\code{sparse_example_args_random_balanced}}{Named list of arguments
 ready to pass to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
 \code{allocation_method = "random_balanced"}.}
-\item{\code{sparse_example_args_balanced_incomplete}}{Named list of arguments
+\item{\code{sparse_example_args_equireplicate}}{Named list of arguments
 ready to pass to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
-\code{allocation_method = "balanced_incomplete"}.}
+\code{allocation_method = "equireplicate"}.}
 \item{\code{env_design_specs}}{Named list with one element per environment.
 Each element is a named list specifying the local field design for that
 environment. The \code{design} field in each element is set to either

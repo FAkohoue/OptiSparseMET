@@ -34,8 +34,10 @@ reference:
       structure.
     contents:
       - allocate_sparse_met
-      - check_balanced_incomplete_feasibility
+      - check_equireplicate_feasibility
+      - construct_exact_bibd
       - derive_allocation_groups
+      - optimize_allocation_gxe
 
   - title: Feasibility and capacity helpers
     desc: >
@@ -81,6 +83,27 @@ reference:
     contents:
       - met_optimize_famoptg
       - met_optimize_alpha_rc
+
+  - title: Decision-point framework
+    desc: >
+      Corrected, modified versions of the sequential decision points in
+      Colmant et al. (2026): select representative environments and individuals,
+      and recommend replication under resource constraints.
+    contents:
+      - select_environments
+      - select_individuals
+      - recommend_replication
+
+  - title: Coupled evaluation, simulation, and sensitivity
+    desc: >
+      Across-environment (MET-level) information matrix, genotype-by-environment
+      simulation of realized accuracy and genetic gain, and variance-component
+      sensitivity analysis.
+    contents:
+      - met_information
+      - simulate_met
+      - sensitivity_varcomp
+      - compare_spatial_models
 
   - title: Pipeline and assembly
     desc: >

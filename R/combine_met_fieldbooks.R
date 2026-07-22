@@ -58,7 +58,7 @@
 #'
 #' @param sparse_method Optional character scalar. The across-environment
 #'   allocation strategy used in [allocate_sparse_met()], e.g.
-#'   `"balanced_incomplete"` or `"random_balanced"`. Applied uniformly to all
+#'   `"equireplicate"` or `"random_balanced"`. Applied uniformly to all
 #'   rows of the combined field book. If `NULL`, the `SparseMethod` column is
 #'   filled with `NA`.
 #'
@@ -107,7 +107,7 @@
 #'   field_books        = list(E1 = fb_E1, E2 = fb_E2),
 #'   local_designs      = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
 #'   replication_modes  = c(E1 = "augmented", E2 = "augmented"),
-#'   sparse_method      = "balanced_incomplete",
+#'   sparse_method      = "equireplicate",
 #'   common_treatments  = "CHK1"
 #' )
 #'

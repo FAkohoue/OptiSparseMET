@@ -93,6 +93,14 @@ within-environment design engine receives precisely that set, ensuring that
 the incidence structure and the blocking structure are optimized consistently
 within the same statistical framework.
 
+This coupling is made concrete by `met_information()`, which assembles the
+across-environment (MET-level) information matrix from the allocation incidence
+(Level 1) and a within-environment efficiency factor (Level 2) under a G × E
+model (`Sigma_E ⊗ G`), and returns the across-TPE mean PEV and CDmean.
+`simulate_met()` then reports the realized selection accuracy and genetic gain
+those designs achieve, and `optimize_allocation_gxe()` optimizes the allocation
+directly against that coupled objective.
+
 ---
 
 ## Statistical Foundations
@@ -116,18 +124,30 @@ coverage breadth ($k$) and replication depth ($r$) explicit.
 
 ### Allocation strategies
 
-Two strategies are available, corresponding to M3 and M4 in
+Two strategies are available, inspired by M3 and M4 in
 Montesinos-Lopez et al. (2023):
 
 | Strategy | Argument | Properties |
 |----------|----------|------------|
 | M3-inspired | `random_balanced` | Coverage-first stochastic allocation; guarantees every treatment appears at least once; tolerates unequal environment sizes |
-| M4 BIBD | `balanced_incomplete` | Enforces equal replication and equal environment sizes (slot identity J* × r = I × k*); pairwise co-occurrence is computed and returned but not enforced |
+| Equireplicate (M4-type) | `equireplicate` | Enforces equal replication and equal environment sizes (slot identity J* × r = I × k*). Optional `balance = "env_pair"`/`"line_pair"` drives concurrence toward a **near-balanced (regular-graph)** design |
 
-#### M4 -- equal replication and equal environment sizes
+> **Note on terminology.** `"equireplicate"` is the accurate name for this
+> M4-type constructor (the paper's `"M4"` label is also accepted as an alias).
+> It is *not* a strict balanced incomplete block design (BIBD): a strict BIBD requires
+> constant pairwise concurrence λ, which — with integrality of
+> λ = r(k−1)/(J−1) and Fisher's inequality I ≥ J — generally **cannot exist**
+> when treatments greatly outnumber environments (the usual sparse-testing
+> case). The constructor therefore guarantees equal replication and equal
+> environment size, and `balance` targets the *achievable* near-balanced
+> concurrence. Use `check_equireplicate_feasibility()` to see whether a strict
+> BIBD is possible (`strict_bibd_possible`), and `construct_exact_bibd()` to
+> build one via `crossdes` in the small-J regime where it exists.
 
-The M4 method (Montesinos-Lopez et al. 2023) enforces two structural
-guarantees:
+#### Equireplicate -- equal replication and equal environment sizes
+
+The `equireplicate` method (M4-type; after Montesinos-Lopez et al. 2023)
+enforces two structural guarantees:
 
 1. **Equal replication** — every non-common treatment appears in exactly
    $r$ environments.
@@ -207,6 +227,24 @@ Call `suggest_safe_k()` or `min_k_for_full_coverage()` before
 | `met_optimize_famoptg()` | Random Restart optimisation for `met_prep_famoptg()` designs |
 | `met_optimize_alpha_rc()` | RS/SA/GA optimisation for `met_alpha_rc_stream()` designs |
 
+### Decision-point framework (Colmant et al. 2026, corrected)
+
+| Function | Decision | Description |
+|----------|----------|-------------|
+| `select_environments()` | 1 | Choose representative environments from a TPE (coverage-based, with `optcontrib`/`kmeans`/`hclust`/`random` baselines) |
+| `select_individuals()` | 2 | Choose a representative training subset of the TPG by CDmean (Rincent et al. 2012) |
+| `optimize_allocation_gxe()` | 3 | Refine an allocation to minimise across-TPE PEV under the coupled G×E model |
+| `recommend_replication()` | 4 | Recommend a replication level from accuracy, cost, and seed constraints |
+
+### Coupled evaluation, simulation, and sensitivity
+
+| Function | Description |
+|----------|-------------|
+| `met_information()` | Across-environment (MET-level) information matrix; returns across-TPE PEV and CDmean |
+| `simulate_met()` | Simulate a MET under a G×E model; report realized accuracy and genetic gain |
+| `sensitivity_varcomp()` | Sweep the residual/genetic variance ratio to assess robustness of a design |
+| `construct_exact_bibd()` | Build a strict BIBD via `crossdes` in the small-J regime where one exists |
+
 ### Pipeline and assembly
 
 | Function | Description |
@@ -253,7 +291,7 @@ functions, distinguishing what is strictly required from what is optional.
 |----------|------|-------------|
 | `treatments` | character vector | All candidate line IDs (J total) |
 | `environments` | character vector | Environment names (≥ 2) |
-| `allocation_method` | character | `"random_balanced"` (M3) or `"balanced_incomplete"` (M4) |
+| `allocation_method` | character | `"random_balanced"` (M3) or `"equireplicate"` (M4) |
 | `n_test_entries_per_environment` | integer | Total entries per environment including common treatments (k) |
 
 **Optional inputs**
@@ -449,7 +487,7 @@ alloc_m3$summary$mean_sparse_replication
 alloc_m4 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
-  allocation_method              = "balanced_incomplete",
+  allocation_method              = "equireplicate",
   n_test_entries_per_environment = 65,
   target_replications            = 2,
   common_treatments              = common,
@@ -679,14 +717,14 @@ allocation is acceptable. Unlike the original M3 of Montesinos-Lopez et al.
 (2023), this implementation guarantees every treatment appears in at least one
 environment before replication filling begins.
 
-**Use `balanced_incomplete` with `allow_approximate = FALSE`** (the default)
+**Use `equireplicate` with `allow_approximate = FALSE`** (the default)
 when equal replication is a hard requirement -- every sparse treatment must
 appear in exactly r environments. Verify the slot identity J* × r = I × k* first with
-`check_balanced_incomplete_feasibility()`. The function stops with a clear
+`check_equireplicate_feasibility()`. The function stops with a clear
 error if the identity does not hold, so you always know whether the
 equal-replication guarantee was met.
 
-**Use `balanced_incomplete` with `allow_approximate = TRUE`** as a fallback
+**Use `equireplicate` with `allow_approximate = TRUE`** as a fallback
 when the slot identity cannot be satisfied for the chosen dimensions but you
 still want to attempt a balanced allocation. Some lines will receive more or
 fewer replications than r. This is an exploratory mode, not the primary path.
@@ -737,6 +775,15 @@ remotes::install_github("FAkohoue/OptiSparseMET",
 Full documentation, function reference, and tutorials are available at:
 
 <https://FAkohoue.github.io/OptiSparseMET/>
+
+### The Breeder's Guide
+
+A plain-language, code-free companion for breeders, trial managers, and
+reviewers. It explains the ten tools in terms of the decision each one makes,
+when to reach for it, when to skip it, and what the results mean — plus a
+glossary of the recurring terms.
+
+📘 **[Download the OptiSparseMET Breeder's Guide (PDF)](https://github.com/FAkohoue/OptiSparseMET/raw/master/The_OptiSparseMET_Breeders_Guide.pdf)**
 
 To read the vignette after installation:
 

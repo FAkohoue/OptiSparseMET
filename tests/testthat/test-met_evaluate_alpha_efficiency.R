@@ -40,13 +40,16 @@ test_that("mode is FIXED_TREATMENT_BLUE_CONTRAST for fixed effects", {
 })
 
 # ── Fixed effects: A and D criteria ──────────────────────────────────────────
+# NOTE: the assertions below are internal-consistency (identity) smoke-checks,
+# NOT correctness evidence. The criteria are validated against independent
+# closed-form / numpy-verified oracles in test-efficiency-groundtruth.R.
 
-test_that("A_efficiency = 1 / A_criterion", {
+test_that("A_efficiency = 1 / A_criterion (identity smoke-check)", {
   eff <- eval_alpha(make_design_alpha(), treatment_effect = "fixed")
   expect_equal(eff$A_efficiency, 1 / eff$A_criterion, tolerance = 1e-10)
 })
 
-test_that("D_criterion is positive and D_efficiency = 1 / D_criterion", {
+test_that("D_criterion is positive and D_efficiency = 1 / D_criterion (identity smoke-check)", {
   eff <- eval_alpha(make_design_alpha(), treatment_effect = "fixed")
   expect_gt(eff$D_criterion, 0)
   expect_equal(eff$D_efficiency, 1 / eff$D_criterion, tolerance = 1e-10)
@@ -67,7 +70,10 @@ test_that("CDmean in [0, 1] for random effects IID", {
   expect_lte(eff$CDmean, 1)
 })
 
-test_that("CDmean = 1 - mean_PEV / sigma_g2", {
+test_that("CDmean = 1 - mean_PEV / sigma_g2 for IID (identity smoke-check)", {
+  # Valid only for IID entries (K_ii = 1). The K_ii-scaled form and the
+  # numpy-verified value are checked in test-cdmean-kdiag.R and
+  # test-efficiency-groundtruth.R.
   vc  <- alpha_varcomp()
   eff <- eval_alpha(make_design_alpha(),
                     treatment_effect = "random", prediction_type = "IID",

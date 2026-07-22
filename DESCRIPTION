@@ -1,7 +1,7 @@
 Package: OptiSparseMET
 Type: Package
 Title: Sparse Multi-Environment Trial Design with Flexible Local Field Layout
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person(
       given   = "Félicien",
@@ -15,25 +15,30 @@ Description: Constructs sparse multi-environment trial (MET) designs by
     within-environment field layout under shared statistical, genetic, and
     logistical constraints. Allocation supports two strategies: a
     random-balanced (M3-inspired) approach that guarantees full treatment
-    coverage while tolerating unequal environment sizes, and a balanced
-    incomplete block design (BIBD, M4) approach that enforces equal
-    replication across environments (Montesinos-Lopez et al. 2023
-    <doi:10.1002/tpg2.20305>). Optional common treatments establish
-    cross-environment genetic connectivity. Structure-aware allocation is
-    available via family labels or groups derived from genomic or pedigree
-    relationship matrices. Feasibility helpers verify per-environment
-    capacity before allocation begins. Seed-constrained replication plans
-    account for available seed quantities. Within-environment layouts are
-    built for repeated-check augmented, partially replicated (p-rep), and
-    RCBD-type block designs, or for fixed-grid alpha row-column stream
-    designs. Both constructors support optional grouping from family labels
-    or relationship matrices, optional genetic dispersion optimisation, and
-    mixed-model efficiency evaluation under A-optimality, D-optimality, and
-    CDmean criteria for genomic selection (Rincent et al. 2012
-    <doi:10.1534/genetics.112.141473>). Design optimisation is available
-    via random restart, simulated annealing, and genetic algorithm methods.
-    An end-to-end pipeline coordinates allocation, seed feasibility checks,
-    local field design construction, and assembly of a unified MET field book.
+    coverage while tolerating unequal environment sizes, and an equireplicate
+    (M4-type) approach that enforces equal replication and equal environment
+    size, with optional refinement toward a near-balanced (regular-graph)
+    design (after Montesinos-Lopez et al. 2023 <doi:10.1002/tpg2.20305>; a
+    strict balanced incomplete block design generally does not exist when
+    treatments greatly outnumber environments). Optional common treatments
+    establish cross-environment genetic connectivity. Structure-aware
+    allocation is available via family labels or groups derived from genomic or
+    pedigree relationship matrices. Feasibility helpers verify per-environment
+    capacity and report strict-BIBD existence conditions. Seed-constrained
+    replication plans account for available seed quantities. Within-environment
+    layouts are built for repeated-check augmented, partially replicated
+    (p-rep), and RCBD-type block designs, or for fixed-grid alpha row-column
+    stream designs, with mixed-model efficiency evaluation under A-optimality,
+    D-optimality, and CDmean criteria for genomic selection (Rincent et al. 2012
+    <doi:10.1534/genetics.112.141473>). A coupled across-environment information
+    matrix and a genotype-by-environment simulation report the prediction
+    reliability, selection accuracy, and genetic gain of a design, and
+    decision-point helpers select representative environments and individuals,
+    optimise entry allocation for genomic prediction, and recommend replication
+    under resource constraints. Design optimisation is available via random
+    restart, simulated annealing, and genetic algorithm methods. An end-to-end
+    pipeline coordinates allocation, seed feasibility checks, local field design
+    construction, and assembly of a unified MET field book.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -44,12 +49,15 @@ RoxygenNote: 7.3.3
 Imports:
     Matrix,
     pracma,
+    splines,
     stats,
     utils
 Suggests:
     knitr,
     rmarkdown,
     tinytex,
+    crossdes,
+    sommer,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/lifecycle/label: experimental

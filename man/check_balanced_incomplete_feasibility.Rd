@@ -2,9 +2,18 @@
 % Please edit documentation in R/check_balanced_incomplete_feasibility.R
 \name{check_balanced_incomplete_feasibility}
 \alias{check_balanced_incomplete_feasibility}
+\alias{check_equireplicate_feasibility}
 \title{Evaluate feasibility of an exact balanced incomplete sparse MET allocation}
 \usage{
 check_balanced_incomplete_feasibility(
+  n_treatments_total,
+  n_environments,
+  n_test_entries_per_environment,
+  target_replications,
+  n_common_treatments = 0L
+)
+
+check_equireplicate_feasibility(
   n_treatments_total,
   n_environments,
   n_test_entries_per_environment,
@@ -91,7 +100,7 @@ allocation -- that is, whether the total number of sparse-allocatable
 treatment slots across environments exactly equals the number of non-common
 treatments multiplied by the target replication. The function is a
 diagnostic companion to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
-\code{allocation_method = "balanced_incomplete"}, and should be called before
+\code{allocation_method = "equireplicate"}, and should be called before
 allocation when the user wants to verify feasibility or understand the
 magnitude of any imbalance before deciding whether to set
 \code{allow_approximate = TRUE}.

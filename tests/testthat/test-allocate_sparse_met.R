@@ -1,4 +1,4 @@
-# Tests for allocate_sparse_met() and check_balanced_incomplete_feasibility()
+# Tests for allocate_sparse_met() and check_equireplicate_feasibility()
 #
 # Each test block is self-contained: the helper data is reconstructed at the
 # top of each test so that failures are isolated and reproducible without
@@ -58,7 +58,7 @@ test_that("allocate_sparse_met translates M3 alias to random_balanced internally
   expect_equal(out$summary$allocation_method, "random_balanced")
 })
 
-test_that("allocate_sparse_met translates M4 alias to balanced_incomplete internally", {
+test_that("allocate_sparse_met translates M4 alias to equireplicate internally", {
   x <- make_example_sparsemet_data()
   
   # Fixture: J=80, C=5, I=3, r=1.
@@ -75,7 +75,7 @@ test_that("allocate_sparse_met translates M4 alias to balanced_incomplete intern
   )
   
   expect_true(is.list(out))
-  expect_equal(out$summary$allocation_method, "balanced_incomplete")
+  expect_equal(out$summary$allocation_method, "equireplicate")
   # Every sparse treatment appears in exactly 1 environment
   sparse_reps <- out$line_replications[
     !names(out$line_replications) %in% x$common_treatments
@@ -83,7 +83,7 @@ test_that("allocate_sparse_met translates M4 alias to balanced_incomplete intern
   expect_true(all(sparse_reps == 1L))
 })
 
-test_that("allocate_sparse_met enforces exact equal replication for strict balanced_incomplete", {
+test_that("allocate_sparse_met enforces exact equal replication for strict equireplicate", {
   x <- make_example_sparsemet_data()
   
   # Fixture: J=80, C=5, I=3, r=1.
@@ -91,7 +91,7 @@ test_that("allocate_sparse_met enforces exact equal replication for strict balan
   out <- allocate_sparse_met(
     treatments                     = x$treatments,
     environments                   = x$environments,
-    allocation_method              = "balanced_incomplete",
+    allocation_method              = "equireplicate",
     n_test_entries_per_environment = 30,
     target_replications            = 1,
     common_treatments              = x$common_treatments,
@@ -172,10 +172,10 @@ test_that("allocate_sparse_met respects minimum coverage for random_balanced", {
 })
 
 # ============================================================
-# allocate_sparse_met(): balanced_incomplete -- exact feasibility error
+# allocate_sparse_met(): equireplicate -- exact feasibility error
 # ============================================================
 
-test_that("allocate_sparse_met stops when exact balanced_incomplete is infeasible and allow_approximate = FALSE", {
+test_that("allocate_sparse_met stops when exact equireplicate is infeasible and allow_approximate = FALSE", {
   x <- make_example_sparsemet_data()
   
   # 80 treatments, 3 environments, k = 17 per environment, r = 2:
@@ -185,7 +185,7 @@ test_that("allocate_sparse_met stops when exact balanced_incomplete is infeasibl
     allocate_sparse_met(
       treatments                     = x$treatments,
       environments                   = x$environments,
-      allocation_method              = "balanced_incomplete",
+      allocation_method              = "equireplicate",
       n_test_entries_per_environment = 17,
       target_replications            = 2,
       allow_approximate              = FALSE,
@@ -196,10 +196,10 @@ test_that("allocate_sparse_met stops when exact balanced_incomplete is infeasibl
 })
 
 # ============================================================
-# allocate_sparse_met(): balanced_incomplete -- approximate fallback
+# allocate_sparse_met(): equireplicate -- approximate fallback
 # ============================================================
 
-test_that("allocate_sparse_met completes with approximate balanced_incomplete when all treatments can still be assigned", {
+test_that("allocate_sparse_met completes with approximate equireplicate when all treatments can still be assigned", {
   x <- make_example_sparsemet_data()
   
   # 80 treatments, 3 environments, k = 30 per environment:
@@ -209,7 +209,7 @@ test_that("allocate_sparse_met completes with approximate balanced_incomplete wh
   out <- allocate_sparse_met(
     treatments                     = x$treatments,
     environments                   = x$environments,
-    allocation_method              = "balanced_incomplete",
+    allocation_method              = "equireplicate",
     n_test_entries_per_environment = 30,
     target_replications            = 2,
     allow_approximate              = TRUE,
@@ -226,11 +226,11 @@ test_that("allocate_sparse_met completes with approximate balanced_incomplete wh
 })
 
 # ============================================================
-# check_balanced_incomplete_feasibility(): output structure
+# check_equireplicate_feasibility(): output structure
 # ============================================================
 
-test_that("check_balanced_incomplete_feasibility returns a correctly structured list", {
-  chk <- check_balanced_incomplete_feasibility(
+test_that("check_equireplicate_feasibility returns a correctly structured list", {
+  chk <- check_equireplicate_feasibility(
     n_treatments_total             = 80,
     n_environments                 = 4,
     n_test_entries_per_environment = 20,
@@ -246,8 +246,8 @@ test_that("check_balanced_incomplete_feasibility returns a correctly structured 
   expect_true(is.character(chk$message))
 })
 
-test_that("check_balanced_incomplete_feasibility correctly identifies an exact feasible case", {
-  chk <- check_balanced_incomplete_feasibility(
+test_that("check_equireplicate_feasibility correctly identifies an exact feasible case", {
+  chk <- check_equireplicate_feasibility(
     n_treatments_total             = 80,
     n_environments                 = 4,
     n_test_entries_per_environment = 20,
@@ -261,8 +261,8 @@ test_that("check_balanced_incomplete_feasibility correctly identifies an exact f
   expect_equal(chk$required_sparse_slots, 80)
 })
 
-test_that("check_balanced_incomplete_feasibility correctly identifies a slot deficit", {
-  chk <- check_balanced_incomplete_feasibility(
+test_that("check_equireplicate_feasibility correctly identifies a slot deficit", {
+  chk <- check_equireplicate_feasibility(
     n_treatments_total             = 80,
     n_environments                 = 4,
     n_test_entries_per_environment = 20,
@@ -274,8 +274,8 @@ test_that("check_balanced_incomplete_feasibility correctly identifies a slot def
   expect_equal(chk$difference, -80)
 })
 
-test_that("check_balanced_incomplete_feasibility accounts correctly for common treatments", {
-  chk <- check_balanced_incomplete_feasibility(
+test_that("check_equireplicate_feasibility accounts correctly for common treatments", {
+  chk <- check_equireplicate_feasibility(
     n_treatments_total             = 80,
     n_environments                 = 4,
     n_test_entries_per_environment = 20,

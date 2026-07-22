@@ -6,7 +6,7 @@
 #' treatment slots across environments exactly equals the number of non-common
 #' treatments multiplied by the target replication. The function is a
 #' diagnostic companion to [allocate_sparse_met()] with
-#' `allocation_method = "balanced_incomplete"`, and should be called before
+#' `allocation_method = "equireplicate"`, and should be called before
 #' allocation when the user wants to verify feasibility or understand the
 #' magnitude of any imbalance before deciding whether to set
 #' `allow_approximate = TRUE`.
@@ -204,16 +204,40 @@ check_balanced_incomplete_feasibility <- function(
   difference            <- total_sparse_slots - required_sparse_slots
   feasible              <- (difference == 0L)
 
+  # -- Strict BIBD existence conditions (informational only) -------------------
+  # The equireplicate constructor needs ONLY the slot identity (feasible == TRUE):
+  # equal replication and equal environment size. A strict balanced incomplete
+  # block design (constant pairwise concurrence lambda) additionally requires:
+  #   (1) equal environment sizes (k* constant),
+  #   (2) lambda = r (k* - 1) / (J* - 1) a positive integer, and
+  #   (3) Fisher's inequality: #blocks >= #treatments, i.e. I >= J*.
+  # For sparse testing J* >> I, so (3) almost always fails: a strict BIBD does
+  # not exist and the equireplicate near-balanced design is the achievable goal.
+  k_sparse_equal <- length(unique(k_sparse)) == 1L
+  bibd_lambda    <- if (n_sparse_treatments > 1L && k_sparse_equal)
+    target_replications * (k_sparse[1] - 1) / (n_sparse_treatments - 1) else NA_real_
+  bibd_lambda_integer <- is.finite(bibd_lambda) &&
+    isTRUE(all.equal(bibd_lambda, round(bibd_lambda))) && bibd_lambda >= 1
+  fisher_ok            <- n_environments >= n_sparse_treatments
+  strict_bibd_possible <- isTRUE(feasible) && k_sparse_equal &&
+    isTRUE(bibd_lambda_integer) && fisher_ok
+
   msg <- if (feasible) {
     paste0(
-      "Exact balanced incomplete allocation is feasible: ",
+      "Exact equireplicate allocation is feasible: ",
       n_sparse_treatments, " sparse treatments x ",
       target_replications, " replications = ",
-      required_sparse_slots, " sparse slots, matching the available total."
+      required_sparse_slots, " sparse slots, matching the available total. ",
+      if (strict_bibd_possible)
+        "A strict BIBD is also achievable for these parameters."
+      else
+        "A strict BIBD is NOT achievable (see strict_bibd_possible); the ",
+      if (!strict_bibd_possible)
+        "constructor delivers a near-balanced equireplicate design." else ""
     )
   } else {
     paste0(
-      "Exact balanced incomplete allocation is not feasible: available sparse slots = ",
+      "Exact equireplicate allocation is not feasible: available sparse slots = ",
       total_sparse_slots, ", required sparse slots = ",
       required_sparse_slots, ", difference = ", difference, "."
     )
@@ -226,6 +250,26 @@ check_balanced_incomplete_feasibility <- function(
     total_sparse_slots    = total_sparse_slots,
     required_sparse_slots = required_sparse_slots,
     difference            = difference,
+    bibd_lambda           = bibd_lambda,
+    bibd_lambda_integer   = isTRUE(bibd_lambda_integer),
+    fisher_ok             = fisher_ok,
+    strict_bibd_possible  = strict_bibd_possible,
     message               = msg
+  )
+}
+
+#' @rdname check_balanced_incomplete_feasibility
+#' @export
+check_equireplicate_feasibility <- function(n_treatments_total,
+                                            n_environments,
+                                            n_test_entries_per_environment,
+                                            target_replications,
+                                            n_common_treatments = 0L) {
+  check_balanced_incomplete_feasibility(
+    n_treatments_total             = n_treatments_total,
+    n_environments                 = n_environments,
+    n_test_entries_per_environment = n_test_entries_per_environment,
+    target_replications            = target_replications,
+    n_common_treatments            = n_common_treatments
   )
 }

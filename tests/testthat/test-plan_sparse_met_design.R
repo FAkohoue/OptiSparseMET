@@ -301,7 +301,7 @@ test_that("combine_met_fieldbooks returns expected structure", {
     field_books       = list(E1 = fb_E1, E2 = fb_E2),
     local_designs     = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
     replication_modes = c(E1 = "augmented",        E2 = "augmented"),
-    sparse_method     = "balanced_incomplete",
+    sparse_method     = "equireplicate",
     common_treatments = "CHK1"
   )
 

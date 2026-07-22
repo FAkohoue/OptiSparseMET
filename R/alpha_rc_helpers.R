@@ -136,11 +136,29 @@
 #   Numeric scalar: sum of log(eigenvalues > tol).
 #   Returns NA_real_ if no eigenvalue exceeds tol (rank-0 matrix).
 # ------------------------------------------------------------------------------
-.safe_logdet_psd_dense <- function(M, tol = 1e-10) {
+.safe_logdet_psd_dense <- function(M, tol_rel = 1e-8, expected_rank = NULL) {
+  # Log pseudo-determinant of a symmetric PSD matrix: sum of logs of the
+  # positive eigenvalues. Uses a RELATIVE tolerance (tol_rel * max eigenvalue)
+  # so the result is invariant to the overall scale of M -- an absolute
+  # threshold could either keep a numerical-noise "zero" eigenvalue (collapsing
+  # the determinant) or drop a genuinely small one (inflating it).
+  #
+  # When expected_rank is supplied (e.g. p - 1 for a centered contrast
+  # covariance HVH), exactly that many top eigenvalues are used, guaranteeing the
+  # eigenvalue count matches the divisor used by the caller. If fewer positive
+  # eigenvalues survive the tolerance than expected_rank, the matrix is
+  # rank-deficient beyond its structural null space and NA is returned.
   ev <- eigen((M + t(M)) / 2, symmetric = TRUE, only.values = TRUE)$values
-  ev <- ev[ev > tol]
-  if (length(ev) == 0) return(NA_real_)
-  sum(log(ev))
+  ev <- sort(ev, decreasing = TRUE)
+  mx <- ev[1]
+  if (!is.finite(mx) || mx <= 0) return(NA_real_)
+  ev_pos <- ev[ev > tol_rel * mx]
+  if (!is.null(expected_rank)) {
+    if (length(ev_pos) < expected_rank) return(NA_real_)
+    ev_pos <- ev_pos[seq_len(expected_rank)]
+  }
+  if (length(ev_pos) == 0) return(NA_real_)
+  sum(log(ev_pos))
 }
 
 
@@ -265,6 +283,208 @@
     x    = c(d, o, o),
     dims = c(nn, nn)
   )
+}
+
+
+# ------------------------------------------------------------------------------
+# .build_residual_precision
+# ------------------------------------------------------------------------------
+# Construct the residual precision matrix Q = R^{-1} for a set of plots given
+# their (Row, Column) coordinates on an n_rows x n_cols field grid.
+#
+# Structures:
+#   "IID"      : Q = (1/sigma_e2) I
+#   "AR1"      : row-only AR1. Covariance = kronecker(I_cols, Sigma_row);
+#                precision = kronecker(I_cols, Qrow).
+#   "AR1xAR1"  : separable. Covariance = kronecker(Sigma_col, Sigma_row);
+#                precision = kronecker(Qcol, Qrow).
+#
+# CRITICAL indexing note: because the inner (fast-varying) Kronecker factor is
+# Qrow (dimension n_rows), the linear index of a plot at (Row r, Column c) into
+# the Kronecker grid is
+#       grid_index = (c - 1) * n_rows + r.
+# Using (r - 1) * n_cols + c (the previous implementation) transposes the row/
+# column autocorrelation axes and scrambles adjacency on non-square fields.
+# This helper is verified against a hand-built AR1xAR1 precision on a non-square
+# grid in tests/testthat/test-ar1-precision.R.
+#
+# For a fully populated field (one plot per cell) the returned Q is the exact
+# reordered full-grid precision. When some cells are empty, Q is the subset
+# Qgrid[present, present], i.e. the precision of the observed plots conditional
+# on the empty cells -- a deliberate, documented modelling approximation carried
+# over from the original evaluators.
+# ------------------------------------------------------------------------------
+.ensure_full_column_rank <- function(X, Q) {
+  # Guard against a singular fixed-effects design (e.g. intercept retained
+  # alongside a full set of treatment dummies when check_as_fixed = FALSE and
+  # there are no check rows). Rank is assessed on X'QX (p x p). The intercept is
+  # dropped first (the usual redundant column); any remaining dependencies are
+  # removed by QR pivoting. Returns X with full column rank.
+  rk <- function(M) as.integer(Matrix::rankMatrix(
+    Matrix::crossprod(M, Q %*% M), method = "qr"))
+  if (rk(X) == ncol(X)) return(X)
+
+  if ("(Intercept)" %in% colnames(X)) {
+    X <- X[, colnames(X) != "(Intercept)", drop = FALSE]
+    message("Fixed-effects design was rank-deficient; dropped '(Intercept)'.")
+    if (rk(X) == ncol(X)) return(X)
+  }
+
+  qrc     <- qr(as.matrix(Matrix::crossprod(X, Q %*% X)))
+  keep    <- sort(qrc$pivot[seq_len(qrc$rank)])
+  dropped <- setdiff(colnames(X), colnames(X)[keep])
+  if (length(dropped))
+    message("Fixed-effects design rank-deficient; dropped column(s): ",
+            paste(dropped, collapse = ", "))
+  X[, keep, drop = FALSE]
+}
+
+
+.ar1_cov <- function(nn, rho) {
+  # AR1 correlation matrix, rho^|i-j| (dense; used by covariance-based structures).
+  i <- seq_len(nn)
+  rho^abs(outer(i, i, "-"))
+}
+
+
+.spatial_kernel <- function(d, kernel, range, matern_nu = 1.5) {
+  # Isotropic correlation as a function of Euclidean plot distance.
+  if (range <= 0) stop("`kernel_range` must be positive.")
+  switch(kernel,
+    exponential = exp(-d / range),
+    gaussian    = exp(-(d / range)^2),
+    matern      = {
+      if (isTRUE(all.equal(matern_nu, 0.5))) {
+        exp(-d / range)
+      } else if (isTRUE(all.equal(matern_nu, 1.5))) {
+        a <- sqrt(3) * d / range; (1 + a) * exp(-a)
+      } else if (isTRUE(all.equal(matern_nu, 2.5))) {
+        a <- sqrt(5) * d / range; (1 + a + (a^2) / 3) * exp(-a)
+      } else {
+        stop("`matern_nu` must be 0.5, 1.5 or 2.5.")
+      }
+    },
+    stop("Unknown kernel: ", kernel)
+  )
+}
+
+
+.build_residual_precision <- function(row_idx, col_idx, n_rows, n_cols,
+                                      residual_structure, rho_row, rho_col,
+                                      sigma_e2, nugget = 0,
+                                      kernel_range = NULL, matern_nu = 1.5,
+                                      max_dense_solve = 3000L) {
+  nn <- length(row_idx)
+  ri <- as.integer(row_idx)
+  ci <- as.integer(col_idx)
+
+  if (residual_structure == "IID") {
+    return(Matrix::Diagonal(nn, 1 / sigma_e2))
+  }
+
+  grid_index <- (ci - 1L) * n_rows + ri
+
+  # ---- Fast Kronecker-precision path (no nugget) -----------------------------
+  if (residual_structure %in% c("AR1", "AR1xAR1")) {
+    if (residual_structure == "AR1") {
+      Qrow  <- .ar1_precision_sparse(n_rows, rho_row)
+      Qgrid <- Matrix::kronecker(Matrix::Diagonal(n_cols, 1), Qrow) * (1 / sigma_e2)
+    } else {
+      Qrow  <- .ar1_precision_sparse(n_rows, rho_row)
+      Qcol  <- .ar1_precision_sparse(n_cols, rho_col)
+      Qgrid <- Matrix::kronecker(Qcol, Qrow) * (1 / sigma_e2)
+    }
+    return(Qgrid[grid_index, grid_index, drop = FALSE])
+  }
+
+  # ---- Covariance-based structures -------------------------------------------
+  # These build the covariance of the OBSERVED plots and invert it (the marginal
+  # form). For a fully populated field this coincides with subsetting the
+  # full-grid precision; when cells are empty the marginal form used here is the
+  # statistically correct one. Cost is O(n^3), hence the size guard.
+  if (nn > max_dense_solve)
+    stop("Structure '", residual_structure, "' needs a dense ", nn, " x ", nn,
+         " solve, above max_dense_solve (", max_dense_solve, ").")
+
+  if (nugget < 0 || nugget >= 1)
+    stop("`nugget` must satisfy 0 <= nugget < 1.")
+
+  if (residual_structure == "AR1xAR1_nugget") {
+    Kfull <- kronecker(.ar1_cov(n_cols, rho_col), .ar1_cov(n_rows, rho_row))
+    Ksub  <- Kfull[grid_index, grid_index, drop = FALSE]
+  } else if (residual_structure %in% c("exponential", "gaussian", "matern")) {
+    if (is.null(kernel_range))
+      stop("`kernel_range` is required for kernel structure '", residual_structure, "'.")
+    d <- as.matrix(stats::dist(cbind(as.numeric(ri), as.numeric(ci))))
+    Ksub <- .spatial_kernel(d, residual_structure, kernel_range, matern_nu)
+  } else {
+    stop("Unknown residual_structure: ", residual_structure)
+  }
+
+  Sigma <- (1 - nugget) * Ksub + nugget * diag(nn)
+  Qd <- tryCatch(solve(Sigma), error = function(e) .pinv_sym_dense(Sigma))
+  Matrix::Matrix((Qd + t(Qd)) / 2 / sigma_e2, sparse = FALSE)
+}
+
+
+# ------------------------------------------------------------------------------
+# .pspline_block
+# ------------------------------------------------------------------------------
+# Tensor-product P-spline (SpATS-style) spatial surface, returned in the
+# mixed-model reparameterisation so it can be used as a proper random effect.
+#
+# A tensor B-spline basis is built over the row and column coordinates, with
+# second-order difference penalties on each margin:
+#     P = lambda_row * (I_kc %x% D_r) + lambda_col * (D_c %x% I_kr)
+# matching the coefficient ordering of Z, whose row for plot (r, c) is
+#     kronecker(Bc[c, ], Br[r, ]).
+#
+# That penalty is IMPROPER: its null space (constant, linear row, linear column
+# and their product) is unpenalised, so using it directly leaves those
+# directions nearly free and they compete with the genotype effects. We
+# therefore eigen-decompose P and keep only the positive-eigenvalue (range)
+# space, giving a proper random effect with diagonal precision. The null-space
+# directions are intentionally dropped: the intercept and the Row/Column random
+# effects already represent them. With this reparameterisation, letting the
+# smoothing parameters grow shrinks the surface away and the design criteria
+# converge to the no-spline model (verified numerically).
+# ------------------------------------------------------------------------------
+.pspline_block <- function(row_idx, col_idx, n_rows, n_cols,
+                           knots_row = 8L, knots_col = 8L,
+                           lambda_row = 1, lambda_col = 1,
+                           degree = 3L, tol = 1e-8) {
+  if (!requireNamespace("splines", quietly = TRUE))
+    stop("Package 'splines' is required for the P-spline spatial surface.")
+
+  kr <- max(as.integer(knots_row), degree + 1L)
+  kc <- max(as.integer(knots_col), degree + 1L)
+  kr <- min(kr, n_rows); kc <- min(kc, n_cols)
+  if (kr < degree + 1L || kc < degree + 1L)
+    stop("Field is too small for a P-spline surface; use a residual structure instead.")
+
+  Br <- splines::bs(seq_len(n_rows), df = kr, degree = degree, intercept = TRUE)
+  Bc <- splines::bs(seq_len(n_cols), df = kc, degree = degree, intercept = TRUE)
+  Br <- matrix(as.numeric(Br), nrow = n_rows)
+  Bc <- matrix(as.numeric(Bc), nrow = n_cols)
+
+  dpen <- function(k, order = 2L) {
+    D <- diag(k)
+    for (i in seq_len(order)) D <- diff(D)
+    crossprod(D)
+  }
+  P <- lambda_row * kronecker(diag(kc), dpen(kr)) +
+       lambda_col * kronecker(dpen(kc), diag(kr))
+
+  eg   <- eigen((P + t(P)) / 2, symmetric = TRUE)
+  keep <- eg$values > tol * max(eg$values, 1)
+  if (!any(keep)) stop("P-spline penalty has no positive eigenvalues.")
+  U   <- eg$vectors[, keep, drop = FALSE]
+  Lam <- eg$values[keep]
+
+  ri <- as.integer(row_idx); ci <- as.integer(col_idx)
+  Zfull <- t(vapply(seq_along(ri), function(i) kronecker(Bc[ci[i], ], Br[ri[i], ]),
+                    numeric(kr * kc)))
+  list(Z = Zfull %*% U, lambda = Lam)
 }
 
 

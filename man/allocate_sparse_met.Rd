@@ -7,10 +7,13 @@
 allocate_sparse_met(
   treatments,
   environments,
-  allocation_method = c("random_balanced", "balanced_incomplete", "M3", "M4"),
+  allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
   n_test_entries_per_environment,
   target_replications = NULL,
   common_treatments = NULL,
+  balance = c("none", "env_pair", "line_pair", "both"),
+  balance_iter = 2000L,
+  balance_seed = NULL,
   allocation_group_source = c("none", "Family", "GRM", "A"),
   treatment_info = NULL,
   GRM = NULL,
@@ -39,7 +42,7 @@ least two elements. Duplicate values are silently removed.}
 
 \item{allocation_method}{Character scalar. Sparse allocation strategy.
 Accepted values are \code{"random_balanced"} (M3-inspired stochastic
-allocation) and \code{"balanced_incomplete"} (M4-type BIBD allocation). The
+allocation) and \code{"equireplicate"} (M4-type equal-replication allocation). The
 aliases \code{"M3"} and \code{"M4"} are also accepted and translated internally to
 their canonical names before any further processing.}
 
@@ -53,7 +56,7 @@ a value that guarantees full treatment coverage.}
 \item{target_replications}{Optional positive integer. Target number of
 environments in which each non-common treatment should appear. For
 \code{"random_balanced"}, this is a soft target that guides the phase-two
-filling. For \code{"balanced_incomplete"}, this is the strict replication level
+filling. For \code{"equireplicate"}, this is the strict replication level
 required for an exact balanced solution. If \code{NULL}, the function infers a
 value as \code{floor(total_sparse_slots / n_sparse_treatments)}, with a minimum
 of 1.}
@@ -62,6 +65,22 @@ of 1.}
 to all environments. Placed before sparse allocation begins and excluded
 from the sparse pool. Values not present in \code{treatments} are silently
 dropped.}
+
+\item{balance}{Character scalar. Post-construction refinement toward a
+near-balanced (regular-graph) design, preserving equal replication and
+equal environment size. \code{"none"} (default) skips it; \code{"env_pair"}
+equalises the number of lines shared by each pair of environments
+(cross-environment connectivity); \code{"line_pair"} equalises pairwise
+treatment concurrence; \code{"both"} applies \code{"env_pair"} then \code{"line_pair"}.
+Ignored (with a message) when genetic grouping is active. A strict BIBD is
+generally unattainable when treatments greatly outnumber environments, so
+this targets the achievable balance rather than constant \eqn{\lambda}.}
+
+\item{balance_iter}{Integer, default \code{2000}. Number of swap iterations per
+balance pass.}
+
+\item{balance_seed}{Optional integer seed for the balance swap search
+(independent of \code{seed}).}
 
 \item{allocation_group_source}{Character scalar. Controls whether and how
 genetic group structure guides allocation. \code{"none"} disables group-guided
@@ -123,7 +142,7 @@ assigns treatments from groups that have not yet appeared in
 not \code{"none"} and \code{min_env_per_group} is not \code{NULL}.}
 
 \item{allow_approximate}{Logical, default \code{FALSE}. When \code{FALSE} and
-\code{allocation_method = "balanced_incomplete"}, the slot identity
+\code{allocation_method = "equireplicate"}, the slot identity
 \eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
 with an error if it does not. This is the standard M4 path and guarantees
 equal replication for every non-common treatment. When \code{TRUE}, the slot
@@ -195,7 +214,7 @@ coverage-first strategy that additionally guarantees every non-common
 treatment appears in at least one environment before replication filling
 begins.
 
-The \code{"balanced_incomplete"} method implements the M4 allocation of
+The \code{"equireplicate"} method implements the M4 allocation of
 Montesinos-Lopez et al. (2023): every non-common treatment appears in
 exactly \eqn{r} environments (equal replication) and every environment
 receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
@@ -265,7 +284,7 @@ environments are weakly correlated.
 
 \subsection{Two-phase allocation}{
 
-For \code{"random_balanced"} and approximate \code{"balanced_incomplete"}, phase one
+For \code{"random_balanced"} and approximate \code{"equireplicate"}, phase one
 iterates over sparse treatments in random order and assigns each to one
 environment, preferring environments where the treatment's genetic group is
 not yet represented when \code{allocation_group_source} is active. Phase two
@@ -314,7 +333,7 @@ The M4 method (Montesinos-Lopez et al., 2023) enforces two conditions:
 If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
 the chosen \code{n_test_entries_per_environment} and \code{target_replications}, the
 function stops with an informative error. Use
-\code{\link[=check_balanced_incomplete_feasibility]{check_balanced_incomplete_feasibility()}} to verify the slot identity before
+\code{\link[=check_equireplicate_feasibility]{check_equireplicate_feasibility()}} to verify the slot identity before
 calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
 I \times k^*}. Construction uses a greedy load-balanced constructor that
 assigns each sparse treatment to the least-loaded eligible environments,
@@ -368,7 +387,7 @@ head(out1$group_by_environment)
 out2 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
-  allocation_method              = "balanced_incomplete",
+  allocation_method              = "equireplicate",
   n_test_entries_per_environment = 65,
   target_replications            = 2,
   common_treatments              = treatments[1:10],
@@ -391,8 +410,8 @@ prediction under balanced incomplete block design. \emph{The Plant Genome},
 \seealso{
 \code{\link[=suggest_safe_k]{suggest_safe_k()}} and \code{\link[=min_k_for_full_coverage]{min_k_for_full_coverage()}} for choosing a feasible
 \code{n_test_entries_per_environment} before calling this function.
-\code{\link[=check_balanced_incomplete_feasibility]{check_balanced_incomplete_feasibility()}} for verifying the slot identity
-before attempting a \code{"balanced_incomplete"} allocation.
+\code{\link[=check_equireplicate_feasibility]{check_equireplicate_feasibility()}} for verifying the slot identity
+before attempting a \code{"equireplicate"} allocation.
 \code{\link[=derive_allocation_groups]{derive_allocation_groups()}} for inspecting the group structure that guides
 allocation when \code{allocation_group_source} is not \code{"none"}.
 \code{\link[=met_prep_famoptg]{met_prep_famoptg()}} and \code{\link[=met_alpha_rc_stream]{met_alpha_rc_stream()}} for the within-environment

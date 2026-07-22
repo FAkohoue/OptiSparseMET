@@ -24,6 +24,25 @@
 # CRAN submission notes
 ^cran-comments\.md$
 
+# Development / analysis documents (not part of the installed package)
+^CRITIQUE_Colmant2026_and_OptiSparseMET\.md$
+^DECISION_POINTS_DESIGN\.md$
+^IMPLEMENTATION_PLAN\.md$
+^VALIDATION\.md$
+
+# Reference PDFs and guides kept in the repo for development
+^Colmant et al\. 2026\.pdf$
+^Montesinos-Lopez et al\. 2023\.pdf$
+\.docx$
+\.pdf$
+
+# Office lock/temp artefacts. Word writes "~$<name>.docx" and "~WRL####.tmp"
+# while a document is open; R CMD check cannot read the locked file and halts
+# during "checking for executable files".
+^~\$
+^~WRL.*\.tmp$
+\.tmp$
+
 # License and README source files
 ^LICENSE\.md$
 ^README\.Rmd$

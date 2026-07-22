@@ -41,9 +41,9 @@
 #'   \item{`sparse_example_args_random_balanced`}{Named list of arguments
 #'     ready to pass to [allocate_sparse_met()] with
 #'     `allocation_method = "random_balanced"`.}
-#'   \item{`sparse_example_args_balanced_incomplete`}{Named list of arguments
+#'   \item{`sparse_example_args_equireplicate`}{Named list of arguments
 #'     ready to pass to [allocate_sparse_met()] with
-#'     `allocation_method = "balanced_incomplete"`.}
+#'     `allocation_method = "equireplicate"`.}
 #'   \item{`env_design_specs`}{Named list with one element per environment.
 #'     Each element is a named list specifying the local field design for that
 #'     environment. The `design` field in each element is set to either

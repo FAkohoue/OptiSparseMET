@@ -12,7 +12,17 @@ met_evaluate_famoptg_efficiency(
   treatment_effect = c("random", "fixed"),
   prediction_type = c("IID", "GBLUP", "PBLUP", "none"),
   check_as_fixed = TRUE,
-  residual_structure = c("IID", "AR1", "AR1xAR1"),
+  residual_structure = c("IID", "AR1", "AR1xAR1", "AR1xAR1_nugget", "exponential",
+    "gaussian", "matern"),
+  nugget = 0,
+  kernel_range = NULL,
+  matern_nu = 1.5,
+  spatial_random = c("none", "pspline"),
+  spline_knots_row = 8L,
+  spline_knots_col = 8L,
+  spline_lambda_row = 1,
+  spline_lambda_col = 1,
+  sigma_s2 = 1,
   rho_row = 0,
   rho_col = 0,
   varcomp = list(sigma_e2 = 1, sigma_g2 = 1, sigma_b2 = 1, sigma_r2 = 1, sigma_c2 = 1),
@@ -57,6 +67,32 @@ effects in the model. Default \code{TRUE}.}
 \item{residual_structure}{Character. Residual covariance structure:
 \code{"IID"}, \code{"AR1"} (row AR1 only), or \code{"AR1xAR1"} (separable row x
 column AR1).}
+
+\item{nugget}{Numeric in [0, 1). Proportion of residual variance treated as
+independent measurement error, used by \code{"AR1xAR1_nugget"} and the distance
+kernels. Pure AR1xAR1 (nugget = 0) often fits field data poorly, so a
+non-zero nugget is usually the more realistic applied model.}
+
+\item{kernel_range}{Positive numeric. Range (distance-decay) parameter for the
+isotropic kernels \code{"exponential"}, \code{"gaussian"} and \code{"matern"}. Required for
+those structures.}
+
+\item{matern_nu}{Smoothness of the Matern kernel; one of 0.5, 1.5 or 2.5.}
+
+\item{spatial_random}{Character. \code{"none"} (default) or \code{"pspline"} to add a
+SpATS-style two-dimensional penalised-spline surface as a random effect with
+IID residuals (Rodriguez-Alvarez et al. 2018). The spline is reparameterised
+so its penalty is positive definite; its null space (constant and linear
+trends) is dropped because the intercept and Row/Column effects already
+represent it.}
+
+\item{spline_knots_row, spline_knots_col}{Number of B-spline basis functions
+per axis for \code{spatial_random = "pspline"}.}
+
+\item{spline_lambda_row, spline_lambda_col}{Smoothing parameters per axis;
+larger values give a flatter surface.}
+
+\item{sigma_s2}{Variance of the P-spline surface random effect.}
 
 \item{rho_row}{Numeric in \eqn{(-1, 1)}. AR1 autocorrelation along rows.
 Used when \code{residual_structure \%in\% c("AR1", "AR1xAR1")}.}

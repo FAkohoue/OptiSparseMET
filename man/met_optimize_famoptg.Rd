@@ -41,7 +41,12 @@ met_optimize_famoptg(
   treatment_effect = c("random", "fixed"),
   prediction_type = c("IID", "GBLUP", "PBLUP", "none"),
   check_as_fixed = TRUE,
-  residual_structure = c("IID", "AR1", "AR1xAR1"),
+  residual_structure = c("IID", "AR1", "AR1xAR1", "AR1xAR1_nugget", "exponential",
+    "gaussian", "matern"),
+  nugget = 0,
+  kernel_range = NULL,
+  matern_nu = 1.5,
+  spatial_random = c("none", "pspline"),
   rho_row = 0,
   rho_col = 0,
   varcomp = list(sigma_e2 = 1, sigma_g2 = 1, sigma_b2 = 1, sigma_r2 = 1, sigma_c2 = 1),
@@ -59,7 +64,7 @@ met_optimize_famoptg(
 \item{check_treatments, check_families, p_rep_treatments, p_rep_reps, p_rep_families, unreplicated_treatments, unreplicated_families, n_blocks, n_rows, n_cols, order, serpentine, seed, attempts, warn_and_correct, fix_rows, cluster_source, GRM, A, id_map, cluster_method, cluster_seed, cluster_attempts, n_pcs_use, check_placement, check_opt_attempts, use_dispersion, dispersion_source, dispersion_radius, dispersion_iters, dispersion_seed, K, line_id_map}{Passed directly to \code{\link[=met_prep_famoptg]{met_prep_famoptg()}}. See that function for full
 documentation.}
 
-\item{treatment_effect, prediction_type, check_as_fixed, residual_structure, rho_row, rho_col, varcomp, spatial_engine, dense_max_n, eff_trace_samples, eff_full_max}{Passed directly to \code{\link[=met_evaluate_famoptg_efficiency]{met_evaluate_famoptg_efficiency()}}. See that function
+\item{treatment_effect, prediction_type, check_as_fixed, residual_structure, rho_row, rho_col, nugget, kernel_range, matern_nu, spatial_random, varcomp, spatial_engine, dense_max_n, eff_trace_samples, eff_full_max}{Passed directly to \code{\link[=met_evaluate_famoptg_efficiency]{met_evaluate_famoptg_efficiency()}}. See that function
 for full documentation. Note that \code{varcomp} here uses \code{sigma_b2} (block
 variance) instead of \code{sigma_rep2} and \code{sigma_ib2}.}
 

@@ -91,7 +91,7 @@ OptiSparseMET_K   <- make_psd_matrix(treatments, n_features = 20, diag_scale = 1
 
 # Random balanced: environment capacities are intentionally unequal
 # (45, 50, 40, 48) to demonstrate that random_balanced handles
-# heterogeneous sizes while balanced_incomplete requires equal capacity.
+# heterogeneous sizes while equireplicate requires equal capacity.
 # target_replications = 1 keeps the example tractable for illustration.
 sparse_example_args_random_balanced <- list(
   treatments                     = treatments,
@@ -111,10 +111,10 @@ sparse_example_args_random_balanced <- list(
 # BIBD is not achievable (no lambda integer exists for J*=112, I=4). Setting
 # allow_approximate = TRUE lets the allocator construct the closest balanced
 # solution, demonstrating the approximate M4 path in a realistic scenario.
-sparse_example_args_balanced_incomplete <- list(
+sparse_example_args_equireplicate <- list(
   treatments                     = treatments,
   environments                   = environments,
-  allocation_method              = "balanced_incomplete",
+  allocation_method              = "equireplicate",
   n_test_entries_per_environment = rep(38L, length(environments)),
   target_replications            = 1L,
   common_treatments              = common_treatments,
@@ -233,7 +233,7 @@ OptiSparseMET_example_data <- list(
   OptiSparseMET_A                     = OptiSparseMET_A,
   OptiSparseMET_K                     = OptiSparseMET_K,
   sparse_example_args_random_balanced     = sparse_example_args_random_balanced,
-  sparse_example_args_balanced_incomplete = sparse_example_args_balanced_incomplete,
+  sparse_example_args_equireplicate = sparse_example_args_equireplicate,
   env_design_specs                    = env_design_specs
 )
 

@@ -145,6 +145,32 @@
 #' @param rho_col Numeric in \eqn{(-1, 1)}. AR1 autocorrelation parameter
 #'   along columns. Used only when `residual_structure = "AR1xAR1"`.
 #'
+#' @param nugget Numeric in [0, 1). Proportion of residual variance treated as
+#'   independent measurement error, used by `"AR1xAR1_nugget"` and the distance
+#'   kernels. Pure AR1xAR1 (nugget = 0) often fits field data poorly, so a
+#'   non-zero nugget is usually the more realistic applied model.
+#'
+#' @param kernel_range Positive numeric. Range (distance-decay) parameter for the
+#'   isotropic kernels `"exponential"`, `"gaussian"` and `"matern"`. Required for
+#'   those structures.
+#'
+#' @param matern_nu Smoothness of the Matern kernel; one of 0.5, 1.5 or 2.5.
+#'
+#' @param spatial_random Character. `"none"` (default) or `"pspline"` to add a
+#'   SpATS-style two-dimensional penalised-spline surface as a random effect with
+#'   IID residuals (Rodriguez-Alvarez et al. 2018). The spline is reparameterised
+#'   so its penalty is positive definite; its null space (constant and linear
+#'   trends) is dropped because the intercept and Row/Column effects already
+#'   represent it.
+#'
+#' @param spline_knots_row,spline_knots_col Number of B-spline basis functions
+#'   per axis for `spatial_random = "pspline"`.
+#'
+#' @param spline_lambda_row,spline_lambda_col Smoothing parameters per axis;
+#'   larger values give a flatter surface.
+#'
+#' @param sigma_s2 Variance of the P-spline surface random effect.
+#'
 #' @param varcomp Named list of variance components. Required components:
 #'   `sigma_e2` (residual), `sigma_g2` (entry genetic), `sigma_rep2`
 #'   (replicate), `sigma_ib2` (incomplete block), `sigma_r2` (row), `sigma_c2`
@@ -276,9 +302,19 @@ met_evaluate_alpha_efficiency <- function(
     treatment_effect   = c("random", "fixed"),
     prediction_type    = c("IID", "GBLUP", "PBLUP", "none"),
     check_as_fixed     = TRUE,
-    residual_structure = c("IID", "AR1", "AR1xAR1"),
+    residual_structure = c("IID", "AR1", "AR1xAR1", "AR1xAR1_nugget",
+                           "exponential", "gaussian", "matern"),
     rho_row            = 0,
     rho_col            = 0,
+    nugget             = 0,
+    kernel_range       = NULL,
+    matern_nu          = 1.5,
+    spatial_random     = c("none", "pspline"),
+    spline_knots_row   = 8L,
+    spline_knots_col   = 8L,
+    spline_lambda_row  = 1,
+    spline_lambda_col  = 1,
+    sigma_s2           = 1,
 
     # -- Variance components --------------------------------------------------
     varcomp = list(
@@ -307,6 +343,7 @@ met_evaluate_alpha_efficiency <- function(
   treatment_effect   <- match.arg(treatment_effect)
   prediction_type    <- match.arg(prediction_type)
   residual_structure <- match.arg(residual_structure)
+  spatial_random     <- match.arg(spatial_random)
   spatial_engine     <- match.arg(spatial_engine)
 
   # -- Pre-flight guard --------------------------------------------------------
@@ -367,25 +404,14 @@ met_evaluate_alpha_efficiency <- function(
   }
 
   # -- Residual precision matrix Q ---------------------------------------------
+  # Delegated to .build_residual_precision() (alpha_rc_helpers.R), which encodes
+  # the correct Kronecker indexing (c - 1) * n_rows + r and is unit-tested
+  # against a hand-built AR1xAR1 precision on a non-square grid.
   residual_use <- residual_structure
-
-  if (residual_use == "IID") {
-    Q <- Matrix::Diagonal(nn, 1 / sigma_e2)
-
-  } else if (residual_use == "AR1") {
-    Qrow       <- .ar1_precision_sparse(n_rows, rho_row)
-    grid_index <- (as.integer(rw) - 1L) * n_cols + as.integer(cl)
-    Qfull      <- Matrix::kronecker(Matrix::Diagonal(n_cols, 1), Qrow) * (1 / sigma_e2)
-    Q          <- Qfull[grid_index, grid_index, drop = FALSE]
-
-  } else {
-    # AR1xAR1
-    Qrow       <- .ar1_precision_sparse(n_rows, rho_row)
-    Qcol       <- .ar1_precision_sparse(n_cols, rho_col)
-    Qgrid      <- Matrix::kronecker(Qcol, Qrow) * (1 / sigma_e2)
-    grid_index <- (as.integer(rw) - 1L) * n_cols + as.integer(cl)
-    Q          <- Qgrid[grid_index, grid_index, drop = FALSE]
-  }
+  Q <- .build_residual_precision(rw, cl, n_rows, n_cols,
+                                 residual_use, rho_row, rho_col, sigma_e2,
+                                 nugget = nugget, kernel_range = kernel_range,
+                                 matern_nu = matern_nu)
 
   # -- Fixed effects matrix X --------------------------------------------------
   X_int         <- Matrix::Matrix(rep(1, nn), ncol = 1, sparse = TRUE)
@@ -413,6 +439,8 @@ met_evaluate_alpha_efficiency <- function(
     X <- cbind(X, trt_inc$M)
     if (isTRUE(check_as_fixed))
       X <- X[, colnames(X) != "(Intercept)", drop = FALSE]
+    # Guard against a singular fixed-effects design (P0.4).
+    X <- .ensure_full_column_rank(X, Q)
   }
 
   # -- Random effects matrices Z -----------------------------------------------
@@ -427,6 +455,21 @@ met_evaluate_alpha_efficiency <- function(
   colnames(Zc)   <- paste0("Col_",   colnames(Zc))
 
   Z_list  <- list(Zrep = Zrep, Zb = Zb, Zr = Zr, Zc = Zc)
+
+  # Optional SpATS-style P-spline surface, added as a proper random effect
+  # (reparameterised so its penalty is positive definite). Placed BEFORE the
+  # genotype block so the genotype index bookkeeping below is unchanged.
+  spline_lam <- numeric(0)
+  if (spatial_random == "pspline") {
+    sp <- .pspline_block(rw, cl, n_rows, n_cols,
+                         knots_row = spline_knots_row, knots_col = spline_knots_col,
+                         lambda_row = spline_lambda_row, lambda_col = spline_lambda_col)
+    Zs <- Matrix::Matrix(sp$Z, sparse = FALSE)
+    colnames(Zs) <- paste0("Spline_", seq_len(ncol(Zs)))
+    Z_list$Zs  <- Zs
+    spline_lam <- sp$lambda
+  }
+
   Zg      <- NULL
   trt_idx <- integer(0)
 
@@ -475,6 +518,19 @@ met_evaluate_alpha_efficiency <- function(
     Ginv[ii, ii] <- Matrix::Diagonal(pC, 1 / sigma_c2)
     idx0 <- idx0 + pC
   }
+  # P-spline surface: diagonal precision from the reparameterised penalty
+  # eigenvalues, scaled by the surface variance.
+  if (length(spline_lam) > 0) {
+    pS <- length(spline_lam)
+    ii <- (idx0 + 1L):(idx0 + pS)
+    Ginv[ii, ii] <- Matrix::Diagonal(x = spline_lam / sigma_s2)
+    idx0 <- idx0 + pS
+  }
+
+  # Diagonal of the relationship matrix aligned to the Zg (line) column order.
+  # Used to scale per-line reliability: CD_i = 1 - PEV_i / (sigma_g2 * K_ii).
+  # For IID entries K = I so K_ii = 1.
+  Kdiag_lines <- numeric(0)
 
   if (treatment_effect == "random") {
     pG      <- ncol(Zg)
@@ -482,6 +538,7 @@ met_evaluate_alpha_efficiency <- function(
 
     if (prediction_type == "IID") {
       Ginv[trt_idx, trt_idx] <- Matrix::Diagonal(pG, 1 / sigma_g2)
+      Kdiag_lines <- rep(1, pG)
 
     } else if (prediction_type %in% c("GBLUP", "PBLUP")) {
       if (is.null(rownames(K)) || is.null(colnames(K)))
@@ -512,6 +569,7 @@ met_evaluate_alpha_efficiency <- function(
         Matrix::Matrix(.pinv_sym_dense(Ksub2), sparse = FALSE)
 
       Ginv[trt_idx, trt_idx] <- (1 / sigma_g2) * Kinv
+      Kdiag_lines <- as.numeric(diag(as.matrix(Ksub2)))
     }
   }
 
@@ -548,20 +606,30 @@ met_evaluate_alpha_efficiency <- function(
       mean_var_diff <- .pairwise_diff_mean_var(Vsub)
       H             <- diag(p) - matrix(1 / p, p, p)
       Vctr          <- H %*% Vsub %*% H
-      logdet        <- .safe_logdet_psd_dense(Vctr)
+      logdet        <- .safe_logdet_psd_dense(Vctr, expected_rank = q)
 
       A_criterion  <- mean_var_diff
       D_criterion  <- if (is.finite(logdet)) exp(logdet / q) else NA_real_
+      # NOTE: A_efficiency / D_efficiency below are the INVERSE criteria
+      # (higher = better), retained for backward compatibility -- NOT the
+      # classical relative efficiency. A_efficiency_rel is the textbook relative
+      # A-efficiency in (0, 1]: the A-criterion of an orthogonal CRD using the
+      # same total plots (2 * sigma_e2 * p / nn) divided by this design's
+      # A-criterion. 1 indicates an orthogonal design; smaller means less
+      # efficient.
       A_efficiency <- 1 / A_criterion
       D_efficiency <- if (!is.na(D_criterion) && D_criterion > 0) 1 / D_criterion else NA_real_
+      A_crd_ideal    <- 2 * sigma_e2 * p / nn
+      A_efficiency_rel <- A_crd_ideal / A_criterion
 
       eff$mode         <- "FIXED_TREATMENT_BLUE_CONTRAST"
       eff$A_criterion  <- A_criterion
       eff$D_criterion  <- D_criterion
       eff$A_efficiency <- A_efficiency
       eff$D_efficiency <- D_efficiency
-      eff$A            <- A_efficiency          # backward-compatible alias
-      eff$D            <- D_efficiency          # backward-compatible alias
+      eff$A_efficiency_rel <- A_efficiency_rel  # relative A-efficiency in (0,1]
+      eff$A            <- A_efficiency          # backward-compatible alias (inverse criterion)
+      eff$D            <- D_efficiency          # backward-compatible alias (inverse criterion)
       eff$mean_VarDiff <- mean_var_diff
       eff$n_trt        <- p
       eff$n_contrasts  <- q
@@ -591,28 +659,35 @@ met_evaluate_alpha_efficiency <- function(
     p <- length(trt_idx)
     if (p < 2) stop("Not enough random non-check treatments to compute efficiency.")
 
+    # `trt_idx` is indexed within the random block Z (correct for Ginv). The full
+    # coefficient matrix is Cmat = [[X'QX, X'QZ], [Z'QX, Z'QZ + Ginv]], so the
+    # genotype rows/cols in Cmat are offset by the number of fixed-effect columns.
+    n_fixed  <- ncol(X)
+    trt_idx_C <- n_fixed + trt_idx
+
     if (p <= eff_full_max) {
-      B      <- Matrix::sparseMatrix(i = trt_idx, j = seq_along(trt_idx),
+      B      <- Matrix::sparseMatrix(i = trt_idx_C, j = seq_along(trt_idx_C),
                                      x = 1, dims = c(nrow(Cmat), p))
       Xsol   <- .solve_C(Cmat, B)
-      PEVsub <- as.matrix(Xsol[trt_idx, , drop = FALSE])
+      PEVsub <- as.matrix(Xsol[trt_idx_C, , drop = FALSE])
       mean_pev <- mean(diag(PEVsub))
 
-      # -- CDmean (Rincent et al. 2012) ----------------------------------------
-      # CDmean = mean coefficient of determination for GEBV prediction.
-      # For each line i: CD_i = 1 - PEV_i / sigma_g2
-      # CDmean = mean(CD_i) = 1 - mean_PEV / sigma_g2
+      # -- Per-line reliability / CDmean ---------------------------------------
+      # Per-line coefficient of determination (reliability):
+      #   CD_i = 1 - PEV_i / (sigma_g2 * K_ii)
+      # The diagonal of the relationship matrix K_ii MUST appear in the
+      # denominator: a genotype's prior genetic variance is sigma_g2 * K_ii, and
+      # for a VanRaden GRM or inbred/pedigree material K_ii != 1 (often up to ~2).
+      # Dividing by sigma_g2 alone (the previous implementation) mis-scales CD and
+      # can push it outside [0, 1]. For IID entries K = I so K_ii = 1, recovering
+      # the simple form.
       #
-      # Interpretation: proportion of genetic variance explained by prediction.
-      # Range [0, 1]; higher is better.
-      #
-      # When prediction_type = "GBLUP"/"PBLUP", sigma_g2 is the genomic
-      # variance scalar used in G^{-1}. For IID, it is the iid variance.
-      # CDmean is only meaningful for random treatment effects.
-      CDmean <- 1 - mean_pev / sigma_g2
-
-      # Per-line CD vector (diagonal of I - PEV/sigma_g2)
-      CD_per_line <- 1 - diag(PEVsub) / sigma_g2
+      # NOTE: this is the average of individual-line reliabilities. The
+      # contrast-based generalized CDmean of Rincent et al. (2012) is provided
+      # separately as CDmean_contrast (see met_evaluate_*): do not conflate them.
+      Kdiag_use   <- if (length(Kdiag_lines) == p) Kdiag_lines else rep(1, p)
+      CD_per_line <- 1 - diag(PEVsub) / (sigma_g2 * Kdiag_use)
+      CDmean      <- mean(CD_per_line)
 
       eff$mode          <- "RANDOM_TREATMENT_PEV"
       eff$PEV_criterion <- mean_pev
@@ -628,11 +703,14 @@ met_evaluate_alpha_efficiency <- function(
       eff$n_trt         <- p
 
     } else {
-      tr_est   <- .trace_subinv_est(Cmat, trt_idx, m = eff_trace_samples, seed_local = 1)
+      tr_est   <- .trace_subinv_est(Cmat, trt_idx_C, m = eff_trace_samples, seed_local = 1)
       mean_pev <- tr_est / p
 
-      # CDmean approximation from stochastic trace estimate
-      CDmean <- 1 - mean_pev / sigma_g2
+      # CDmean approximation from the stochastic trace estimate. Per-line PEV is
+      # unavailable here, so K_ii is approximated by its mean (exact when diag(K)
+      # is homogeneous, e.g. K = I): CD = 1 - mean_PEV / (sigma_g2 * mean(K_ii)).
+      Kdiag_mean <- if (length(Kdiag_lines) == p) mean(Kdiag_lines) else 1
+      CDmean <- 1 - mean_pev / (sigma_g2 * Kdiag_mean)
 
       eff$mode          <- "RANDOM_TREATMENT_PEV_APPROX"
       eff$PEV_criterion <- mean_pev

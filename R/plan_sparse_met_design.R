@@ -88,7 +88,7 @@
 plan_sparse_met_design <- function(
     treatments,
     environments,
-    allocation_method = c("random_balanced", "balanced_incomplete", "M3", "M4"),
+    allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
     n_test_entries_per_environment,
     target_replications = NULL,
     common_treatments = NULL,

@@ -26,7 +26,7 @@ test_that("OptiSparseMET_example_data loads and contains all expected components
     "OptiSparseMET_A",
     "OptiSparseMET_K",
     "sparse_example_args_random_balanced",
-    "sparse_example_args_balanced_incomplete",
+    "sparse_example_args_equireplicate",
     "env_design_specs"
   )
 
@@ -182,7 +182,7 @@ test_that("OptiSparseMET_example_data sparse argument lists have required fields
                        "n_test_entries_per_environment", "seed")
 
   for (args_name in c("sparse_example_args_random_balanced",
-                      "sparse_example_args_balanced_incomplete")) {
+                      "sparse_example_args_equireplicate")) {
     args <- x[[args_name]]
 
     expect_true(is.list(args),
@@ -203,8 +203,8 @@ test_that("OptiSparseMET_example_data sparse argument lists have required fields
     "random_balanced"
   )
   expect_equal(
-    x$sparse_example_args_balanced_incomplete$allocation_method,
-    "balanced_incomplete"
+    x$sparse_example_args_equireplicate$allocation_method,
+    "equireplicate"
   )
 })
 

@@ -34,7 +34,7 @@ Environments not present in \code{replication_modes} receive \code{NA} in the
 
 \item{sparse_method}{Optional character scalar. The across-environment
 allocation strategy used in \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}, e.g.
-\code{"balanced_incomplete"} or \code{"random_balanced"}. Applied uniformly to all
+\code{"equireplicate"} or \code{"random_balanced"}. Applied uniformly to all
 rows of the combined field book. If \code{NULL}, the \code{SparseMethod} column is
 filled with \code{NA}.}
 
@@ -118,7 +118,7 @@ met <- combine_met_fieldbooks(
   field_books        = list(E1 = fb_E1, E2 = fb_E2),
   local_designs      = c(E1 = "met_prep_famoptg", E2 = "met_prep_famoptg"),
   replication_modes  = c(E1 = "augmented", E2 = "augmented"),
-  sparse_method      = "balanced_incomplete",
+  sparse_method      = "equireplicate",
   common_treatments  = "CHK1"
 )
 

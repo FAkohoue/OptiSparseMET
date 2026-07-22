@@ -24,10 +24,12 @@ environments. Two allocation strategies are available.
 approximates balance without requiring exact BIBD parameters to be
 satisfiable -- appropriate when environment capacities differ or when the
 trial dimensions do not admit an exact balanced solution.
-\code{"balanced_incomplete"} implements an M4-type allocation following BIBD
-principles at the MET level, enforcing equal replication and approximately
-uniform pairwise co-occurrence -- appropriate when environments are
-comparable in size and equal replication is a hard requirement.
+\code{"equireplicate"} implements an M4-type allocation at the MET level,
+enforcing equal replication and equal environment size (optionally refined
+toward near-balanced pairwise co-occurrence via \code{balance}) -- appropriate
+when environments are comparable in size and equal replication is a hard
+requirement. It is not a strict BIBD, which generally cannot exist when
+treatments greatly outnumber environments.
 
 Allocation can be guided by genetic structure through family labels, genomic
 relationship clusters (GRM), or pedigree relationship clusters (A), ensuring

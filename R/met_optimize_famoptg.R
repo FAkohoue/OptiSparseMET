@@ -91,7 +91,7 @@
 #'   Passed directly to [met_prep_famoptg()]. See that function for full
 #'   documentation.
 #'
-#' @param treatment_effect,prediction_type,check_as_fixed,residual_structure,rho_row,rho_col,varcomp,spatial_engine,dense_max_n,eff_trace_samples,eff_full_max
+#' @param treatment_effect,prediction_type,check_as_fixed,residual_structure,rho_row,rho_col,nugget,kernel_range,matern_nu,spatial_random,varcomp,spatial_engine,dense_max_n,eff_trace_samples,eff_full_max
 #'   Passed directly to [met_evaluate_famoptg_efficiency()]. See that function
 #'   for full documentation. Note that `varcomp` here uses `sigma_b2` (block
 #'   variance) instead of `sigma_rep2` and `sigma_ib2`.
@@ -272,7 +272,12 @@ met_optimize_famoptg <- function(
     treatment_effect   = c("random", "fixed"),
     prediction_type    = c("IID", "GBLUP", "PBLUP", "none"),
     check_as_fixed     = TRUE,
-    residual_structure = c("IID", "AR1", "AR1xAR1"),
+    residual_structure = c("IID", "AR1", "AR1xAR1", "AR1xAR1_nugget",
+                           "exponential", "gaussian", "matern"),
+    nugget             = 0,
+    kernel_range       = NULL,
+    matern_nu          = 1.5,
+    spatial_random     = c("none", "pspline"),
     rho_row            = 0,
     rho_col            = 0,
     varcomp            = list(
@@ -303,6 +308,7 @@ met_optimize_famoptg <- function(
   cluster_source     <- match.arg(cluster_source)
   cluster_method     <- match.arg(cluster_method)
   residual_structure <- match.arg(residual_structure)
+  spatial_random     <- match.arg(spatial_random)
   spatial_engine     <- match.arg(spatial_engine)
   check_placement    <- match.arg(check_placement)
   dispersion_source  <- match.arg(dispersion_source)
@@ -385,6 +391,10 @@ met_optimize_famoptg <- function(
     residual_structure = residual_structure,
     rho_row            = rho_row,
     rho_col            = rho_col,
+    nugget             = nugget,
+    kernel_range       = kernel_range,
+    matern_nu          = matern_nu,
+    spatial_random     = spatial_random,
     varcomp            = varcomp,
     K                  = K,
     line_id_map        = line_id_map,

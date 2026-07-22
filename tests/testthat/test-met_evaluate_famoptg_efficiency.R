@@ -33,8 +33,10 @@ test_that("mode is FIXED_TREATMENT_BLUE_CONTRAST for fixed effects", {
 })
 
 # ── Fixed effects: A and D criteria ──────────────────────────────────────────
+# NOTE: identity smoke-checks only. Correctness is validated against
+# independent oracles in test-efficiency-groundtruth.R.
 
-test_that("A_efficiency = 1 / A_criterion (mathematical identity)", {
+test_that("A_efficiency = 1 / A_criterion (identity smoke-check)", {
   eff <- eval_famoptg(make_design_famoptg(), treatment_effect = "fixed")
   expect_equal(eff$A_efficiency, 1 / eff$A_criterion, tolerance = 1e-10)
 })
@@ -61,7 +63,9 @@ test_that("CDmean computed for random effects", {
   expect_lte(eff$CDmean, 1)
 })
 
-test_that("CDmean = 1 - mean_PEV / sigma_g2 (mathematical identity)", {
+test_that("CDmean = 1 - mean_PEV / sigma_g2 for IID (identity smoke-check)", {
+  # Valid only for IID (K_ii = 1); K_ii-scaled correctness is in
+  # test-cdmean-kdiag.R and test-efficiency-groundtruth.R.
   vc  <- famoptg_varcomp()
   eff <- eval_famoptg(make_design_famoptg(),
                       treatment_effect = "random", prediction_type = "IID",

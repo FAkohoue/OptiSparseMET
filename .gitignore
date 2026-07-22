@@ -70,3 +70,17 @@ cran-comments.md
 # =============================================================================
 .DS_Store
 Thumbs.db
+
+# =============================================================================
+# testthat failure snippets (auto-saved by recent testthat versions)
+# =============================================================================
+tests/testthat/_problems/
+
+# =============================================================================
+# Microsoft Office lock / temporary files
+# Word writes "~$<name>.docx" and "~WRL####.tmp" while a document is open.
+# These are locked by Windows and break "R CMD check" if committed or scanned.
+# =============================================================================
+~$*
+~WRL*.tmp
+*.tmp
