@@ -73,7 +73,7 @@ Suggests:
     jsonlite,
     terra,
     gdalUtilities,
-    DGQGSI,
+    DesiredGainR,
     ranger,
     AGHmatrix,
     ASRgenomics,
