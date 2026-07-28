@@ -91,7 +91,7 @@ install.packages(c("nasapower",               # daily weather (NASA POWER)
 # Genomic relationship backends and matrix conditioning
 install.packages(c("AGHmatrix", "ASRgenomics"))
 # Multi-trait desired-gain index constructor (from GitHub)
-remotes::install_github("FAkohoue/DGQGSI")
+remotes::install_github("FAkohoue/DesiredGainR")
 # Optional engines: exact BIBD, random-forest interaction screening,
 # parallel fetching, and mixed-model variance estimation
 install.packages(c("crossdes", "ranger", "future", "future.apply", "sommer"))
@@ -106,7 +106,7 @@ set.seed(2026)
 
 The simulated example below needs only the base package (its `Imports`:
 **Matrix**, **pracma**, **splines**). The `Suggests` are required only for live
-weather/soil fetching, the AGHmatrix / ASRgenomics backends, the DGQGSI index,
+weather/soil fetching, the AGHmatrix / ASRgenomics backends, the DesiredGainR index,
 or parallel downloads — each function that needs one checks for it and degrades
 gracefully if it is absent.
 

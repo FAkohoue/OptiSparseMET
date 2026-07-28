@@ -85,6 +85,7 @@ Config/lifecycle/label: experimental
 URL: https://github.com/FAkohoue/OptiSparseMET,
     https://FAkohoue.github.io/OptiSparseMET/
 BugReports: https://github.com/FAkohoue/OptiSparseMET/issues
-Remotes: FAkohoue/DGQGSI
+Remotes:
+    FAkohoue/DesiredGainR
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.0.0
