@@ -171,6 +171,57 @@ test_that("allocate_sparse_met respects minimum coverage for random_balanced", {
   )
 })
 
+test_that("network-wide seed inventory is spent once across environments", {
+  trt <- paste0("L", 1:6)
+  env <- c("Cheap", "Expensive")
+  seed <- stats::setNames(rep(4, length(trt)), trt)
+  cost <- c(Cheap = 1, Expensive = 3)
+  out <- allocate_sparse_met(
+    treatments = trt, environments = env,
+    allocation_method = "random_balanced",
+    n_test_entries_per_environment = c(Cheap = 3, Expensive = 3),
+    seed_available = seed,
+    seed_required_per_environment = cost,
+  minimum_seed_buffer = 1,
+    seed = 4)
+  used <- rowSums(sweep(out$allocation_matrix, 2, cost, `*`))
+  expect_equal(out$seed_summary$Treatment, names(used))
+  expect_equal(
+    unname(used[out$seed_summary$Treatment]),
+    out$seed_summary$SeedAllocated)
+  expect_true(all(used <= seed - 1))
+  expect_true(all(rowSums(out$allocation_matrix) >= 1L))
+})
+
+test_that("joint capacity and seed infeasibility is reported", {
+  trt <- paste0("L", 1:6)
+  expect_error(
+    allocate_sparse_met(
+      treatments = trt, environments = c("Cheap", "Expensive"),
+      allocation_method = "random_balanced",
+      n_test_entries_per_environment = c(Cheap = 3, Expensive = 3),
+      seed_available = stats::setNames(rep(2, length(trt)), trt),
+      seed_required_per_environment = c(Cheap = 1, Expensive = 3),
+      seed = 4),
+    "seed|Seed")
+})
+
+test_that("seed-restricted treatments receive scarce affordable slots first", {
+  trt <- paste0("L", 1:6)
+  available <- stats::setNames(c(1, 1, 1, 3, 3, 3), trt)
+  out <- allocate_sparse_met(
+    treatments = trt,
+    environments = c("Cheap", "Expensive"),
+    allocation_method = "random_balanced",
+    n_test_entries_per_environment = c(Cheap = 3, Expensive = 3),
+    seed_available = available,
+    seed_required_per_environment = c(Cheap = 1, Expensive = 3),
+    seed = 18)
+  expect_true(all(out$allocation_matrix[trt[1:3], "Cheap"] == 1L))
+  expect_true(all(out$allocation_matrix[trt[4:6], "Expensive"] == 1L))
+  expect_true(all(out$seed_summary$Feasible))
+})
+
 # ============================================================
 # allocate_sparse_met(): equireplicate -- exact feasibility error
 # ============================================================
@@ -240,6 +291,7 @@ test_that("check_equireplicate_feasibility returns a correctly structured list",
   
   expect_true(is.list(chk))
   expect_true(all(c("feasible", "message", "difference",
+                    "slot_identity_ok", "degree_sequence_realizable",
                     "total_sparse_slots", "required_sparse_slots",
                     "n_sparse_treatments", "k_sparse") %in% names(chk)))
   expect_true(is.logical(chk$feasible))
@@ -256,9 +308,28 @@ test_that("check_equireplicate_feasibility correctly identifies an exact feasibl
   )
   
   expect_true(chk$feasible)
+  expect_true(chk$slot_identity_ok)
+  expect_true(chk$degree_sequence_realizable)
   expect_equal(chk$difference, 0)
   expect_equal(chk$total_sparse_slots, 80)
   expect_equal(chk$required_sparse_slots, 80)
+})
+
+test_that("equireplicate feasibility rejects non-integer dimensions", {
+  expect_error(
+    check_equireplicate_feasibility(
+      n_treatments_total = 20.5,
+      n_environments = 4,
+      n_test_entries_per_environment = 10,
+      target_replications = 2),
+    "integer")
+  expect_error(
+    check_equireplicate_feasibility(
+      n_treatments_total = 20,
+      n_environments = 4,
+      n_test_entries_per_environment = 10.5,
+      target_replications = 2),
+    "finite integers")
 })
 
 test_that("check_equireplicate_feasibility correctly identifies a slot deficit", {

@@ -23,15 +23,24 @@
 #'
 #' The \code{"equireplicate"} method implements the M4 allocation of
 #' Montesinos-Lopez et al. (2023): every non-common treatment appears in
-#' exactly \eqn{r} environments (equal replication) and every environment
-#' receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
-#' so the resource identity \eqn{J^* \times r = I \times k^*} holds exactly.
-#' This equal-replication, equal-environment-size guarantee is what
-#' distinguishes M4 from M3 in the paper, and is always the goal in plant
-#' breeding programs where thousands of lines are tested across a few
-#' environments.
+#' exactly \eqn{r} environments (equal across-environment incidence). Here,
+#' \eqn{r} counts different environments, not repeated plots within one
+#' environment. Repeating a plot locally never increases connectivity. Equal
+#' across-environment incidence distinguishes M4 from the random M3 method and
+#' controls unequal information among treatments. Pairwise connectivity is a
+#' separate property determined by how many distinct treatments each
+#' environment pair shares. Equal incidence is preserved even
+#' when environments have **unequal sizes** (partners offering different
+#' amounts of space): the sparse loads \eqn{k^*_e} may differ across
+#' environments, subject only to the resource identity
+#' \eqn{\sum_e k^*_e = J^* \times r} and to the equal-replication degree sequence
+#' being realisable (a Gale-Ryser condition checked internally). When all
+#' environments are equal-sized this reduces to the classic
+#' \eqn{J^* \times r = I \times k^*} identity. So a breeder can keep M4's
+#' equal-replication strength while occupying exactly the space each location
+#' offers.
 #' 
-#' #' `allow_approximate = FALSE` (the default) is the standard M4 path: the
+#' `allow_approximate = FALSE` (the default) is the standard M4 path: the
 #' slot identity must hold exactly, and the function stops with an informative
 #' error if it cannot be met, so the caller always knows whether equal
 #' replication was achieved. Construction uses a greedy load-balanced
@@ -55,19 +64,23 @@
 #' The allocation strategies implemented here correspond to M3 and M4 in
 #' Montesinos-Lopez et al. (2023). The underlying resource identity is:
 #'
-#' \deqn{N = J \times r = I \times k}
+#' \deqn{N = J \times r = \sum_{e=1}^{I} k_e}
 #'
 #' where \eqn{J} is the number of lines, \eqn{I} is the number of environments,
-#' \eqn{k} is the number of lines per environment, \eqn{r} is the number of
-#' environments each line enters, and \eqn{N} is the total number of
-#' line-by-environment observations. This identity makes the tradeoff between
-#' coverage (\eqn{k}) and replication depth (\eqn{r}) explicit given fixed
-#' \eqn{N}.
+#' \eqn{k_e} is the number of lines in environment \eqn{e}, \eqn{r} is the
+#' number of environments each line enters, and \eqn{N} is the total number of
+#' line-by-environment observations. For equal environment sizes,
+#' \eqn{\sum_e k_e = I k}. This identity makes the tradeoff between coverage
+#' and replication depth explicit given fixed \eqn{N}.
 #'
 #' ## Common treatments
 #'
 #' Treatments in `common_treatments` are assigned to every environment before
 #' sparse allocation begins and are excluded from the sparse allocation pool.
+#' The supplied identities are fixed for this allocation: the function does not
+#' reselect or replace them. “Common” fixes presence in every environment, not
+#' equal local replication; site-specific replication is handled by the
+#' downstream field-design plan.
 #' The per-environment sparse capacity is:
 #'
 #' \deqn{k_e^* = k_e - C}
@@ -119,19 +132,17 @@
 #' \enumerate{
 #'   \item Equal replication: every non-common treatment appears in exactly
 #'         \eqn{r} environments.
-#'   \item Equal environment sizes: every environment receives exactly
-#'         \eqn{k^*} sparse treatments, so \eqn{J^* \times r = I \times k^*}.
+#'   \item Exact requested environment sizes: each environment receives its
+#'         requested sparse load \eqn{k_e^*}; loads may differ provided
+#'         \eqn{\sum_e k_e^* = J^*r} and the degree sequence is realisable.
 #' }
 #' 
 #' `allow_approximate = FALSE` (the default) enforces both conditions strictly.
-#' If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
-#' the chosen `n_test_entries_per_environment` and `target_replications`, the
-#' function stops with an informative error. Use
-#' [check_equireplicate_feasibility()] to verify the slot identity before
-#' calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
-#' I \times k^*}. Construction uses a greedy load-balanced constructor that
-#' assigns each sparse treatment to the least-loaded eligible environments,
-#' guaranteeing equal replication for every non-common treatment.
+#' If the total slot identity or the Gale-Ryser degree condition does not hold,
+#' the function stops with an informative error. Use
+#' [check_equireplicate_feasibility()] before calling. Construction assigns each
+#' sparse treatment to the eligible environments with the largest remaining
+#' capacity, guaranteeing exact loads and equal replication.
 #'
 #' `allow_approximate = TRUE` relaxes the slot identity: the function
 #' constructs the most balanced allocation it can without stopping on
@@ -142,11 +153,11 @@
 #'
 #' @param treatments Character vector of test treatment IDs to allocate across
 #'   environments. Check treatments should not be included here; they are
-#'   handled separately within the within-environment design functions. Duplicate
-#'   values are silently removed.
+#'   handled separately within the within-environment design functions. IDs
+#'   must be unique, non-missing, and non-empty.
 #'
 #' @param environments Character vector of environment names. Must contain at
-#'   least two elements. Duplicate values are silently removed.
+#'   least two unique, non-missing, non-empty elements.
 #'
 #' @param allocation_method Character scalar. Sparse allocation strategy.
 #'   Accepted values are `"random_balanced"` (M3-inspired stochastic
@@ -154,12 +165,23 @@
 #'   aliases `"M3"` and `"M4"` are also accepted and translated internally to
 #'   their canonical names before any further processing.
 #'
-#' @param n_test_entries_per_environment Integer scalar or integer vector. Total
-#'   number of test treatments per environment including common treatments. If a
-#'   scalar, it applies uniformly to all environments. If a vector, its length
-#'   must equal the number of environments. All values must be positive and must
-#'   be at least `length(common_treatments)`. Use [suggest_safe_k()] to choose
-#'   a value that guarantees full treatment coverage.
+#' @param n_test_entries_per_environment Integer scalar or vector giving the
+#'   field capacity (total test treatments, including common treatments) of each
+#'   environment. A scalar applies uniformly. A vector may be **positional**
+#'   (length = number of environments, in the same order) or **named** (matched
+#'   to environment names, any order), which is the natural way to encode
+#'   *site-specific* capacity when partners offer different amounts of space:
+#'   the breeder simply occupies all the space each location offers, so
+#'   environments need not be equal-sized. All values must be positive and at
+#'   least `length(common_treatments)`. Variable capacities work with **both**
+#'   methods: `"random_balanced"` fills each site to its capacity, and
+#'   `"equireplicate"` (M4) still guarantees **equal replication** (each
+#'   treatment in exactly `target_replications` environments) across
+#'   unequal-sized environments whenever the resulting degree sequence is
+#'   realisable (checked internally). For a location with *no* capacity limit,
+#'   use [suggest_site_capacity()] to choose a plot number first, then pass it
+#'   here. Use [suggest_safe_k()] to choose a value that guarantees full
+#'   coverage.
 #'
 #' @param target_replications Optional positive integer. Target number of
 #'   environments in which each non-common treatment should appear. For
@@ -167,28 +189,61 @@
 #'   filling. For `"equireplicate"`, this is the strict replication level
 #'   required for an exact balanced solution. If `NULL`, the function infers a
 #'   value as `floor(total_sparse_slots / n_sparse_treatments)`, with a minimum
-#'   of 1.
+#'   of 1. This argument controls distinct-environment coverage only; it does
+#'   not add plots within an environment.
 #'
-#' @param common_treatments Optional character vector of treatment IDs to assign
-#'   to all environments. Placed before sparse allocation begins and excluded
-#'   from the sparse pool. Values not present in `treatments` are silently
-#'   dropped.
+#' @param common_treatments Optional character vector of preselected treatment
+#'   IDs. Supplied identities are fixed as present in all environments, placed
+#'   before sparse allocation begins, and excluded from the sparse pool. This
+#'   fixes presence, not equal site-specific replication. Values not present in
+#'   `treatments` are silently dropped.
+#'
+#' @param seed_available Optional network-wide seed inventory. Supply either a
+#'   named numeric vector or a data frame with columns `Treatment` and
+#'   `SeedAvailable`. The inventory is shared across all environments; it is not
+#'   reset independently at each site.
+#'
+#' @param seed_required_per_environment Seed consumed when one treatment is
+#'   assigned to each environment: a positive scalar, a named numeric vector,
+#'   or a data frame with columns `Environment` and `SeedRequiredPerPlot`.
+#'   Values may include mandatory local replication (for example, twice the
+#'   per-plot requirement for a two-replicate alpha design). Required with
+#'   `seed_available`.
+#'
+#' @param minimum_seed_buffer Non-negative reserve retained for every treatment
+#'   after mandatory allocation. Default 0.
 #'
 #' @param balance Character scalar. Post-construction refinement toward a
 #'   near-balanced (regular-graph) design, preserving equal replication and
-#'   equal environment size. `"none"` (default) skips it; `"env_pair"`
+#'   every requested environment size. `"none"` (default) skips it; `"env_pair"`
 #'   equalises the number of lines shared by each pair of environments
 #'   (cross-environment connectivity); `"line_pair"` equalises pairwise
 #'   treatment concurrence; `"both"` applies `"env_pair"` then `"line_pair"`.
-#'   Ignored (with a message) when genetic grouping is active. A strict BIBD is
-#'   generally unattainable when treatments greatly outnumber environments, so
-#'   this targets the achievable balance rather than constant \eqn{\lambda}.
+#'   With genetic grouping, only within-group swaps are accepted, so
+#'   group-by-environment counts remain unchanged. With seed constraints, swaps
+#'   that would exceed either treatment's network inventory are rejected. A
+#'   strict BIBD is generally unattainable when treatments greatly outnumber
+#'   environments, so this targets achievable balance rather than constant
+#'   \eqn{\lambda}.
 #'
 #' @param balance_iter Integer, default `2000`. Number of swap iterations per
 #'   balance pass.
 #'
 #' @param balance_seed Optional integer seed for the balance swap search
 #'   (independent of `seed`).
+#'
+#' @param Sigma_E Optional named environmental covariance matrix, or named list
+#'   of covariance candidates. When supplied, a margin-preserving refinement
+#'   allocates distinct shared treatments towards environment pairs according
+#'   to their correlation-dependent targets. Local plot replication is not
+#'   used in this connectivity calculation.
+#' @param pair_target_se Positive target standard error used to convert each
+#'   environment-pair correlation into a target number of distinct shared
+#'   treatments.
+#' @param pair_aggregate Pairwise protection rule for correlation-adaptive
+#'   refinement: `"maximin"` (default), `"cvar"`, or `"mean"`.
+#' @param pair_cvar_alpha Lower-tail fraction used when
+#'   `pair_aggregate = "cvar"`.
 #'
 #' @param allocation_group_source Character scalar. Controls whether and how
 #'   genetic group structure guides allocation. `"none"` disables group-guided
@@ -250,13 +305,12 @@
 #'   not `"none"` and `min_env_per_group` is not `NULL`.
 #'
 #' @param allow_approximate Logical, default `FALSE`. When `FALSE` and
-#'   `allocation_method = "equireplicate"`, the slot identity
-#'   \eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
-#'   with an error if it does not. This is the standard M4 path and guarantees
-#'   equal replication for every non-common treatment. When `TRUE`, the slot
-#'   identity is not enforced and minor replication imbalances are accepted; this
-#'   is a relaxed fallback for exploratory use, not the primary mode. For
-#'   `"random_balanced"`, this argument has no effect.
+#'   `allocation_method = "equireplicate"`, the total slot identity and
+#'   equal-replication degree sequence must be feasible; the function stops
+#'   otherwise. This is the standard M4 path and guarantees equal replication
+#'   for every non-common treatment. When `TRUE`, those conditions are relaxed
+#'   and minor replication imbalances are accepted; this is an exploratory
+#'   fallback. For `"random_balanced"`, this argument has no effect.
 #'
 #' @param seed Optional integer. Random seed for reproducibility. Controls
 #'   the random order in which sparse treatments are processed in phase one
@@ -298,13 +352,23 @@
 #'     `n_environments x n_environments` giving the number of shared allocation
 #'     groups between each pair of environments. `NULL` when
 #'     `allocation_group_source = "none"`.}
+#'   \item{`pairwise_connectivity`}{When `Sigma_E` is supplied, a data frame
+#'     reporting the target and achieved number of distinct treatments shared
+#'     by every environment pair. Repeated plots never increase this count.}
+#'   \item{`pair_refinement_report`}{Before-and-after maximin, CVaR, or mean
+#'     target-attainment scores and preserved-constraint indicators for the
+#'     correlation-adaptive refinement.}
+#'   \item{`seed_summary`}{When seed constraints are active, treatment-level
+#'     seed available, allocated, buffered, remaining, and feasibility values;
+#'     otherwise `NULL`.}
 #'   \item{`summary`}{Named list with allocation metadata: `allocation_method`,
 #'     `allocation_group_source`, `target_replications`, `n_treatments_total`,
 #'     `n_sparse_treatments`, `n_common_treatments`, `total_sparse_slots`,
 #'     `environment_sizes`, `min_replication`, `max_replication`,
 #'     `mean_replication`, `min_sparse_replication`, `max_sparse_replication`,
 #'     `mean_sparse_replication`, `min_common_replication`,
-#'     `max_common_replication`, and `mean_common_replication`.}
+#'     `max_common_replication`, `mean_common_replication`, `pair_aggregate`,
+#'     and `pair_target_se`.}
 #'   \item{`seed_used`}{The integer seed passed to `set.seed()` internally, or
 #'     `NULL` if no seed was supplied.}
 #' }
@@ -387,9 +451,16 @@ allocate_sparse_met <- function(
     n_test_entries_per_environment,
     target_replications = NULL,
     common_treatments = NULL,
+    seed_available = NULL,
+    seed_required_per_environment = NULL,
+    minimum_seed_buffer = 0,
     balance = c("none", "env_pair", "line_pair", "both"),
     balance_iter = 2000L,
     balance_seed = NULL,
+    Sigma_E = NULL,
+    pair_target_se = 0.15,
+    pair_aggregate = c("maximin", "cvar", "mean"),
+    pair_cvar_alpha = 0.25,
     allocation_group_source = c("none", "Family", "GRM", "A"),
     treatment_info = NULL,
     GRM = NULL,
@@ -411,19 +482,26 @@ allocate_sparse_met <- function(
   # 0. RNG
   # ============================================================
   seed_used <- seed
-  if (!is.null(seed_used)) set.seed(seed_used)
+  if (!is.null(seed_used)) {
+    if (!is.numeric(seed_used) || length(seed_used) != 1L ||
+        !is.finite(seed_used) || abs(seed_used - round(seed_used)) > 1e-8)
+      stop("`seed` must be one finite integer or NULL.")
+    seed_used <- as.integer(round(seed_used))
+    set.seed(seed_used)
+  }
   
   allocation_method <- match.arg(allocation_method)
   # "M3"/"M4" are convenience aliases for the two Montesinos-Lopez (2023)
   # methods. "equireplicate" is the canonical name for the M4-type constructor:
-  # it guarantees equal replication and equal environment size (NOT a strict
-  # BIBD, which generally cannot exist when treatments greatly outnumber
-  # environments). Use `balance` to drive concurrence toward a near-balanced
-  # design.
+  # it guarantees equal treatment replication and exact requested environment
+  # sizes, which may be unequal (NOT a strict BIBD, which generally cannot exist
+  # when treatments greatly outnumber environments). Use `balance` to drive
+  # concurrence toward a near-balanced design.
   if (allocation_method == "M3") allocation_method <- "random_balanced"
   if (allocation_method == "M4") allocation_method <- "equireplicate"
 
   balance <- match.arg(balance)
+  pair_aggregate <- match.arg(pair_aggregate)
 
   allocation_group_source <- match.arg(allocation_group_source)
   group_method            <- match.arg(group_method)
@@ -431,25 +509,118 @@ allocate_sparse_met <- function(
   # ============================================================
   # 1. Basic validation and normalisation
   # ============================================================
-  treatments   <- unique(as.character(treatments))
-  environments <- unique(as.character(environments))
+  treatments <- as.character(treatments)
+  environments <- as.character(environments)
+  if (anyNA(treatments) || any(!nzchar(treatments)) ||
+      anyNA(environments) || any(!nzchar(environments)))
+    stop("Treatment and environment IDs must be non-missing and non-empty.")
+  if (anyDuplicated(treatments))
+    stop("`treatments` must contain unique IDs.")
+  if (anyDuplicated(environments))
+    stop("`environments` must contain unique names.")
   
   if (length(treatments) < 1L)   stop("`treatments` must contain at least one treatment ID.")
   if (length(environments) < 2L) stop("`environments` must contain at least two environment names.")
   
   n_treat <- length(treatments)
   n_env   <- length(environments)
-  
-  if (length(n_test_entries_per_environment) == 1L) {
-    k_vec <- rep(as.integer(n_test_entries_per_environment), n_env)
-  } else {
-    k_vec <- as.integer(n_test_entries_per_environment)
+  if (!is.numeric(pair_target_se) || length(pair_target_se) != 1L ||
+      !is.finite(pair_target_se) || pair_target_se <= 0)
+    stop("`pair_target_se` must be one finite positive value.")
+  if (!is.numeric(pair_cvar_alpha) || length(pair_cvar_alpha) != 1L ||
+      !is.finite(pair_cvar_alpha) || pair_cvar_alpha <= 0 ||
+      pair_cvar_alpha > 1)
+    stop("`pair_cvar_alpha` must be one value in (0, 1].")
+
+  pair_targets <- NULL
+  if (!is.null(Sigma_E)) {
+    covariance_candidates <- if (
+      is.list(Sigma_E) && !is.matrix(Sigma_E)
+    ) Sigma_E else list(central = Sigma_E)
+    if (!length(covariance_candidates))
+      stop("`Sigma_E` cannot be an empty list.")
+    target_by_candidate <- vapply(
+      covariance_candidates,
+      function(M) {
+        M <- as.matrix(M)
+        if (!is.numeric(M) || nrow(M) != ncol(M) ||
+            is.null(rownames(M)) || is.null(colnames(M)) ||
+            !all(environments %in% rownames(M)) ||
+            !all(environments %in% colnames(M)))
+          stop("Every `Sigma_E` candidate must be a named square matrix ",
+               "covering all environments.")
+        M <- M[environments, environments, drop = FALSE]
+        if (any(!is.finite(M)) ||
+            !isTRUE(all.equal(M, t(M), tolerance = 1e-8)) ||
+            any(diag(M) <= 0))
+          stop("Every `Sigma_E` candidate must be finite, symmetric, and ",
+               "have a positive diagonal.")
+        eigenvalues <- eigen(
+          (M + t(M)) / 2, symmetric = TRUE, only.values = TRUE
+        )$values
+        if (min(eigenvalues) < -1e-8 *
+            max(1, max(abs(eigenvalues))))
+          stop("Every `Sigma_E` candidate must be positive semidefinite.")
+        rho <- stats::cov2cor(M)[upper.tri(M)]
+        pmax(2, ((1 - rho^2) / pair_target_se)^2)
+      },
+      numeric(n_env * (n_env - 1L) / 2L)
+    )
+    if (is.null(dim(target_by_candidate)))
+      target_by_candidate <- matrix(
+        target_by_candidate,
+        nrow = n_env * (n_env - 1L) / 2L
+      )
+    pair_targets <- apply(target_by_candidate, 1L, max)
   }
   
+  if (!is.numeric(n_test_entries_per_environment) ||
+      any(!is.finite(n_test_entries_per_environment)) ||
+      any(abs(n_test_entries_per_environment -
+                round(n_test_entries_per_environment)) > 1e-8))
+    stop("`n_test_entries_per_environment` must contain finite integers.")
+  if (length(n_test_entries_per_environment) == 1L) {
+    k_vec <- rep(as.integer(round(n_test_entries_per_environment)), n_env)
+  } else if (!is.null(names(n_test_entries_per_environment))) {
+    # Named per-site capacities: align to the environment order so a breeder can
+    # supply "as much space as each partner offers" per location, in any order.
+    miss <- setdiff(environments, names(n_test_entries_per_environment))
+    if (length(miss))
+      stop("`n_test_entries_per_environment` is missing capacities for ",
+           "environment(s): ", paste(miss, collapse = ", "), ".")
+    k_vec <- as.integer(round(n_test_entries_per_environment[environments]))
+  } else {
+    k_vec <- as.integer(round(n_test_entries_per_environment))
+  }
+
   if (length(k_vec) != n_env)
-    stop("`n_test_entries_per_environment` must have length 1 or length(environments).")
+    stop("`n_test_entries_per_environment` must have length 1, length(environments), ",
+         "or be a named vector covering every environment.")
   if (any(is.na(k_vec)) || any(k_vec < 1L))
-    stop("All values of `n_test_entries_per_environment` must be positive integers.")
+    stop("All values of `n_test_entries_per_environment` must be positive integers. ",
+         "For a site with no capacity limit, use suggest_site_capacity() to pick a ",
+         "plot number first.")
+  if (any(k_vec > n_treat))
+    stop("No environment capacity may exceed the number of unique treatments.")
+  if (!is.logical(allow_approximate) || length(allow_approximate) != 1L ||
+      is.na(allow_approximate) ||
+      !is.logical(balance_groups_across_env) ||
+      length(balance_groups_across_env) != 1L ||
+      is.na(balance_groups_across_env) ||
+      !is.logical(force_group_connectivity) ||
+      length(force_group_connectivity) != 1L ||
+      is.na(force_group_connectivity))
+    stop("Logical control arguments must be single non-missing values.")
+  if (!is.numeric(balance_iter) || length(balance_iter) != 1L ||
+      !is.finite(balance_iter) || balance_iter < 0 ||
+      abs(balance_iter - round(balance_iter)) > 1e-8)
+    stop("`balance_iter` must be one non-negative integer.")
+  balance_iter <- as.integer(round(balance_iter))
+  if (!is.null(balance_seed) &&
+      (!is.numeric(balance_seed) || length(balance_seed) != 1L ||
+       !is.finite(balance_seed) ||
+       abs(balance_seed - round(balance_seed)) > 1e-8))
+    stop("`balance_seed` must be one finite integer or NULL.")
   
   if (!is.null(min_groups_per_environment)) {
     if (!is.numeric(min_groups_per_environment) || length(min_groups_per_environment) != 1L ||
@@ -481,6 +652,83 @@ allocate_sparse_met <- function(
   n_common          <- length(common_treatments)
   sparse_treatments <- setdiff(treatments, common_treatments)
   n_sparse          <- length(sparse_treatments)
+
+  # Optional network-wide seed constraint. `seed_cost[e]` is the mandatory
+  # amount consumed when a treatment is assigned to environment e. Tracking one
+  # shared balance prevents the same inventory from being spent independently
+  # at several sites.
+  seed_constrained <- !is.null(seed_available) ||
+    !is.null(seed_required_per_environment)
+  seed_budget <- seed_cost <- seed_consumed <- NULL
+  if (!is.numeric(minimum_seed_buffer) || length(minimum_seed_buffer) != 1L ||
+      !is.finite(minimum_seed_buffer) || minimum_seed_buffer < 0)
+    stop("`minimum_seed_buffer` must be a finite non-negative scalar.")
+  if (!seed_constrained && minimum_seed_buffer > 0)
+    stop("Seed inputs are required when `minimum_seed_buffer` is positive.")
+  if (seed_constrained) {
+    if (is.null(seed_available) || is.null(seed_required_per_environment))
+      stop("Supply both `seed_available` and `seed_required_per_environment`.")
+    if (allocation_method == "equireplicate")
+      stop("Seed-constrained allocation currently supports `random_balanced`; ",
+           "use that method when environment seed costs differ.")
+    if (is.data.frame(seed_available)) {
+      if (!all(c("Treatment", "SeedAvailable") %in% names(seed_available)))
+        stop("Seed inventory data must contain `Treatment` and `SeedAvailable`.")
+      if (anyDuplicated(as.character(seed_available$Treatment)))
+        stop("Seed inventory contains duplicate treatment IDs.")
+      seed_budget <- stats::setNames(
+        as.numeric(seed_available$SeedAvailable),
+        as.character(seed_available$Treatment))
+    } else {
+      seed_budget <- as.numeric(seed_available)
+      names(seed_budget) <- names(seed_available)
+    }
+    if (is.null(names(seed_budget)) || any(names(seed_budget) == "") ||
+        anyDuplicated(names(seed_budget)) ||
+        !all(treatments %in% names(seed_budget)))
+      stop("`seed_available` must be named and cover every treatment.")
+    seed_budget <- seed_budget[treatments] - minimum_seed_buffer
+    if (any(!is.finite(seed_budget)) || any(seed_budget < 0))
+      stop("Seed availability must be finite and at least the requested buffer.")
+
+    if (is.data.frame(seed_required_per_environment)) {
+      if (!all(c("Environment", "SeedRequiredPerPlot") %in%
+               names(seed_required_per_environment)))
+        stop("Seed-cost data must contain `Environment` and ",
+             "`SeedRequiredPerPlot`.")
+      if (anyDuplicated(
+            as.character(seed_required_per_environment$Environment)))
+        stop("Seed-cost data contain duplicate environments.")
+      seed_cost <- stats::setNames(
+        as.numeric(seed_required_per_environment$SeedRequiredPerPlot),
+        as.character(seed_required_per_environment$Environment))
+    } else if (length(seed_required_per_environment) == 1L) {
+      seed_cost <- stats::setNames(
+        rep(as.numeric(seed_required_per_environment), n_env), environments)
+    } else {
+      seed_cost <- as.numeric(seed_required_per_environment)
+      names(seed_cost) <- names(seed_required_per_environment)
+    }
+    if (is.null(names(seed_cost)) || any(names(seed_cost) == "") ||
+        anyDuplicated(names(seed_cost)) ||
+        !all(environments %in% names(seed_cost)))
+      stop("`seed_required_per_environment` must cover every environment.")
+    seed_cost <- seed_cost[environments]
+    if (any(!is.finite(seed_cost)) || any(seed_cost <= 0))
+      stop("Environment seed costs must be finite and positive.")
+
+    seed_consumed <- stats::setNames(numeric(n_treat), treatments)
+    common_cost <- sum(seed_cost)
+    if (n_common > 0L) {
+      bad <- common_treatments[
+        seed_budget[common_treatments] + 1e-8 < common_cost]
+      if (length(bad))
+        stop("Common treatments lack seed for mandatory placement at all sites: ",
+             paste(bad, collapse = ", "), ". Required per common treatment: ",
+             signif(common_cost, 6), ".")
+      seed_consumed[common_treatments] <- common_cost
+    }
+  }
   
   .check_full_coverage_feasibility(
     treatments                     = treatments,
@@ -499,9 +747,10 @@ allocate_sparse_met <- function(
     target_replications <- if (n_sparse == 0L) 0L else max(1L, floor(total_sparse_slots / n_sparse))
   } else {
     if (!is.numeric(target_replications) || length(target_replications) != 1L ||
-        is.na(target_replications) || target_replications < 1L)
+        !is.finite(target_replications) || target_replications < 1L ||
+        abs(target_replications - round(target_replications)) > 1e-8)
       stop("`target_replications` must be NULL or a single positive integer.")
-    target_replications <- as.integer(target_replications)
+    target_replications <- as.integer(round(target_replications))
   }
   
   # ============================================================
@@ -518,6 +767,24 @@ allocate_sparse_met <- function(
         ", available sparse slots = ", total_sparse_slots, ". ",
         "Adjust n_test_entries_per_environment, target_replications, or set ",
         "allow_approximate = TRUE."
+      ))
+    }
+
+    # Equireplicate = equal REPLICATION (each sparse treatment in exactly r
+    # environments), which is M4's strength. That does NOT require equal
+    # environment sizes: unequal per-site capacities are allowed as long as the
+    # equal-replication degree sequence is realizable (Gale-Ryser). The strict
+    # constructor below assigns each treatment to its r environments by largest
+    # remaining capacity, which realizes any feasible sequence.
+    if (!allow_approximate && n_sparse > 0L &&
+        !.equireplicate_degree_feasible(k_sparse, target_replications, n_sparse)) {
+      stop(paste0(
+        "Equireplicate with these per-environment capacities is infeasible: ",
+        "the equal-replication degree sequence (each of ", n_sparse,
+        " sparse treatments in exactly ", target_replications,
+        " environments, environment loads = ", paste(k_sparse, collapse = ", "),
+        ") is not realizable. Rebalance the per-site capacities, change ",
+        "target_replications, or use allocation_method = \"random_balanced\"."
       ))
     }
   }
@@ -637,17 +904,25 @@ allocate_sparse_met <- function(
           )
         }
         
+        # Gale-Ryser greedy: prefer the environments with the largest remaining
+        # capacity so unequal environment sizes are filled without stranding a
+        # large environment at the end.
+        remaining <- target_env_load[candidate_envs] - sparse_env_load[candidate_envs]
         if (n_groups > 0L) {
           grp         <- sparse_groups[[trt]]
           grp_presence <- group_env_current[grp, candidate_envs]
           pref        <- ifelse(grp_presence == 0L, 1L, 0L)
-          ord         <- order(-pref, sparse_env_load[candidate_envs], candidate_envs)
+          # Havel-Hakimi validity requires using a largest remaining column
+          # degree. Genetic-group dispersion may break ties, but must not take
+          # precedence over degree realization in strict mode.
+          ord         <- order(-remaining, -pref, candidate_envs)
           chosen_env  <- candidate_envs[ord][1L]
           group_env_current[grp, chosen_env] <- 1L
         } else {
-          min_load   <- min(sparse_env_load[candidate_envs])
-          best_envs  <- candidate_envs[sparse_env_load[candidate_envs] == min_load]
-          chosen_env <- sample(best_envs, 1L)
+          max_rem    <- max(remaining)
+          best_envs  <- candidate_envs[remaining == max_rem]
+          chosen_env <- if (length(best_envs) == 1L) best_envs
+                        else sample(best_envs, 1L)
         }
         
         chosen_envs                     <- c(chosen_envs, chosen_env)
@@ -687,37 +962,70 @@ allocate_sparse_met <- function(
       
       line_rep <- stats::setNames(integer(n_sparse), sparse_treatments)
       
-      # Phase 1: force minimum coverage
-      for (trt in sample(sparse_treatments)) {
+      # Phase 1: force minimum coverage. Under seed constraints, allocate lines
+      # with the fewest affordable environments first; otherwise a flexible,
+      # well-supplied line can occupy the only slot available to a constrained
+      # line and make a feasible network appear infeasible.
+      coverage_order <- if (seed_constrained) {
+        feasible_count <- vapply(
+          sparse_treatments,
+          function(trt) sum(seed_cost <= seed_budget[trt] + 1e-8),
+          integer(1))
+        if (any(feasible_count == 0L))
+          stop("At least one treatment cannot afford a plot in any environment.")
+        tie_break <- stats::runif(n_sparse)
+        sparse_treatments[
+          order(feasible_count, seed_budget[sparse_treatments], tie_break)]
+      } else {
+        sample(sparse_treatments)
+      }
+      for (trt in coverage_order) {
         spare          <- k_vec - env_load
         candidate_envs <- environments[spare > 0L]
+        if (seed_constrained)
+          candidate_envs <- candidate_envs[
+            seed_consumed[trt] + seed_cost[candidate_envs] <=
+              seed_budget[trt] + 1e-8
+          ]
         
         if (length(candidate_envs) == 0L)
-          stop("Internal allocation error: insufficient capacity during forced minimum coverage.")
+          stop("Cannot give treatment `", trt,
+               "` minimum coverage under the joint field-capacity and seed ",
+               "constraints. Increase seed, reduce site capacities/mandatory ",
+               "replication, or change the common set.")
         
         if (n_groups > 0L) {
           grp          <- sparse_groups[[trt]]
           grp_presence <- group_env_current[grp, candidate_envs]
           pref         <- ifelse(grp_presence == 0L, 1L, 0L)
-          ord          <- order(-pref, env_load[candidate_envs], candidate_envs)
+          load_fraction <- env_load[candidate_envs] /
+            k_vec[match(candidate_envs, environments)]
+          ord <- if (seed_constrained)
+            order(-pref, load_fraction, seed_cost[candidate_envs],
+                  candidate_envs)
+          else order(-pref, load_fraction, candidate_envs)
           chosen_env   <- candidate_envs[ord][1L]
           group_env_current[grp, chosen_env] <- 1L
         } else {
-          chosen_env <- candidate_envs[which.min(env_load[candidate_envs])]
+          load_fraction <- env_load[candidate_envs] /
+            k_vec[match(candidate_envs, environments)]
+          ord <- if (seed_constrained)
+            order(load_fraction, seed_cost[candidate_envs], candidate_envs)
+          else order(load_fraction, candidate_envs)
+          chosen_env <- candidate_envs[ord][1L]
         }
         
         alloc[trt, chosen_env] <- 1L
         env_load[chosen_env]   <- env_load[chosen_env] + 1L
         line_rep[trt]          <- 1L
+        if (seed_constrained)
+          seed_consumed[trt] <- seed_consumed[trt] + seed_cost[chosen_env]
       }
       
     } else {
       line_rep          <- stats::setNames(integer(0), character(0))
       group_env_current <- NULL
     }
-    
-    remaining_slots <- k_vec - env_load
-    env_order       <- order(remaining_slots, decreasing = TRUE)
     
     group_current <- if (n_groups > 0L) {
       gc             <- stats::setNames(integer(n_groups), unique_sparse_groups)
@@ -734,72 +1042,107 @@ allocate_sparse_met <- function(
       stats::setNames(group_sizes * target_replications, names(table(sparse_groups)))
     else integer(0)
     
-    # Phase 2: fill remaining capacity
-    for (e in env_order) {
-      env_name <- environments[e]
-      
-      while (env_load[env_name] < k_vec[e]) {
-        candidates <- sparse_treatments[alloc[sparse_treatments, env_name] == 0L]
-        if (length(candidates) == 0L) break
+    # Phase 2: fill remaining capacity. Re-evaluate the most constrained site
+    # after every assignment so an early site cannot consume the only lines
+    # capable of filling a later, more seed-demanding environment.
+    while (any(env_load < k_vec)) {
+      active <- environments[env_load < k_vec]
+      feasible_by_env <- lapply(active, function(env_name) {
+        cand <- sparse_treatments[alloc[sparse_treatments, env_name] == 0L]
+        if (seed_constrained)
+          cand <- cand[
+            seed_consumed[cand] + seed_cost[env_name] <=
+              seed_budget[cand] + 1e-8
+          ]
+        cand
+      })
+      names(feasible_by_env) <- active
+      open_slots <- k_vec[match(active, environments)] - env_load[active]
+      feasible_n <- lengths(feasible_by_env)
+      if (any(feasible_n == 0L)) {
+        failed <- active[which(feasible_n == 0L)[1L]]
+        stop("Seed-constrained allocation could not fill environment `", failed,
+             "` (filled ", env_load[failed], " of ",
+             k_vec[match(failed, environments)],
+             " entries). The requested capacities are not feasible with the ",
+             "available per-treatment seed budgets.")
+      }
+      slack <- feasible_n - open_slots
+      most_constrained <- active[slack == min(slack)]
+      if (seed_constrained && length(most_constrained) > 1L) {
+        most_constrained <- most_constrained[
+          seed_cost[most_constrained] == max(seed_cost[most_constrained])]
+      }
+      env_name <- most_constrained[1L]
+      candidates <- feasible_by_env[[env_name]]
         
-        deficit <- target_replications - line_rep[candidates]
-        score   <- as.numeric(deficit)
-        names(score) <- candidates
+      deficit <- target_replications - line_rep[candidates]
+      score   <- as.numeric(deficit)
+      names(score) <- candidates
         
-        if (n_groups > 0L && balance_groups_across_env) {
-          cand_groups <- sparse_groups[candidates]
-          size_lookup <- stats::setNames(group_sizes, names(group_target))
-          grp_term    <- pmax(0, as.numeric(
-            group_target[cand_groups] - group_current[cand_groups]
-          )) / pmax(1, as.numeric(size_lookup[cand_groups]))
-          grp_term[is.na(grp_term)] <- 0
-          score <- score + grp_term
-        }
+      if (n_groups > 0L && balance_groups_across_env) {
+        cand_groups <- sparse_groups[candidates]
+        size_lookup <- stats::setNames(group_sizes, names(group_target))
+        grp_term    <- pmax(0, as.numeric(
+          group_target[cand_groups] - group_current[cand_groups]
+        )) / pmax(1, as.numeric(size_lookup[cand_groups]))
+        grp_term[is.na(grp_term)] <- 0
+        score <- score + grp_term
+      }
         
-        if (n_groups > 0L && !is.null(min_groups_per_environment)) {
-          env_groups_now   <- unique(sparse_groups[sparse_treatments[
-            alloc[sparse_treatments, env_name] == 1L
-          ]])
-          n_env_groups_now <- sum(!is.na(env_groups_now) & nzchar(env_groups_now))
-          cand_groups      <- sparse_groups[candidates]
-          lacking_bonus    <- ifelse(!(cand_groups %in% env_groups_now), 1, 0)
-          bonus_weight     <- if (n_env_groups_now < min(min_groups_per_environment, n_groups))
-            100 else 5
-          score <- score + bonus_weight * lacking_bonus
-        }
+      if (n_groups > 0L && !is.null(min_groups_per_environment)) {
+        env_groups_now   <- unique(sparse_groups[sparse_treatments[
+          alloc[sparse_treatments, env_name] == 1L
+        ]])
+        n_env_groups_now <- sum(!is.na(env_groups_now) & nzchar(env_groups_now))
+        cand_groups      <- sparse_groups[candidates]
+        lacking_bonus    <- ifelse(!(cand_groups %in% env_groups_now), 1, 0)
+        bonus_weight     <- if (n_env_groups_now <
+                               min(min_groups_per_environment, n_groups))
+          100 else 5
+        score <- score + bonus_weight * lacking_bonus
+      }
         
-        if (n_groups > 0L && force_group_connectivity && !is.null(min_env_per_group)) {
-          env_count_group <- rowSums(group_env_current > 0L)
-          cand_groups     <- sparse_groups[candidates]
-          conn_term       <- 50 * pmax(0, as.numeric(
-            min_env_per_group - env_count_group[cand_groups]
-          ))
-          conn_term[is.na(conn_term)] <- 0
-          score <- score + conn_term
-        }
+      if (n_groups > 0L && force_group_connectivity &&
+          !is.null(min_env_per_group)) {
+        env_count_group <- rowSums(group_env_current > 0L)
+        cand_groups     <- sparse_groups[candidates]
+        conn_term       <- 50 * pmax(0, as.numeric(
+          min_env_per_group - env_count_group[cand_groups]
+        ))
+        conn_term[is.na(conn_term)] <- 0
+        score <- score + conn_term
+      }
         
-        if (allocation_method == "equireplicate" && allow_approximate)
-          score[deficit[names(score)] < 0] <- score[deficit[names(score)] < 0] - 1000
+      if (allocation_method == "equireplicate" && allow_approximate)
+        score[deficit[names(score)] < 0] <-
+          score[deficit[names(score)] < 0] - 1000
+      if (seed_constrained) {
+        headroom <- (seed_budget[candidates] - seed_consumed[candidates] -
+                       seed_cost[env_name]) / pmax(seed_budget[candidates], 1)
+        score <- score + 1e-6 * headroom
+      }
         
-        max_score <- max(score)
-        best      <- names(score)[score >= (max_score - 1e-8)]
+      max_score <- max(score)
+      best      <- names(score)[score >= (max_score - 1e-8)]
         
-        chosen <- if (allocation_method == "random_balanced") {
-          sample(best, 1L)
-        } else {
-          ord <- order(-score[best], line_rep[best], best)
-          best[ord][1L]
-        }
+      chosen <- if (allocation_method == "random_balanced") {
+        sample(best, 1L)
+      } else {
+        ord <- order(-score[best], line_rep[best], best)
+        best[ord][1L]
+      }
         
-        alloc[chosen, env_name] <- 1L
-        line_rep[chosen]        <- line_rep[chosen] + 1L
-        env_load[env_name]      <- env_load[env_name] + 1L
+      alloc[chosen, env_name] <- 1L
+      line_rep[chosen]        <- line_rep[chosen] + 1L
+      env_load[env_name]      <- env_load[env_name] + 1L
+      if (seed_constrained)
+        seed_consumed[chosen] <- seed_consumed[chosen] + seed_cost[env_name]
         
-        if (n_groups > 0L) {
-          gp                             <- sparse_groups[[chosen]]
-          group_current[gp]              <- group_current[gp] + 1L
-          group_env_current[gp, env_name] <- 1L
-        }
+      if (n_groups > 0L) {
+        gp                              <- sparse_groups[[chosen]]
+        group_current[gp]               <- group_current[gp] + 1L
+        group_env_current[gp, env_name] <- 1L
       }
     }
   }
@@ -809,7 +1152,7 @@ allocate_sparse_met <- function(
   # ============================================================
   # Swap-based improvement that drives the design toward a near-balanced
   # (regular-graph) structure while preserving the equireplication and equal
-  # environment-size margins. Swaps exchange a sparse treatment between two
+  # environment-load margins. Swaps exchange a sparse treatment between two
   # environments, so every treatment keeps its replication count and every
   # environment keeps its size. "env_pair" equalises the number of lines shared
   # by each pair of environments (the connectivity property MET inference depends
@@ -817,25 +1160,72 @@ allocate_sparse_met <- function(
   # env_pair first, then line_pair.
   balance_report <- NULL
   if (balance != "none" && n_sparse >= 2L) {
-    if (n_groups > 0L) {
-      message("balance != 'none' ignored while genetic grouping is active, to ",
-              "preserve group-connectivity constraints.")
-    } else {
-      if (!is.null(balance_seed)) set.seed(balance_seed)
-      S0 <- alloc[sparse_treatments, , drop = FALSE]
-      storage.mode(S0) <- "integer"
-      kinds <- switch(balance,
-                      env_pair  = "env_pair",
-                      line_pair = "line_pair",
-                      both      = c("env_pair", "line_pair"))
-      before <- .balance_metrics(S0)
-      S1 <- S0
-      for (kd in kinds)
-        S1 <- .balance_allocation(S1, kind = kd, iter = balance_iter)
-      after <- .balance_metrics(S1)
-      alloc[sparse_treatments, ] <- S1
-      balance_report <- list(balance = balance, before = before, after = after)
-    }
+    if (!is.null(balance_seed)) set.seed(balance_seed)
+    S0 <- alloc[sparse_treatments, , drop = FALSE]
+    storage.mode(S0) <- "integer"
+    kinds <- switch(balance,
+                    env_pair  = "env_pair",
+                    line_pair = "line_pair",
+                    both      = c("env_pair", "line_pair"))
+    before <- .balance_metrics(S0)
+    S1 <- S0
+    for (kd in kinds)
+      S1 <- .balance_allocation(
+        S1, kind = kd, iter = balance_iter,
+        groups = if (n_groups > 0L) sparse_groups else NULL,
+        seed_budget = if (seed_constrained)
+          seed_budget[sparse_treatments] else NULL,
+        environment_cost = if (seed_constrained) seed_cost else NULL)
+    after <- .balance_metrics(S1)
+    alloc[sparse_treatments, ] <- S1
+    if (seed_constrained)
+      seed_consumed[sparse_treatments] <-
+        as.numeric(S1 %*% seed_cost[colnames(S1)])
+    balance_report <- list(
+      balance = balance, before = before, after = after,
+      constraints_preserved = c(
+        margins = TRUE, groups = n_groups > 0L,
+        seed_budget = seed_constrained))
+  }
+
+  # Correlation-adaptive refinement changes only binary treatment membership.
+  # It never adds plots or treats repeated plots of one genotype as additional
+  # connectivity.
+  pair_refinement_report <- NULL
+  if (!is.null(pair_targets)) {
+    if (!is.null(balance_seed)) set.seed(balance_seed)
+    S0 <- alloc[sparse_treatments, , drop = FALSE]
+    storage.mode(S0) <- "integer"
+    refined <- .adaptive_pair_refinement(
+      S0,
+      pair_targets = pair_targets,
+      common_offset = n_common,
+      aggregate = pair_aggregate,
+      cvar_alpha = pair_cvar_alpha,
+      iter = balance_iter,
+      groups = if (n_groups > 0L) sparse_groups else NULL,
+      seed_budget = if (seed_constrained)
+        seed_budget[sparse_treatments] else NULL,
+      environment_cost = if (seed_constrained) seed_cost else NULL
+    )
+    alloc[sparse_treatments, ] <- refined$allocation
+    if (seed_constrained)
+      seed_consumed[sparse_treatments] <-
+        as.numeric(refined$allocation %*%
+                     seed_cost[colnames(refined$allocation)])
+    pair_refinement_report <- list(
+      aggregate = pair_aggregate,
+      cvar_alpha = pair_cvar_alpha,
+      target_se = pair_target_se,
+      before_score = refined$before_score,
+      after_score = refined$after_score,
+      constraints_preserved = c(
+        treatment_margins = TRUE,
+        environment_margins = TRUE,
+        groups = n_groups > 0L,
+        seed_budget = seed_constrained
+      )
+    )
   }
 
   # ============================================================
@@ -858,6 +1248,19 @@ allocate_sparse_met <- function(
   line_replications <- rowSums(alloc)
   environment_sizes <- colSums(alloc)
   overlap_matrix    <- t(alloc) %*% alloc
+  pairwise_connectivity <- NULL
+  if (!is.null(pair_targets)) {
+    pair_index <- which(upper.tri(overlap_matrix), arr.ind = TRUE)
+    achieved <- overlap_matrix[upper.tri(overlap_matrix)]
+    pairwise_connectivity <- data.frame(
+      Environment1 = rownames(overlap_matrix)[pair_index[, 1L]],
+      Environment2 = colnames(overlap_matrix)[pair_index[, 2L]],
+      TargetDistinctSharedTreatments = as.numeric(pair_targets),
+      AchievedDistinctSharedTreatments = as.numeric(achieved),
+      TargetFraction = pmin(1, as.numeric(achieved / pair_targets)),
+      stringsAsFactors = FALSE
+    )
+  }
   
   group_by_environment <- NULL
   group_overlap_matrix <- NULL
@@ -926,8 +1329,25 @@ allocate_sparse_met <- function(
     min_common_replication   = if (length(common_replications)) min(common_replications)  else NA_integer_,
     max_common_replication   = if (length(common_replications)) max(common_replications)  else NA_integer_,
     mean_common_replication  = if (length(common_replications)) mean(common_replications) else NA_real_,
-    n_groups                 = n_groups
+    n_groups                 = n_groups,
+    pair_aggregate           = if (!is.null(pair_targets))
+      pair_aggregate else NA_character_,
+    pair_target_se           = if (!is.null(pair_targets))
+      pair_target_se else NA_real_
   )
+
+  seed_summary <- if (seed_constrained) data.frame(
+    Treatment = treatments,
+    SeedAvailable = seed_budget[treatments] + minimum_seed_buffer,
+    SeedBuffer = minimum_seed_buffer,
+    SeedAllocated = seed_consumed[treatments],
+    SeedRemaining = seed_budget[treatments] + minimum_seed_buffer -
+      seed_consumed[treatments],
+    SeedSpendableRemaining = seed_budget[treatments] -
+      seed_consumed[treatments],
+    Feasible = seed_consumed[treatments] <= seed_budget[treatments] + 1e-8,
+    stringsAsFactors = FALSE
+  ) else NULL
   
   list(
     allocation_matrix    = alloc,
@@ -939,7 +1359,30 @@ allocate_sparse_met <- function(
     group_by_environment = group_by_environment,
     group_overlap_matrix = group_overlap_matrix,
     balance_report       = balance_report,
+    pair_refinement_report = pair_refinement_report,
+    pairwise_connectivity = pairwise_connectivity,
+    seed_summary         = seed_summary,
     summary              = summary_out,
     seed_used            = seed_used
   )
+}
+
+
+# Gale-Ryser feasibility for an equireplicate design with (possibly unequal)
+# per-environment sparse capacities. The bipartite degree sequence has every
+# sparse treatment with degree r (in exactly r environments) and environment e
+# with degree k_sparse[e]. It is realizable iff the totals match and, for the
+# environment loads sorted in decreasing order, every prefix sum of the top k
+# loads does not exceed n_sparse * min(r, k).
+.equireplicate_degree_feasible <- function(k_sparse, r, n_sparse) {
+  r <- as.integer(r)
+  if (r < 1L || r > length(k_sparse)) return(FALSE)
+  if (any(k_sparse < 0L) || any(k_sparse > n_sparse)) return(FALSE)
+  if (sum(k_sparse) != n_sparse * r) return(FALSE)
+  a  <- sort(as.integer(k_sparse), decreasing = TRUE)
+  cs <- cumsum(a)
+  for (k in seq_along(a)) {
+    if (cs[k] > n_sparse * min(r, k)) return(FALSE)
+  }
+  TRUE
 }

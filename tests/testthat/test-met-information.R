@@ -36,3 +36,28 @@ test_that("lower within-environment efficiency raises PEV (two-level coupling)",
                         env_efficiency = c(0.5, 0.5))$mean_PEV
   expect_gt(lo, hi)
 })
+
+test_that("named inputs are aligned and invalid covariance is rejected", {
+  d <- mk()
+  dimnames(d$SigE) <- list(c("E1", "E2"), c("E1", "E2"))
+  reversed <- d$SigE[c("E2", "E1"), c("E2", "E1")]
+  a <- met_information(d$alloc, d$G, d$SigE)
+  b <- met_information(d$alloc, d$G, reversed)
+  expect_equal(a$mean_PEV, b$mean_PEV, tolerance = 1e-12)
+
+  bad <- matrix(c(1, 2, 2, 1), 2,
+                dimnames = list(c("E1", "E2"), c("E1", "E2")))
+  expect_error(met_information(d$alloc, d$G, bad),
+               "positive semidefinite")
+})
+
+test_that("replication must match incidence exactly", {
+  d <- mk()
+  reps <- 2 * d$alloc
+  more <- met_information(d$alloc, d$G, d$SigE, reps = reps)$mean_PEV
+  base <- met_information(d$alloc, d$G, d$SigE)$mean_PEV
+  expect_lt(more, base)
+  reps[1, 1] <- 0
+  expect_error(met_information(d$alloc, d$G, d$SigE, reps = reps),
+               "positive exactly")
+})

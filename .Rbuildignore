@@ -3,8 +3,19 @@
 ^\.Rproj\.user$
 
 # Git and GitHub
+^\.git$
 ^\.github$
 ^\.gitignore$
+
+# Saved workspace / history and the extension-less README source
+# (kept out of the built tarball so R CMD check stays NOTE-free).
+^\.RData$
+^\.Rhistory$
+^README$
+
+# Local agent/workspace metadata must never enter a source package
+^\.codex$
+^\.agents$
 
 # pkgdown site configuration and assets
 # _pkgdown.yml is excluded to avoid a CRAN note about non-standard files.
@@ -15,8 +26,10 @@
 # Built pkgdown site output
 ^docs$
 
-# Data generation scripts (not needed in the installed package)
+# Private scenarios and data-generation scripts (not distributed)
 ^data-raw$
+^scenarios$
+^private$
 
 # Ad-hoc and maintenance scripts
 ^scripts$
@@ -30,11 +43,15 @@
 ^IMPLEMENTATION_PLAN\.md$
 ^VALIDATION\.md$
 
-# Reference PDFs and guides kept in the repo for development
+# Private reference PDFs and editable guides kept for development
 ^Colmant et al\. 2026\.pdf$
 ^Montesinos-Lopez et al\. 2023\.pdf$
+^Mothukuri et al 2025\.pdf$
+^Soilgrid_.*\.pdf$
 \.docx$
-\.pdf$
+# Root-level PDFs remain development copies. The public breeder guide is
+# distributed separately from inst/guides/.
+^[^/]+\.pdf$
 
 # Office lock/temp artefacts. Word writes "~$<name>.docx" and "~WRL####.tmp"
 # while a document is open; R CMD check cannot read the locked file and halts

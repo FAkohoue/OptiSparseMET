@@ -10,43 +10,54 @@ Authors@R:
       role    = c("aut", "cre"),
       comment = c(ORCID = "0000-0002-2160-0182")
     )
-Description: Constructs sparse multi-environment trial (MET) designs by
-    jointly addressing across-environment treatment allocation and
-    within-environment field layout under shared statistical, genetic, and
-    logistical constraints. Allocation supports two strategies: a
-    random-balanced (M3-inspired) approach that guarantees full treatment
-    coverage while tolerating unequal environment sizes, and an equireplicate
-    (M4-type) approach that enforces equal replication and equal environment
-    size, with optional refinement toward a near-balanced (regular-graph)
-    design (after Montesinos-Lopez et al. 2023 <doi:10.1002/tpg2.20305>; a
-    strict balanced incomplete block design generally does not exist when
-    treatments greatly outnumber environments). Optional common treatments
-    establish cross-environment genetic connectivity. Structure-aware
-    allocation is available via family labels or groups derived from genomic or
-    pedigree relationship matrices. Feasibility helpers verify per-environment
-    capacity and report strict-BIBD existence conditions. Seed-constrained
-    replication plans account for available seed quantities. Within-environment
-    layouts are built for repeated-check augmented, partially replicated
-    (p-rep), and RCBD-type block designs, or for fixed-grid alpha row-column
-    stream designs, with mixed-model efficiency evaluation under A-optimality,
-    D-optimality, and CDmean criteria for genomic selection (Rincent et al. 2012
-    <doi:10.1534/genetics.112.141473>). A coupled across-environment information
-    matrix and a genotype-by-environment simulation report the prediction
-    reliability, selection accuracy, and genetic gain of a design, and
-    decision-point helpers select representative environments and individuals,
-    optimise entry allocation for genomic prediction, and recommend replication
-    under resource constraints. Design optimisation is available via random
-    restart, simulated annealing, and genetic algorithm methods. An end-to-end
-    pipeline coordinates allocation, seed feasibility checks, local field design
-    construction, and assembly of a unified MET field book.
+Description: Constructs statistically connected and operationally feasible
+    sparse multi-environment trial (MET) designs by integrating
+    across-environment treatment allocation with within-environment field
+    layout. Random-balanced allocation prioritises complete treatment coverage,
+    whereas equireplicate allocation enforces equal network replication when
+    the requested degree sequence is realisable (after Montesinos-Lopez et al.
+    2023 <doi:10.1002/tpg2.20305>). Common treatments provide direct
+    cross-environment connectivity; robust optimisation can determine their
+    number, identities, and site-specific replication under uncertainty,
+    capacity limits, and a single network-wide seed inventory. Genetic
+    structure can be represented by family labels or additive genomic and
+    pedigree relationship matrices. Dominance relationships are optional and
+    intended for hybrid applications. Local layouts include augmented,
+    partially replicated, randomised complete-block-type, and alpha
+    row-column designs. Mixed-model evaluation uses A-optimality,
+    D-optimality, and mean coefficient of determination (CDmean) criteria for
+    genomic selection (Rincent et al. 2012
+    <doi:10.1534/genetics.112.141473>). Coupled information-matrix and
+    genotype-by-environment simulation tools quantify prediction error,
+    reliability, selection accuracy, genetic gain, and Monte Carlo uncertainty
+    from delivered plot counts. A paired benchmarking framework compares
+    complete, random, M3, M4, and optimised designs across covariance,
+    variance-component, site-loss, plot, cost, and seed scenarios. It also
+    quantifies known-truth covariance recovery, environmental missingness
+    sensitivity, and decision stability. Quality-controlled weather, soil, management,
+    and geographic data are represented by separate main-effect and
+    cross-modality interaction kernels. Pre-specified variable interactions
+    can be represented by dedicated residualised tensor kernels with
+    strong-heredity parent structures and complete construction audits.
+    Historical MET responses, when
+    available, calibrate genetic environment covariance by blocked validation.
+    Component-wise interaction assessment uses blocked prediction,
+    multiplicity control, and bootstrap inclusion stability.
+    Without historical responses, the central covariance is the identity
+    matrix and unweighted kernels define separate maximin sensitivity
+    scenarios. Stability-screened clustering infers descriptive
+    mega-environments and returns an unpartitioned network when grouping is
+    unsupported. The end-to-end pipeline joins capacity analysis, common-set
+    selection, allocation, seed accounting, local field design, robust
+    evaluation, and unified field-book assembly.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Depends:
     R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Imports:
+    graphics,
     Matrix,
     pracma,
     splines,
@@ -58,10 +69,22 @@ Suggests:
     tinytex,
     crossdes,
     sommer,
+    nasapower,
+    jsonlite,
+    terra,
+    gdalUtilities,
+    DGQGSI,
+    ranger,
+    AGHmatrix,
+    ASRgenomics,
+    future,
+    future.apply,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/lifecycle/label: experimental
 URL: https://github.com/FAkohoue/OptiSparseMET,
     https://FAkohoue.github.io/OptiSparseMET/
 BugReports: https://github.com/FAkohoue/OptiSparseMET/issues
+Remotes: FAkohoue/DGQGSI
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

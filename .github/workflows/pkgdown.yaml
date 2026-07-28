@@ -5,67 +5,122 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-# Prevent concurrent deployments from overwriting each other on gh-pages.
-# A new push cancels any still-running deployment on the same branch.
-
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: true
 
 permissions:
   contents: write
+  pages:    write
+  id-token: write
 
 jobs:
-  pkgdown:
-    runs-on: ubuntu-22.04
+  build:
+    runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: r-lib/actions/setup-pandoc@v2
-
-      - uses: r-lib/actions/setup-r@v2
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Pandoc
+        uses: r-lib/actions/setup-pandoc@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2
+        with:
+          pandoc-version: "3.1.11"
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2
+        with:
+          r-version: "release"
           use-public-rspm: true
-          # OptiSparseMET is pure R; disabling compilation saves install time.
-          needs-compilation: false
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
+            zlib1g-dev libgit2-dev libhdf5-dev \
+            libopenblas-dev liblapack-dev gfortran
+
+      - name: Install Bioconductor packages
+        shell: Rscript {0}
+        run: |
+          if (!requireNamespace("BiocManager", quietly = TRUE))
+            install.packages("BiocManager", repos = "https://cloud.r-project.org")
+          BiocManager::install(ask = FALSE, update = FALSE)
+          bioc_pkgs <- c("SNPRelate", "gdsfmt")
+          to_install <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace,
+                                          logical(1L), quietly = TRUE)]
+          if (length(to_install))
+            BiocManager::install(to_install, ask = FALSE, update = FALSE)
+
+      - name: Install R package dependencies
+        uses: r-lib/actions/setup-r-dependencies@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2
         with:
-          extra-packages: |
-            any::pkgdown
-            any::roxygen2
-            any::Matrix
-            local::.
+          extra-packages: any::pkgdown
           needs: website
 
-      - name: Check pkgdown version supports math-rendering
+      - name: Remove compiled artifacts
+        run: |
+          find . -type f \( \
+            -name "*.o" -o \
+            -name "*.obj" -o \
+            -name "*.so" -o \
+            -name "*.dll" -o \
+            -name "*.a" -o \
+            -name "*.lib" -o \
+            -name "*.def" -o \
+            -name "*.exp" -o \
+            -name "*.dylib" \
+          \) -print -delete
+          rm -rf src-i386 src-x64 libs
+
+      - name: Install OptiSparseMET
+        # R CMD INSTALL is the only reliable way to get the package into
+        # the default library so that library("OptiSparseMET") works in the
+        # subsequent pkgdown step.  install.packages(".", repos=NULL) can
+        # place the package in a non-default path that pkgdown cannot find.
+        run: R CMD INSTALL --no-multiarch --with-keep.source .
+
+      - name: Build pkgdown site
+        env:
+          PKGDOWN_DEV_MODE: release
         shell: Rscript {0}
         run: |
-          v <- packageVersion("pkgdown")
-          message("pkgdown version: ", v)
-          if (v < "2.1.0") {
-            stop(
-              "pkgdown >= 2.1.0 is required for math-rendering: mathjax. ",
-              "Installed version: ", v, ". ",
-              "Pin pkgdown to a newer version in extra-packages."
-            )
-          }
+          pkgdown::build_site_github_pages(
+            new_process = FALSE,
+            install     = FALSE
+          )
 
-      - name: Document package
-        shell: Rscript {0}
+      - name: Publish Breeder's Guide alongside the pkgdown site
+        # inst/extdata/OptiSparseMET_Breeder_Guide.{html,pdf} are pre-built,
+        # version-controlled artifacts (see tools/build_breeder_guide_accessible.cjs);
+        # pkgdown does not know about them, so copy them into docs/ under the
+        # fixed name the navbar "guide" component links to.
         run: |
-          roxygen2::roxygenise()
+          cp inst/extdata/OptiSparseMET_Breeder_Guide.html docs/breeder-guide.html
+          cp inst/extdata/OptiSparseMET_Breeder_Guide.pdf  docs/breeder-guide.pdf
 
-      - name: Build site
-        shell: Rscript {0}
-        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
-          branch: gh-pages
-          folder: docs
-          clean: true
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url:  ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id:   deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

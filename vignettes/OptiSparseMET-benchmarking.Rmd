@@ -1,0 +1,530 @@
+---
+title: "Benchmarking and Validation of OptiSparseMET Designs"
+output: rmarkdown::html_vignette
+header-includes:
+  - |
+    <script>
+    window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] }, svg: { fontCache: 'global' } };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+vignette: >
+  %\VignetteIndexEntry{Benchmarking and Validation of OptiSparseMET Designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# 1. Purpose
+
+Optimisation identifies a design that is best under a stated objective and a
+stated set of assumptions. Validation asks a different question: does that
+advantage persist when the assumptions, resources, or realised data change?
+Therefore, a defensible multi-environment trial (MET) recommendation should
+establish: (i) recovery of a known structure under simulation, (ii)
+out-of-sample performance with historical response evidence, (iii) superiority
+or efficiency relative to explicit reference designs, (iv) robustness to
+covariance, variance, missing-data, and site-loss perturbations, and (v)
+stability of the released breeding decisions.
+
+This vignette provides a reproducible synthetic demonstration. It does not
+claim empirical superiority for a particular crop or breeding programme.
+Programme-specific claims require historical multi-year data and prospective
+field validation.
+
+# 2. Benchmarking inputs
+
+The environmental and design benchmarks use the same objects as the production
+workflow.
+
+| Input | Status | Format | Essential identifiers |
+|---|---|---|---|
+| Environmental kernels | Required for environmental-model comparison | Named list of square numeric matrices | Identical environment row and column names |
+| Genetic relationship matrix (`G`) | Required for design comparison | Square numeric matrix | Treatment row and column names |
+| Allocation designs | Required for design comparison | Named list of treatment-by-environment matrices | Treatment rows; environment columns |
+| Environmental covariance (`Sigma_E`) | Optional central structure | Named square numeric matrix | Environment row and column names |
+| Historical MET responses | Optional response evidence | Long data frame | Genotype, environment, value; year is recommended |
+| Dedicated interaction hypotheses | Optional, pre-specified structural evidence | Long data frame | `interaction`, `parent`, `modality`, `variable` |
+| Actual replication (`reps`) | Optional, strongly recommended after fieldbook construction | Treatment-by-environment numeric matrix | Same dimensions as allocation |
+| Plot cost and capacity | Optional operational evidence | Scalar or environment-named vectors | Environment names |
+| Seed inventory | Optional operational constraint | Treatment-named vector or two-column data frame | `Treatment`, `SeedAvailable` |
+| Seed required per plot | Conditional on seed inventory | Scalar, environment-named vector, or treatment-by-environment matrix | Treatment and environment names when matrix-valued |
+
+Historical response values should be adjusted genotype estimates, best linear
+unbiased estimators (BLUEs), or best linear unbiased predictors (BLUPs) derived
+under a coherent model. Raw plot values should first be analysed for block,
+spatial, and trial-design effects. Without historical MET responses, the
+package does not invent modality weights: the central covariance remains
+independent and the environmental kernels are evaluated as separate structural
+scenarios.
+
+## 2.1 Reference rows and dimensions
+
+Historical responses use one genotype--environment--year record per adjusted
+value:
+
+| genotype | environment | year | adjusted_value |
+|---|---|---|---:|
+| G001 | E1 | 2023 | 4.82 |
+| G001 | E2 | 2023 | 4.31 |
+| G002 | E1 | 2023 | 5.07 |
+
+The first three columns are identifiers; `adjusted_value` is numeric. If
+several traits are analysed, benchmark them separately or supply the chosen
+selection index as the value column.
+
+Seed inventory contains one network-wide quantity per treatment:
+
+| Treatment | SeedAvailable |
+|---|---:|
+| G001 | 185 |
+| G002 | 92 |
+| G003 | 240 |
+
+An environmental block has one row per environment. Numeric weather and soil
+variables can be combined with categorical management variables:
+
+| environment | mean_temperature | rainfall | soil_pH | irrigation |
+|---|---:|---:|---:|---|
+| E1 | 24.6 | 512 | 5.8 | supplemental |
+| E2 | 26.1 | 438 | 6.2 | rainfed |
+| E3 | 23.9 | 605 | 5.5 | supplemental |
+
+A dedicated interaction specification contains one row per parent variable:
+
+| interaction | parent | modality | variable |
+|---|---|---|---|
+| temperature_x_density | temperature | weather | mean_temperature |
+| temperature_x_density | density | soil | bulk_density |
+
+The specification is a pre-defined hypothesis list, not a response-derived
+screen. `build_variable_interaction_kernels()` verifies that every column
+survived quality control and reports tensor dimension, residual information,
+effective kernel rank, bandwidths, and strong-heredity parent kernels.
+
+Allocation and replication objects are matrices rather than data frames. Rows
+are treatment IDs and columns are environment IDs. Allocation is binary;
+replication is zero for an absent cell and a positive plot count for a present
+cell.
+
+```{r benchmark-input-shape, eval=FALSE}
+allocation <- matrix(
+  c(1, 1, 0,
+    1, 0, 1,
+    0, 1, 1),
+  nrow = 3, byrow = TRUE,
+  dimnames = list(c("G001", "G002", "G003"), c("E1", "E2", "E3"))
+)
+reps <- allocation
+reps["G001", "E2"] <- 2
+
+designs <- list(
+  proposed = list(allocation_matrix = allocation, reps = reps),
+  comparator = comparator_allocation
+)
+```
+
+# 3. Known-truth environmental covariance recovery
+
+Known-truth simulation tests whether the calibration can recover a covariance
+constructed from known environmental components. In this example, weather,
+soil, and independent variation contribute 65%, 25%, and 10%, respectively.
+
+```{r known-truth-environment, eval=FALSE}
+library(OptiSparseMET)
+
+envs <- paste0("E", 1:6)
+
+K_weather <- outer(
+  1:6, 1:6,
+  function(i, j) exp(-abs(i - j) / 1.5)
+)
+K_soil <- outer(
+  c(1, 3, 2, 6, 4, 5),
+  c(1, 3, 2, 6, 4, 5),
+  function(i, j) exp(-abs(i - j) / 1.5)
+)
+dimnames(K_weather) <- dimnames(K_soil) <- list(envs, envs)
+
+environment_recovery <- simulate_environment_model_benchmark(
+  kernels = list(weather = K_weather, soil = K_soil),
+  true_weights = c(
+    weather = 0.65,
+    soil = 0.25,
+    identity = 0.10
+  ),
+  n_genotypes = 250,
+  n_years = 10,
+  sigma_g2 = 1,
+  sigma_e2 = 1,
+  reps_per_cell = 2,
+  missing_rate = 0.05,
+  n_boot = 500,
+  seed = 2026
+)
+
+environment_recovery$weight_recovery
+environment_recovery$benchmark$scores
+environment_recovery$benchmark$cross_validation
+```
+
+Four quantities should be examined. First, the estimated component weights
+should approach the known values as the number of genotypes and years
+increases. Second, the historically calibrated covariance should have low
+off-diagonal root-mean-square error (RMSE) and relative Frobenius error. Third,
+leave-year-out and leave-environment-out errors should remain acceptable.
+Fourth, bootstrap weight distributions should reveal whether apparently precise
+weights are genuinely identifiable.
+
+The `single_equal_weight` row is deliberately included as a comparator. It
+does not become the package default. If equal weighting performs well in one
+simulation, that result supports that simulated structure only.
+
+# 4. Retrospective validation with historical MET responses
+
+When historical data are available, blocked validation should respect the
+deployment problem. A new year is predicted by leaving an entire year out; a
+new location is challenged by leaving an environment out.
+
+```{r retrospective-environment, eval=FALSE}
+environment_validation <- benchmark_environment_models(
+  kernels = environmental_kernels,
+  historical = historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  value_col = "adjusted_value",
+  year_col = "year",
+  interaction_policy = "evidence",
+  n_boot = 500,
+  seed = 2026
+)
+
+environment_validation$scores
+environment_validation$cross_validation
+environment_validation$interaction_evidence
+```
+
+The in-sample covariance score and blocked prediction error must be reported
+together. A flexible model can reproduce an empirical matrix yet fail on a
+held-out year. Moreover, interaction activation is tested against the
+main-only model; an interaction kernel remains a structural uncertainty
+scenario when response evidence is insufficient.
+
+Dedicated variable interactions should first be assessed separately:
+
+```{r retrospective-variable-interactions, eval=FALSE}
+variable_evidence <- assess_variable_interactions(
+  kernels = environmental_kernels,
+  historical = historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  value_col = "adjusted_value",
+  year_col = "year",
+  alpha = 0.05,
+  p_adjust = "holm",
+  n_boot = 500,
+  seed = 2026
+)
+
+central_environment_model <- calibrate_environment_covariance(
+  kernels = environmental_kernels,
+  historical = historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  value_col = "adjusted_value",
+  year_col = "year",
+  eligible_interactions = variable_evidence$supported,
+  interaction_policy = "evidence",
+  n_boot = 500,
+  seed = 2026
+)
+
+variable_evidence$evidence
+central_environment_model$interaction_evidence
+```
+
+Component-wise support requires positive blocked-validation improvement, a
+Holm-adjusted one-sided paired sign test below the declared threshold, and a
+positive fitted covariance contribution. The aggregate calibration then tests
+the supported set jointly. This two-stage rule limits interaction multiplicity
+while retaining every screened kernel as a structural sensitivity candidate.
+Bootstrap inclusion should be interpreted as weight-selection stability, not
+as causal evidence.
+
+# 5. Reference designs at equal sparse budget
+
+The design comparator constructs: (i) complete testing as an information upper
+bound, (ii) naive independent random sampling, (iii) M3-inspired
+coverage-first sparse allocation, and (iv) strict M4 equireplication when the
+requested degree sequence is realisable.
+
+```{r reference-designs, eval=FALSE}
+treatments <- paste0("L", 1:52)
+environments <- paste0("E", 1:4)
+common <- treatments[1:4]
+
+reference_designs <- make_met_benchmark_designs(
+  treatments = treatments,
+  environments = environments,
+  n_test_entries_per_environment = 28,
+  target_replications = 2,
+  common_treatments = common,
+  m4_fallback = "omit",
+  seed = 2026
+)
+
+reference_designs$diagnostics
+reference_designs$m4_feasibility
+```
+
+The complete design is not forced to satisfy the sparse budget. It defines the
+maximum-information reference and is subsequently marked infeasible if it
+exceeds plots or seed. Naive random sampling can leave treatments untested; the
+coverage metric makes that failure explicit. An infeasible M4 is omitted or
+labelled `M4_approximate`; it is never presented as exact equireplication.
+
+# 6. Paired performance and robustness benchmark
+
+The following example evaluates all designs under two covariance structures,
+three residual variances, and loss of one site. The same genetic and residual
+standard-normal draws are used for every design within a scenario.
+
+```{r paired-design-benchmark, eval=FALSE}
+set.seed(2026)
+marker_surrogate <- matrix(rnorm(52 * 80), 52, 80)
+G <- tcrossprod(marker_surrogate) / 80 + diag(52) * 0.20
+dimnames(G) <- list(treatments, treatments)
+
+Sigma_central <- matrix(0.35, 4, 4)
+diag(Sigma_central) <- 1
+dimnames(Sigma_central) <- list(environments, environments)
+
+Sigma_weak <- matrix(0.10, 4, 4)
+diag(Sigma_weak) <- 1
+dimnames(Sigma_weak) <- list(environments, environments)
+
+seed_available <- setNames(
+  ifelse(seq_along(treatments) <= 16, 5, 3),
+  treatments
+)
+
+family_info <- data.frame(
+  Treatment = treatments,
+  Family = rep(paste0("F", 1:4), length.out = length(treatments))
+)
+seed_info <- data.frame(
+  Treatment = treatments,
+  SeedAvailable = unname(seed_available)
+)
+
+optimised_common <- optimize_common_treatments(
+  G = G,
+  Sigma_E = Sigma_central,
+  treatment_info = family_info,
+  seed_info = seed_info,
+  seed_required_per_plot = setNames(rep(1, 4), environments),
+  entry_capacities = setNames(rep(28L, 4), environments),
+  n_groups = 4,
+  pair_aggregate = "maximin",
+  seed = 2026
+)
+
+optimised_allocation <- allocate_sparse_met(
+  treatments = treatments,
+  environments = environments,
+  allocation_method = "random_balanced",
+  n_test_entries_per_environment = 28,
+  target_replications = 2,
+  common_treatments = optimised_common$selected,
+  seed_available = seed_available,
+  seed_required_per_environment = setNames(rep(1, 4), environments),
+  balance = "both",
+  balance_iter = 5000,
+  Sigma_E = Sigma_central,
+  pair_aggregate = "maximin",
+  allocation_group_source = "Family",
+  treatment_info = family_info,
+  min_env_per_group = 2,
+  seed = 2026
+)
+optimised_reps <- optimised_allocation$allocation_matrix
+reference_designs$designs$OptiSparseMET_optimised <- list(
+  allocation_matrix = optimised_allocation$allocation_matrix,
+  reps = optimised_reps
+)
+
+design_benchmark <- benchmark_met_designs(
+  designs = reference_designs,
+  G = G,
+  Sigma_E = Sigma_central,
+  Sigma_E_candidates = list(
+    central = Sigma_central,
+    weakly_correlated = Sigma_weak
+  ),
+  sigma_g2 = 1,
+  sigma_e2 = c(0.5, 1, 2),
+  environment_dropout = list(
+    none = character(),
+    fourth_site_lost = "E4"
+  ),
+  cost_per_plot = c(E1 = 1.0, E2 = 1.0, E3 = 1.2, E4 = 1.3),
+  fixed_plot_overhead = c(E1 = 8, E2 = 8, E3 = 8, E4 = 8),
+  environment_plot_capacity = c(E1 = 36, E2 = 36, E3 = 36, E4 = 36),
+  seed_available = seed_available,
+  seed_required_per_plot = 1,
+  minimum_seed_buffer = 0,
+  n_sim = 500,
+  select_fraction = 0.10,
+  seed = 2026
+)
+
+design_benchmark$design_summary
+design_benchmark$scenario_results
+design_benchmark$feasibility
+optimised_common$comparison
+optimised_common$selected
+```
+
+The `OptiSparseMET_optimised` row is now compared with every explicit reference
+under the same realised genetic effects and errors. The principal result is not
+the largest single accuracy. A release candidate should satisfy four
+conditions: (i) it is plot- and seed-feasible, (ii) every treatment is observed
+at least once unless exclusion is an explicit breeding decision, (iii) its
+average performance is competitive, and (iv) its worst-scenario performance is
+acceptable. Scenario probabilities should be supplied only when they are
+empirically defensible. Otherwise, the uniform summary is a sensitivity
+analysis rather than a Bayesian prior.
+
+# 7. Missing environmental covariates
+
+Environmental-data robustness is assessed by masking covariate cells, rebuilding
+the full quality-control and imputation workflow, and rescoring the covariance
+candidates. The zero-missingness analysis is the reference.
+
+```{r environmental-missingness, eval=FALSE}
+missingness_benchmark <- benchmark_environment_missingness(
+  weather = weather_covariates,
+  soil = soil_covariates,
+  management = management_covariates,
+  geography = geography_covariates,
+  missing_rates = c(0, 0.05, 0.10, 0.20),
+  n_repeats = 50,
+  historical = historical_met,
+  build_args = list(
+    missing_action = "impute",
+    impute = "median",
+    include_interactions = TRUE,
+    interaction_mode = "anova",
+    variable_interactions = dedicated_interaction_hypotheses
+  ),
+  benchmark_args = list(
+    genotype_col = "genotype",
+    environment_col = "environment",
+    value_col = "adjusted_value",
+    year_col = "year",
+    interaction_policy = "evidence",
+    n_boot = 0
+  ),
+  seed = 2026
+)
+
+missingness_benchmark$summary
+missingness_benchmark$masking
+missingness_benchmark$warnings
+```
+
+This experiment evaluates missing-completely-at-random covariates. It does not
+cover systematic sensor failure during extreme weather, preferentially missing
+management records, or other informative mechanisms. Those mechanisms should
+be encoded as additional programme-specific perturbations. Low-coverage
+quality-control warnings created by deliberate masking are retained in
+`warnings` and counted in `masking`; they are not discarded or emitted
+repeatedly during the benchmark.
+
+# 8. Cost--performance Pareto frontier
+
+The Pareto plot uses one statistical endpoint. The bottom axis measures
+normalised cost minimisation from 0% to 100%; the upper axis reports actual cost
+from the maximum to the minimum observed value.
+
+```{r pareto, eval=FALSE}
+plot_pareto_frontier(
+  design_benchmark,
+  x = "cost",
+  metric = "accuracy",
+  label_designs = TRUE
+)
+```
+
+For example, if the observed costs range from 10 to 1, cost 10 is aligned with
+0% cost minimisation and cost 1 with 100%. Accuracy is shown directly as a
+percentage. Genetic gain can instead be selected with `metric = "gain"` and is
+then expressed as a percentage of the maximum observed gain. The endpoints are
+not overlaid because they answer different breeding questions. A design marked
+infeasible cannot define the frontier: it remains visible as a grey cross,
+whereas feasible dominated designs remain grey circles.
+
+# 9. Stability of released decisions
+
+Repeated perturbations may change the selected common treatments, recommended
+site capacities, or allocation cells. Stability should therefore be reported
+at the decision level, not only at the objective level.
+
+```{r stability, eval=FALSE}
+stability <- summarize_design_stability(
+  common_sets = list(
+    bootstrap_1 = common_result_1$selected,
+    bootstrap_2 = common_result_2$selected,
+    bootstrap_3 = common_result_3$selected
+  ),
+  site_capacities = list(
+    bootstrap_1 = capacity_result_1,
+    bootstrap_2 = capacity_result_2,
+    bootstrap_3 = capacity_result_3
+  ),
+  allocations = list(
+    bootstrap_1 = allocation_result_1,
+    bootstrap_2 = allocation_result_2,
+    bootstrap_3 = allocation_result_3
+  )
+)
+
+stability$common_frequency
+stability$common_jaccard
+stability$capacity_summary
+stability$allocation_frequency
+```
+
+Treatment selection frequency identifies stable anchors. Pairwise Jaccard
+coefficients quantify whole-set agreement. Capacity medians, interquartile
+ranges, and extrema show whether a recommendation depends on a narrow
+assumption. Hence, an unstable nominal optimum can be replaced by a slightly
+less efficient but more reproducible design before field release.
+
+# 10. Minimum evidence for a strong claim
+
+A quantitative-genetics report should provide:
+
+1. The exact comparator designs and their budgets.
+2. The environmental covariance candidates and variance-component grid.
+3. Leave-year-out and leave-environment-out results when historical responses
+   exist.
+4. Paired Monte Carlo means, standard errors, and 95% intervals.
+5. Plot, seed, coverage, and site-capacity feasibility.
+6. Average and worst-scenario accuracy, gain, PEV, and CDmean.
+7. Missing-covariate and complete-site-loss stress tests.
+8. Common-set, capacity, and allocation stability.
+9. A discrete, feasibility-constrained, non-dominated cost--performance
+   frontier.
+
+These analyses do not guarantee future field performance. However, they make
+the assumptions, comparisons, and operational compromises auditable. That is
+the appropriate standard for converting an optimised sparse MET design into a
+breeding decision.

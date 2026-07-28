@@ -29,13 +29,12 @@ make_example_sparsemet_data <- function(seed = 123) {
   # capacity in each environment after they are removed from the pool.
   common_treatments <- treatments[1:5]
   
-  # Seed range chosen to produce all three replication outcomes
-  # (replicated, unreplicated, excluded) at the per-plot requirements below.
-  # Even spacing avoids ties in seed-priority ranking under "seed_available"
-  # priority mode.
+  # The lower bound covers mandatory network allocation, including two plots in
+  # the alpha site. Variation still exercises p-rep downgrading without making
+  # the shared-inventory fixture randomly infeasible.
   seed_info <- data.frame(
     Treatment     = treatments,
-    SeedAvailable = sample(seq(20, 120, by = 2), n_treatments, replace = TRUE),
+    SeedAvailable = sample(seq(40, 140, by = 2), n_treatments, replace = TRUE),
     stringsAsFactors = FALSE
   )
   
@@ -69,7 +68,8 @@ make_example_sparsemet_data <- function(seed = 123) {
       order                = "row",
       serpentine           = TRUE,
       cluster_source       = "Family",
-      use_dispersion       = FALSE
+      use_dispersion       = FALSE,
+      verbose              = FALSE
     ),
     
     # Env2: alpha row-column stream design via met_alpha_rc_stream().
@@ -107,7 +107,8 @@ make_example_sparsemet_data <- function(seed = 123) {
       order            = "column",
       serpentine       = FALSE,
       cluster_source   = "Family",
-      use_dispersion   = FALSE
+      use_dispersion   = FALSE,
+      verbose          = FALSE
     )
   )
   

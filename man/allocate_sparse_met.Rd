@@ -11,9 +11,16 @@ allocate_sparse_met(
   n_test_entries_per_environment,
   target_replications = NULL,
   common_treatments = NULL,
+  seed_available = NULL,
+  seed_required_per_environment = NULL,
+  minimum_seed_buffer = 0,
   balance = c("none", "env_pair", "line_pair", "both"),
   balance_iter = 2000L,
   balance_seed = NULL,
+  Sigma_E = NULL,
+  pair_target_se = 0.15,
+  pair_aggregate = c("maximin", "cvar", "mean"),
+  pair_cvar_alpha = 0.25,
   allocation_group_source = c("none", "Family", "GRM", "A"),
   treatment_info = NULL,
   GRM = NULL,
@@ -34,11 +41,11 @@ allocate_sparse_met(
 \arguments{
 \item{treatments}{Character vector of test treatment IDs to allocate across
 environments. Check treatments should not be included here; they are
-handled separately within the within-environment design functions. Duplicate
-values are silently removed.}
+handled separately within the within-environment design functions. IDs
+must be unique, non-missing, and non-empty.}
 
 \item{environments}{Character vector of environment names. Must contain at
-least two elements. Duplicate values are silently removed.}
+least two unique, non-missing, non-empty elements.}
 
 \item{allocation_method}{Character scalar. Sparse allocation strategy.
 Accepted values are \code{"random_balanced"} (M3-inspired stochastic
@@ -46,12 +53,23 @@ allocation) and \code{"equireplicate"} (M4-type equal-replication allocation). T
 aliases \code{"M3"} and \code{"M4"} are also accepted and translated internally to
 their canonical names before any further processing.}
 
-\item{n_test_entries_per_environment}{Integer scalar or integer vector. Total
-number of test treatments per environment including common treatments. If a
-scalar, it applies uniformly to all environments. If a vector, its length
-must equal the number of environments. All values must be positive and must
-be at least \code{length(common_treatments)}. Use \code{\link[=suggest_safe_k]{suggest_safe_k()}} to choose
-a value that guarantees full treatment coverage.}
+\item{n_test_entries_per_environment}{Integer scalar or vector giving the
+field capacity (total test treatments, including common treatments) of each
+environment. A scalar applies uniformly. A vector may be \strong{positional}
+(length = number of environments, in the same order) or \strong{named} (matched
+to environment names, any order), which is the natural way to encode
+\emph{site-specific} capacity when partners offer different amounts of space:
+the breeder simply occupies all the space each location offers, so
+environments need not be equal-sized. All values must be positive and at
+least \code{length(common_treatments)}. Variable capacities work with \strong{both}
+methods: \code{"random_balanced"} fills each site to its capacity, and
+\code{"equireplicate"} (M4) still guarantees \strong{equal replication} (each
+treatment in exactly \code{target_replications} environments) across
+unequal-sized environments whenever the resulting degree sequence is
+realisable (checked internally). For a location with \emph{no} capacity limit,
+use \code{\link[=suggest_site_capacity]{suggest_site_capacity()}} to choose a plot number first, then pass it
+here. Use \code{\link[=suggest_safe_k]{suggest_safe_k()}} to choose a value that guarantees full
+coverage.}
 
 \item{target_replications}{Optional positive integer. Target number of
 environments in which each non-common treatment should appear. For
@@ -59,28 +77,64 @@ environments in which each non-common treatment should appear. For
 filling. For \code{"equireplicate"}, this is the strict replication level
 required for an exact balanced solution. If \code{NULL}, the function infers a
 value as \code{floor(total_sparse_slots / n_sparse_treatments)}, with a minimum
-of 1.}
+of 1. This argument controls distinct-environment coverage only; it does
+not add plots within an environment.}
 
-\item{common_treatments}{Optional character vector of treatment IDs to assign
-to all environments. Placed before sparse allocation begins and excluded
-from the sparse pool. Values not present in \code{treatments} are silently
-dropped.}
+\item{common_treatments}{Optional character vector of preselected treatment
+IDs. Supplied identities are fixed as present in all environments, placed
+before sparse allocation begins, and excluded from the sparse pool. This
+fixes presence, not equal site-specific replication. Values not present in
+\code{treatments} are silently dropped.}
+
+\item{seed_available}{Optional network-wide seed inventory. Supply either a
+named numeric vector or a data frame with columns \code{Treatment} and
+\code{SeedAvailable}. The inventory is shared across all environments; it is not
+reset independently at each site.}
+
+\item{seed_required_per_environment}{Seed consumed when one treatment is
+assigned to each environment: a positive scalar, a named numeric vector,
+or a data frame with columns \code{Environment} and \code{SeedRequiredPerPlot}.
+Values may include mandatory local replication (for example, twice the
+per-plot requirement for a two-replicate alpha design). Required with
+\code{seed_available}.}
+
+\item{minimum_seed_buffer}{Non-negative reserve retained for every treatment
+after mandatory allocation. Default 0.}
 
 \item{balance}{Character scalar. Post-construction refinement toward a
 near-balanced (regular-graph) design, preserving equal replication and
-equal environment size. \code{"none"} (default) skips it; \code{"env_pair"}
+every requested environment size. \code{"none"} (default) skips it; \code{"env_pair"}
 equalises the number of lines shared by each pair of environments
 (cross-environment connectivity); \code{"line_pair"} equalises pairwise
 treatment concurrence; \code{"both"} applies \code{"env_pair"} then \code{"line_pair"}.
-Ignored (with a message) when genetic grouping is active. A strict BIBD is
-generally unattainable when treatments greatly outnumber environments, so
-this targets the achievable balance rather than constant \eqn{\lambda}.}
+With genetic grouping, only within-group swaps are accepted, so
+group-by-environment counts remain unchanged. With seed constraints, swaps
+that would exceed either treatment's network inventory are rejected. A
+strict BIBD is generally unattainable when treatments greatly outnumber
+environments, so this targets achievable balance rather than constant
+\eqn{\lambda}.}
 
 \item{balance_iter}{Integer, default \code{2000}. Number of swap iterations per
 balance pass.}
 
 \item{balance_seed}{Optional integer seed for the balance swap search
 (independent of \code{seed}).}
+
+\item{Sigma_E}{Optional named environmental covariance matrix, or named list
+of covariance candidates. When supplied, a margin-preserving refinement
+allocates distinct shared treatments towards environment pairs according
+to their correlation-dependent targets. Local plot replication is not
+used in this connectivity calculation.}
+
+\item{pair_target_se}{Positive target standard error used to convert each
+environment-pair correlation into a target number of distinct shared
+treatments.}
+
+\item{pair_aggregate}{Pairwise protection rule for correlation-adaptive
+refinement: \code{"maximin"} (default), \code{"cvar"}, or \code{"mean"}.}
+
+\item{pair_cvar_alpha}{Lower-tail fraction used when
+\code{pair_aggregate = "cvar"}.}
 
 \item{allocation_group_source}{Character scalar. Controls whether and how
 genetic group structure guides allocation. \code{"none"} disables group-guided
@@ -142,13 +196,12 @@ assigns treatments from groups that have not yet appeared in
 not \code{"none"} and \code{min_env_per_group} is not \code{NULL}.}
 
 \item{allow_approximate}{Logical, default \code{FALSE}. When \code{FALSE} and
-\code{allocation_method = "equireplicate"}, the slot identity
-\eqn{J^* \times r = I \times k^*} must hold exactly; the function stops
-with an error if it does not. This is the standard M4 path and guarantees
-equal replication for every non-common treatment. When \code{TRUE}, the slot
-identity is not enforced and minor replication imbalances are accepted; this
-is a relaxed fallback for exploratory use, not the primary mode. For
-\code{"random_balanced"}, this argument has no effect.}
+\code{allocation_method = "equireplicate"}, the total slot identity and
+equal-replication degree sequence must be feasible; the function stops
+otherwise. This is the standard M4 path and guarantees equal replication
+for every non-common treatment. When \code{TRUE}, those conditions are relaxed
+and minor replication imbalances are accepted; this is an exploratory
+fallback. For \code{"random_balanced"}, this argument has no effect.}
 
 \item{seed}{Optional integer. Random seed for reproducibility. Controls
 the random order in which sparse treatments are processed in phase one
@@ -191,13 +244,23 @@ treatments from each allocation group in each environment. Columns:
 \verb{n_environments x n_environments} giving the number of shared allocation
 groups between each pair of environments. \code{NULL} when
 \code{allocation_group_source = "none"}.}
+\item{\code{pairwise_connectivity}}{When \code{Sigma_E} is supplied, a data frame
+reporting the target and achieved number of distinct treatments shared
+by every environment pair. Repeated plots never increase this count.}
+\item{\code{pair_refinement_report}}{Before-and-after maximin, CVaR, or mean
+target-attainment scores and preserved-constraint indicators for the
+correlation-adaptive refinement.}
+\item{\code{seed_summary}}{When seed constraints are active, treatment-level
+seed available, allocated, buffered, remaining, and feasibility values;
+otherwise \code{NULL}.}
 \item{\code{summary}}{Named list with allocation metadata: \code{allocation_method},
 \code{allocation_group_source}, \code{target_replications}, \code{n_treatments_total},
 \code{n_sparse_treatments}, \code{n_common_treatments}, \code{total_sparse_slots},
 \code{environment_sizes}, \code{min_replication}, \code{max_replication},
 \code{mean_replication}, \code{min_sparse_replication}, \code{max_sparse_replication},
 \code{mean_sparse_replication}, \code{min_common_replication},
-\code{max_common_replication}, and \code{mean_common_replication}.}
+\code{max_common_replication}, \code{mean_common_replication}, \code{pair_aggregate},
+and \code{pair_target_se}.}
 \item{\code{seed_used}}{The integer seed passed to \code{set.seed()} internally, or
 \code{NULL} if no seed was supplied.}
 }
@@ -216,15 +279,24 @@ begins.
 
 The \code{"equireplicate"} method implements the M4 allocation of
 Montesinos-Lopez et al. (2023): every non-common treatment appears in
-exactly \eqn{r} environments (equal replication) and every environment
-receives exactly \eqn{k^*} sparse treatments (equal environment sizes),
-so the resource identity \eqn{J^* \times r = I \times k^*} holds exactly.
-This equal-replication, equal-environment-size guarantee is what
-distinguishes M4 from M3 in the paper, and is always the goal in plant
-breeding programs where thousands of lines are tested across a few
-environments.
+exactly \eqn{r} environments (equal across-environment incidence). Here,
+\eqn{r} counts different environments, not repeated plots within one
+environment. Repeating a plot locally never increases connectivity. Equal
+across-environment incidence distinguishes M4 from the random M3 method and
+controls unequal information among treatments. Pairwise connectivity is a
+separate property determined by how many distinct treatments each
+environment pair shares. Equal incidence is preserved even
+when environments have \strong{unequal sizes} (partners offering different
+amounts of space): the sparse loads \eqn{k^*_e} may differ across
+environments, subject only to the resource identity
+\eqn{\sum_e k^*_e = J^* \times r} and to the equal-replication degree sequence
+being realisable (a Gale-Ryser condition checked internally). When all
+environments are equal-sized this reduces to the classic
+\eqn{J^* \times r = I \times k^*} identity. So a breeder can keep M4's
+equal-replication strength while occupying exactly the space each location
+offers.
 
-#' \code{allow_approximate = FALSE} (the default) is the standard M4 path: the
+\code{allow_approximate = FALSE} (the default) is the standard M4 path: the
 slot identity must hold exactly, and the function stops with an informative
 error if it cannot be met, so the caller always knows whether equal
 replication was achieved. Construction uses a greedy load-balanced
@@ -256,20 +328,24 @@ replication slots.
 The allocation strategies implemented here correspond to M3 and M4 in
 Montesinos-Lopez et al. (2023). The underlying resource identity is:
 
-\deqn{N = J \times r = I \times k}
+\deqn{N = J \times r = \sum_{e=1}^{I} k_e}
 
 where \eqn{J} is the number of lines, \eqn{I} is the number of environments,
-\eqn{k} is the number of lines per environment, \eqn{r} is the number of
-environments each line enters, and \eqn{N} is the total number of
-line-by-environment observations. This identity makes the tradeoff between
-coverage (\eqn{k}) and replication depth (\eqn{r}) explicit given fixed
-\eqn{N}.
+\eqn{k_e} is the number of lines in environment \eqn{e}, \eqn{r} is the
+number of environments each line enters, and \eqn{N} is the total number of
+line-by-environment observations. For equal environment sizes,
+\eqn{\sum_e k_e = I k}. This identity makes the tradeoff between coverage
+and replication depth explicit given fixed \eqn{N}.
 }
 
 \subsection{Common treatments}{
 
 Treatments in \code{common_treatments} are assigned to every environment before
 sparse allocation begins and are excluded from the sparse allocation pool.
+The supplied identities are fixed for this allocation: the function does not
+reselect or replace them. “Common” fixes presence in every environment, not
+equal local replication; site-specific replication is handled by the
+downstream field-design plan.
 The per-environment sparse capacity is:
 
 \deqn{k_e^* = k_e - C}
@@ -325,19 +401,17 @@ The M4 method (Montesinos-Lopez et al., 2023) enforces two conditions:
 \enumerate{
 \item Equal replication: every non-common treatment appears in exactly
 \eqn{r} environments.
-\item Equal environment sizes: every environment receives exactly
-\eqn{k^*} sparse treatments, so \eqn{J^* \times r = I \times k^*}.
+\item Exact requested environment sizes: each environment receives its
+requested sparse load \eqn{k_e^*}; loads may differ provided
+\eqn{\sum_e k_e^* = J^*r} and the degree sequence is realisable.
 }
 
 \code{allow_approximate = FALSE} (the default) enforces both conditions strictly.
-If the slot identity \eqn{J^* \times r = I \times k^*} does not hold for
-the chosen \code{n_test_entries_per_environment} and \code{target_replications}, the
-function stops with an informative error. Use
-\code{\link[=check_equireplicate_feasibility]{check_equireplicate_feasibility()}} to verify the slot identity before
-calling, or adjust \eqn{k} and \eqn{r} so that \eqn{J^* \times r =
-I \times k^*}. Construction uses a greedy load-balanced constructor that
-assigns each sparse treatment to the least-loaded eligible environments,
-guaranteeing equal replication for every non-common treatment.
+If the total slot identity or the Gale-Ryser degree condition does not hold,
+the function stops with an informative error. Use
+\code{\link[=check_equireplicate_feasibility]{check_equireplicate_feasibility()}} before calling. Construction assigns each
+sparse treatment to the eligible environments with the largest remaining
+capacity, guaranteeing exact loads and equal replication.
 
 \code{allow_approximate = TRUE} relaxes the slot identity: the function
 constructs the most balanced allocation it can without stopping on

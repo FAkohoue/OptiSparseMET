@@ -3,9 +3,49 @@ favicon: pkgdown/assets/favicon.ico
 
 template:
   bootstrap: 5
-  math-rendering: mathjax
+  bootswatch: flatly
   includes:
-    in_header: pkgdown/extra_head.html
+    in_header: |
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+      <!-- Paste the HTML from pkgdown/assets/favicon.html below -->
+      <link rel="icon" href="favicon.ico">
+      <link pkgdown/extra_head.html">
+
+      <style>
+        .OptiSparseMET-navbar-logo-link {
+          display: inline-flex;
+          align-items: center;
+          flex-shrink: 0;
+          margin-right: 0.45rem;
+          text-decoration: none;
+        }
+
+        .OptiSparseMET-navbar-logo {
+          display: block;
+          width: 38px;
+          height: 38px;
+          object-fit: contain;
+        }
+
+        @media (max-width: 575.98px) {
+          .OptiSparseMET-navbar-logo {
+            width: 32px;
+            height: 32px;
+          }
+        }
+      </style>
+
+    before_title: |
+      <a class="OptiSparseMET-navbar-logo-link"
+         href="https://FAkohoue.github.io/OptiSparseMET/"
+         aria-label="OptiSparseMET home">
+        <img class="OptiSparseMET-navbar-logo"
+             src="https://FAkohoue.github.io/OptiSparseMET/logo.svg"
+             alt="OptiSparseMET logo">
+      </a>
+
   bslib:
     primary:      "#0C4C80"
     secondary:    "#3AA0FF"
@@ -27,111 +67,174 @@ home:
     availability, and mixed-model efficiency evaluation.
 
 reference:
-  - title: Across-environment allocation
+  - title: "Module 1 — Environmental classification (enviromics)"
     desc: >
-      Functions for distributing treatments across environments and for
-      verifying the feasibility and balance of the resulting incidence
-      structure.
+      Retrieve and quality-control weather, soil, management, and geography
+      data; build and combine environment kernels; calibrate a data-driven
+      environmental covariance; and cluster sites into mega-environments.
+    contents:
+      - build_enviromic_covariates
+      - fetch_weather_series
+      - calibrate_weather_series
+      - fetch_soilgrids
+      - soil_profile_features
+      - enviromic_variable_catalog
+      - envirotype_features
+      - rice_weather_features
+      - historical_envirotype
+      - assess_envirotype_stability
+      - qc_environmental_data
+      - build_environment_kernels
+      - add_environment_kernel_interactions
+      - combine_environment_kernels
+      - consensus_environment_kernels
+      - build_variable_interaction_kernels
+      - assess_variable_interactions
+      - calibrate_environment_covariance
+      - build_environment_relationship
+      - cluster_environments
+      - infer_mega_environments
+      - select_environments
+      - screen_interactions
+      - list_candidate_interactions
+      - agronomic_interaction_hypotheses
+      - add_management_interactions
+      - nest_dose_within_type
+
+  - title: "Module 2 — Genetic relationship matrices"
+    desc: >
+      Construct and condition genomic, hybrid/testcross (with optional
+      dominance), and consensus relationship matrices, and make them invertible
+      for downstream prediction.
+    contents:
+      - build_relationship_matrix
+      - build_hybrid_relationship
+      - combine_relationship_matrices
+      - tune_relationship_matrix
+      - kinship_pca
+      - consensus_relationship
+
+  - title: "Module 3 — Sparse allocation across environments"
+    desc: >
+      Distribute treatments across environments (M3 random-balanced and M4
+      equireplicate), verify feasibility and capacity, and choose the number and
+      identity of connecting common treatments.
     contents:
       - allocate_sparse_met
       - check_equireplicate_feasibility
+      - check_balanced_incomplete_feasibility
       - construct_exact_bibd
       - derive_allocation_groups
       - optimize_allocation_gxe
-
-  - title: Feasibility and capacity helpers
-    desc: >
-      Pre-flight diagnostics to verify that the chosen per-environment
-      capacity is sufficient to assign every non-common treatment at least
-      once before allocation begins.
-    contents:
       - feasibility_helpers
       - min_k_for_full_coverage
       - suggest_safe_k
       - warn_if_k_too_small
+      - suggest_common_range
+      - recommend_common_treatments
+      - suggest_common_treatments
+      - optimize_common_treatments
+      - tune_common_treatments
+      - suggest_site_capacity
+      - test_entry_capacity
+      - required_plots
+      - field_plot_accounting
 
-  - title: Seed-aware replication planning
+  - title: "Module 4 — Seed-aware replication"
     desc: >
-      Partition treatments into replicated, unreplicated, and excluded roles
-      based on available seed quantities and per-plot seed requirements.
+      Turn a single network-wide seed inventory and per-plot seed requirements
+      into a feasible per-site replication plan.
     contents:
       - assign_replication_by_seed
+      - recommend_replication
 
-  - title: Within-environment field design
+  - title: "Module 5 — Within-environment field design"
     desc: >
-      Construct field layouts within each environment. Two engines are
-      available: block-based repeated-check designs and alpha row-column
-      stream designs.
+      Construct and optimise within-site layouts (block-based repeated-check and
+      alpha row-column), evaluate their statistical efficiency, and compare
+      spatial error models.
     contents:
       - met_prep_famoptg
       - met_alpha_rc_stream
-
-  - title: Efficiency evaluation
-    desc: >
-      Evaluate the statistical efficiency of within-environment designs
-      under A-optimality, D-optimality, and CDmean criteria before
-      field deployment.
-    contents:
-      - met_evaluate_famoptg_efficiency
-      - met_evaluate_alpha_efficiency
-
-  - title: Design optimisation
-    desc: >
-      Search for higher-efficiency field arrangements using criterion-driven
-      optimisation. Supports Random Restart, Simulated Annealing, and
-      Genetic Algorithm methods.
-    contents:
       - met_optimize_famoptg
       - met_optimize_alpha_rc
-
-  - title: Decision-point framework
-    desc: >
-      Corrected, modified versions of the sequential decision points in
-      Colmant et al. (2026): select representative environments and individuals,
-      and recommend replication under resource constraints.
-    contents:
-      - select_environments
-      - select_individuals
-      - recommend_replication
-
-  - title: Coupled evaluation, simulation, and sensitivity
-    desc: >
-      Across-environment (MET-level) information matrix, genotype-by-environment
-      simulation of realized accuracy and genetic gain, and variance-component
-      sensitivity analysis.
-    contents:
-      - met_information
-      - simulate_met
-      - sensitivity_varcomp
+      - met_evaluate_famoptg_efficiency
+      - met_evaluate_alpha_efficiency
       - compare_spatial_models
 
-  - title: Pipeline and assembly
+  - title: "Module 6 — Coupled optimisation & information"
     desc: >
-      End-to-end pipeline orchestration and assembly of environment-level
-      field books into a single MET-level field book.
+      The two-level (allocation x local-efficiency) information matrix, exact
+      multi-trait index reliability, criterion + gain + cost objectives,
+      exchange/simulated-annealing optimisation, robust/CVaR scoring, and the
+      Pareto trade-off frontier.
+    contents:
+      - met_information
+      - met_information_mt
+      - design_objective
+      - optimize_design
+      - robust_scenarios
+      - robust_design_score
+      - pareto_designs
+      - plot_pareto_frontier
+      - selection_intensity
+      - expected_genetic_gain
+      - desired_gain_weights
+      - sensitivity_varcomp
+      - validate_design_criteria
+      - fa_sigma_e
+      - select_individuals
+      - sparsity_grid
+
+  - title: "Module 7 — Simulation"
+    desc: >
+      Monte-Carlo genotype-by-environment simulation of realised prediction
+      accuracy, selection gain, and top-fraction coincidence for a design.
+    contents:
+      - simulate_met
+
+  - title: "Module 8 — Benchmarking & empirical validation"
+    desc: >
+      Paired comparison of reference designs (complete / random / M3 / M4 /
+      optimised) with confidence intervals, tail risk (CVaR), and decision
+      stability; plus known-truth covariance recovery and missing-data stress
+      tests on the enviromic side.
+    contents:
+      - make_met_benchmark_designs
+      - benchmark_met_designs
+      - benchmark_environment_models
+      - simulate_environment_model_benchmark
+      - benchmark_environment_missingness
+      - summarize_design_stability
+
+  - title: "Module 9 — Pipeline, field books & data"
+    desc: >
+      End-to-end orchestration, assembly of per-site field books into a single
+      combined MET field book, and the bundled example dataset.
     contents:
       - plan_sparse_met_design
+      - run_design_strategy
       - combine_met_fieldbooks
-
-  - title: Example data
-    desc: >
-      Bundled example dataset for illustrating and testing the full
-      OptiSparseMET workflow.
-    contents:
       - OptiSparseMET_example_data
 
 navbar:
   bg: primary
   structure:
-    left:  [home, reference, articles, news]
+    left:  [home, reference, tutorial, articles, breeder_guide, news]
     right: [github]
   components:
     reference:
       text: Reference
       href: reference/index.html
+    tutorial:
+      text: Tutorial
+      href: articles/OptiSparseMET-pipeline.html
     articles:
       text: Vignettes
       href: articles/index.html
+    breeder_guide:
+      text: Breeder guide
+      href: OptiSparseMET_Breeders_Guide.pdf
     github:
       icon: fab fa-github
       href: https://github.com/FAkohoue/OptiSparseMET/
@@ -141,3 +244,10 @@ articles:
   - title: Getting started
     contents:
       - OptiSparseMET-introduction
+      - OptiSparseMET-pipeline
+  - title: Environmental evidence
+    contents:
+      - OptiSparseMET-environmental-interactions
+  - title: Benchmarking and validation
+    contents:
+      - OptiSparseMET-benchmarking

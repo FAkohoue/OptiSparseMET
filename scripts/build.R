@@ -9,6 +9,7 @@ unlink(file.path(.libPaths()[1], "00LOCK-OptiSparseMET"), recursive = TRUE)
 
 # 3. Restart R.  All loaded DLLs are released, file locks are cleared.
 .rs.restartR()
+
 # -- after restart, continue in SESSION B --------------------------------------
 devtools::document()
 
@@ -21,6 +22,9 @@ source("scripts/diagnose_pev.R")
 devtools::install()
 
 devtools::test()
+
+Sys.setenv(RUN_LIVE_API_TESTS = "true"); devtools::test(filter = "network-fetch"); Sys.unsetenv("RUN_LIVE_API_TESTS")
+
 
 devtools::check()
 

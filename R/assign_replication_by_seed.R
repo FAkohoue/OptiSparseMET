@@ -62,7 +62,7 @@
 #' **`"rcbd_type"`**: All treatments are targeted for `desired_replications`.
 #' Treatments satisfying the replicated feasibility condition receive role
 #' `"p_rep"` at the requested replication level. For treatments that fail,
-#' behavior depends on `shortage_action`: `"error"` stops immediately;
+#' behaviour depends on `shortage_action`: `"error"` stops immediately;
 #' `"exclude"` drops the treatment from the design; `"downgrade"` reduces the
 #' treatment to a single unreplicated plot if the single-plot feasibility
 #' condition is met, or excludes it otherwise.

@@ -2,7 +2,7 @@
 % Please edit documentation in R/simulate_met.R
 \name{simulate_met}
 \alias{simulate_met}
-\title{Simulate a sparse MET and report realized accuracy and genetic gain}
+\title{Simulate a sparse MET and report realised accuracy and genetic gain}
 \usage{
 simulate_met(
   allocation_matrix,
@@ -14,6 +14,8 @@ simulate_met(
   env_efficiency = NULL,
   n_sim = 50L,
   select_fraction = 0.1,
+  bv_target = c("across_tpe", "environment_specific", "mega_environment"),
+  target_envs = NULL,
   seed = NULL,
   max_dim = 6000L
 )
@@ -44,14 +46,30 @@ local design). Defaults to 1 for every environment.}
 \item{select_fraction}{Top fraction selected (on predicted BV) for the
 genetic-gain statistic.}
 
+\item{bv_target}{Which breeding value the design is scored against (Colmant
+et al. 2026): \code{"across_tpe"} (default; average of all environments),
+\code{"environment_specific"} (a single environment), or \code{"mega_environment"}
+(average of a subset). This can change which design wins, so broad- and
+specific-adaptation strategies can be compared honestly.}
+
+\item{target_envs}{Environment name(s) or index/indices defining the target
+for \code{"environment_specific"} (exactly one) or \code{"mega_environment"} (a
+subset). Ignored for \code{"across_tpe"}.}
+
 \item{seed}{Optional RNG seed.}
 
 \item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
 is refused with an informative error.}
 }
 \value{
-A list with \code{accuracy_mean}, \code{accuracy_sd}, \code{gain_mean}, \code{gain_sd},
-\code{n_sim}, and the design-based \code{mean_PEV} / \code{CDmean} from \code{\link[=met_information]{met_information()}}.
+A list with the realised accuracy (\code{accuracy_mean}, \verb{_sd}, \verb{_se}, and
+Monte Carlo \verb{_ci95}), genetic gain / selection differential
+(\code{gain_mean}, \verb{_sd}, \verb{_se}, and \verb{_ci95}), and the breeder-facing
+selection metrics of Mothukuri et al. (2025): \code{common_selected_mean}/\verb{_sd}
+(fraction of the truly-best set that prediction also selects, higher is
+better) and \code{avg_rank_mean}/\verb{_sd} (mean true rank of the predicted-selected
+lines; best possible is \code{(n_selected + 1) / 2}). Also \code{n_selected}, \code{n_sim},
+and the design-based \code{mean_PEV} / \code{CDmean} from \code{\link[=met_information]{met_information()}}.
 }
 \description{
 \code{simulate_met()} closes the loop between design and outcome. It simulates
@@ -59,7 +77,7 @@ genotype-by-environment effects with a genuine across-environment genetic
 correlation structure (\eqn{u \sim \mathrm{MVN}(0, \sigma_g^2\,\Sigma_E
 \otimes G)}), generates plot means for the cells an allocation actually
 tests, predicts breeding values by GBLUP through the coupled MET information
-matrix (see \code{\link[=met_information]{met_information()}}), and reports the realized \strong{selection
+matrix (see \code{\link[=met_information]{met_information()}}), and reports the realised \strong{selection
 accuracy} (correlation between predicted and true across-TPE breeding
 values) and \strong{genetic gain} (mean true merit of the top fraction selected on
 prediction). This is the quantity breeders care about, and it lets a design's

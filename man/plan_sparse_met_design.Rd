@@ -11,10 +11,18 @@ plan_sparse_met_design(
   n_test_entries_per_environment,
   target_replications = NULL,
   common_treatments = NULL,
+  balance = c("none", "env_pair", "line_pair", "both"),
+  balance_iter = 2000L,
+  balance_seed = NULL,
+  Sigma_E = NULL,
+  pair_target_se = 0.15,
+  pair_aggregate = c("maximin", "cvar", "mean"),
+  pair_cvar_alpha = 0.25,
   env_design_specs,
   treatment_info = NULL,
   seed_info = NULL,
   seed_required_per_plot = NULL,
+  minimum_seed_buffer = 0,
   allocation_group_source = c("none", "Family", "GRM", "A"),
   GRM = NULL,
   A = NULL,
@@ -44,14 +52,31 @@ to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 \item{target_replications}{Optional positive integer passed to
 \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 
-\item{common_treatments}{Optional character vector of common treatments.}
+\item{common_treatments}{Optional character vector of preselected common
+treatments. Supplied identities are fixed as present in every environment;
+their site-specific replication may differ according to the local design.}
+
+\item{balance, balance_iter, balance_seed}{Connectivity refinement settings
+passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{Sigma_E}{Optional environmental covariance matrix or candidate list
+used to allocate distinct shared treatments adaptively across environment
+pairs. Replication within a site does not contribute to this connectivity.}
+
+\item{pair_target_se, pair_aggregate, pair_cvar_alpha}{Correlation-adaptive
+pairwise connectivity settings passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 
 \item{env_design_specs}{Named list with one element per environment. Each
 element must contain at least a \code{design} field selecting the local design
 engine (\code{"met_prep_famoptg"} or \code{"met_alpha_rc_stream"}). All other
 fields are passed through to the corresponding local design function,
 except a small set of pipeline-consumed fields used internally for
-seed-aware replication.}
+seed-aware replication. A specification for \code{met_prep_famoptg} may include
+\code{fixed_treatment_reps}, a named positive-integer vector for a subset of the
+allocated treatments. Those exact replication counts are enforced first;
+remaining p-rep positions are then assigned by the usual seed-aware rule.
+Set \code{max_extra_replication_plots} when the field has an exact physical
+limit: a treatment fixed at three reps consumes two of those extra plots.}
 
 \item{treatment_info}{Optional data frame with at least \code{Treatment} and
 optionally \code{Family}.}
@@ -59,9 +84,12 @@ optionally \code{Family}.}
 \item{seed_info}{Optional data frame used by \code{\link[=assign_replication_by_seed]{assign_replication_by_seed()}}
 when seed-aware replication is requested for a local design.}
 
-\item{seed_required_per_plot}{Optional scalar, named vector, or named list
-used by \code{\link[=assign_replication_by_seed]{assign_replication_by_seed()}} when seed-aware replication is
-requested.}
+\item{seed_required_per_plot}{Optional scalar, named vector, named list, or
+data frame with columns \code{Environment} and \code{SeedRequiredPerPlot}, used for
+network-wide seed accounting and local replication.}
+
+\item{minimum_seed_buffer}{Non-negative reserve retained for every candidate
+treatment after all environments and local replications are planned.}
 
 \item{allocation_group_source}{Character scalar passed to
 \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
@@ -106,14 +134,17 @@ environment.}
 \item{\code{combined_field_book}}{Combined MET field book from
 \code{\link[=combine_met_fieldbooks]{combine_met_fieldbooks()}}.}
 \item{\code{environment_summary}}{Environment-level summary table including
-design metadata, plot counts, treatment counts, and extracted efficiency
-fields such as \code{eff_model}, \code{eff_A}, \code{eff_D}, and \code{eff_mean_PEV} when
-available.}
+design metadata, occupied plot counts (\code{n_total_plots}), grid cells
+(\code{n_field_cells}), treatment counts, and extracted efficiency fields such
+as \code{eff_model}, \code{eff_A}, \code{eff_D}, and \code{eff_mean_PEV} when available.}
 \item{\code{group_environment_summary}}{Group-by-environment summary propagated
 from \code{sparse_allocation$group_by_environment}.}
 \item{\code{efficiency_summary}}{Long-format table of extracted efficiency
 outputs with columns \code{Environment}, \code{LocalDesign}, \code{Metric}, \code{Value},
 and \code{ValueType}. Empty when no efficiency outputs are detected.}
+\item{\code{seed_ledger}}{When \code{seed_info} is supplied, one row per treatment
+with the original inventory, grams allocated across all final fieldbooks,
+remaining inventory, and feasibility flag.}
 \item{\code{summary}}{High-level summary list for the overall MET design.}
 \item{\code{seed_used}}{Seed used internally.}
 }

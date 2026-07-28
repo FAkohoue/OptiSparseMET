@@ -1,0 +1,8 @@
+"environment","country","latitude","longitude","total_plots","seed_per_plot","planting_mode"
+"Ecu_Babahoyo","Ecuador",-1.8,-79.53,NA,10,"direct"
+"Ecu_Daule","Ecuador",-1.86,-79.98,NA,10,"direct"
+"Ecu_Samborondon","Ecuador",-1.96,-79.72,NA,10,"direct"
+"Ecu_Quevedo","Ecuador",-1.03,-79.46,NA,10,"direct"
+"Saldana","Colombia",3.93,-75.02,200,16,"direct"
+"Palmira","Colombia",3.5,-76.35,200,20,"transplanting"
+"Peru_Chiclayo","Peru",-6.77,-79.84,182,16,"transplanting"

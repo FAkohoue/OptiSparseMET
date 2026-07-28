@@ -1,0 +1,542 @@
+---
+title: "Environmental Kernels and Auditable Interaction Hypotheses"
+output: rmarkdown::html_vignette
+header-includes:
+  - |
+    <script>
+    window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] }, svg: { fontCache: 'global' } };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+vignette: >
+  %\VignetteIndexEntry{Environmental Kernels and Auditable Interaction Hypotheses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# 1. Purpose
+
+Environmental information can improve the design of a multi-environment trial
+(MET), but environmental similarity is not genetic covariance. Moreover,
+stating that a Gaussian kernel represents interactions does not establish that
+a particular combination, such as temperature by root-zone bulk density,
+matters to genotype performance.
+
+OptiSparseMET therefore separates: (i) nonlinear similarity within one
+environmental modality, (ii) omnibus interactions between whole modalities,
+and (iii) dedicated interactions among named variables. This distinction
+supports robust design without converting an untested physiological hypothesis
+into a fitted genetic relationship.
+
+The objectives of this vignette are to: (i) define the three kernel levels,
+(ii) document every required and optional input, (iii) explain strong heredity
+and feature residualisation, (iv) show how historical response evidence is
+used, and (v) specify the no-history fallback.
+
+# 2. Three environmental representations
+
+## 2.1 Modality main kernels
+
+Weather, soil, management, and geography are retained as separate evidence
+blocks. For a non-geographic modality \(m\), the default kernel is:
+
+\[
+K_m(e,e') =
+\frac{1}{|B|}
+\sum_{b\in B}
+\exp\left[
+-\frac{\lVert z_{e,m}-z_{e',m}\rVert^2}{2b^2}
+\right],
+\]
+
+where \(z_{e,m}\) is the vector of standardised covariates for environment
+\(e\), and \(B\) contains bandwidths derived from the median positive
+pairwise distance. The default multipliers are 0.5, 1, and 2.
+
+The Gaussian kernel represents nonlinear functions of all variables within
+the modality. Its feature space consequently contains implicit interactions.
+However, it does not estimate or report a named coefficient for temperature by
+rainfall, temperature by humidity, or any other variable pair.
+
+## 2.2 Omnibus modality interactions
+
+When `include_interactions = TRUE`,
+`build_environment_kernels()` constructs every available pair among weather,
+soil, and management. The default functional analysis of variance
+(functional-ANOVA) interaction is:
+
+\[
+K_{a\times b} = (H K_a H)\circ(H K_b H),
+\]
+
+where \(H=I-\mathbf{1}\mathbf{1}'/n\) and \(\circ\) denotes the Hadamard
+product. Centring removes the constant feature-space baseline from each
+parent. The resulting tensor-product kernel is positive semidefinite.
+
+An omnibus weather-by-soil kernel represents functions of all retained weather
+variables jointly with functions of all retained soil variables. Hence, it
+contains temperature-by-bulk-density functions when both variables survived
+quality control. Nevertheless, it cannot identify that pair separately from
+rainfall by clay content, vapour-pressure deficit by available water, or the
+other combinations in the same feature spaces.
+
+## 2.3 Dedicated variable interactions
+
+A dedicated kernel is appropriate when an interaction must be guaranteed,
+audited, and assessed separately. Examples include:
+
+- reproductive-stage temperature by root-zone bulk density;
+- rainfall by root-zone clay content;
+- nitrogen dose by water availability;
+- sowing date by thermal time; and
+- humidity by temperature for disease-conducive conditions.
+
+These hypotheses should be specified before examining the historical response
+results whenever possible. Exhaustive generation of every variable pair is not
+recommended because the number of candidate terms grows rapidly and the
+environment sample is usually small.
+
+# 3. Required and optional inputs
+
+## 3.1 Quality-controlled covariate blocks
+
+`build_variable_interaction_kernels()` requires a named list of numeric
+environment-by-variable matrices. The `covariates` element returned by
+`build_environment_kernels()` is the recommended input because identifiers,
+missing values, categorical expansion, and variable filtering have already
+been handled.
+
+Every block must satisfy the following requirements:
+
+| Requirement | Rule |
+|---|---|
+| Environment identifiers | Unique, non-missing row names |
+| Environment coverage | The same environments in every block |
+| Variable identifiers | Unique, non-empty column names |
+| Values | Finite numeric values after quality control |
+| Categorical factors | One-hot encoded before dedicated kernel construction |
+
+Example weather block:
+
+| environment | T2M_mean_reproductive | PRECTOTCORR_sum_reproductive | VPD_q90 |
+|---|---:|---:|---:|
+| E1 | 26.8 | 318.4 | 1.72 |
+| E2 | 27.4 | 212.7 | 2.06 |
+| E3 | 24.1 | 286.3 | 1.48 |
+
+Example soil block:
+
+| environment | bulk_density_root | clay_root | available_water_capacity_root |
+|---|---:|---:|---:|
+| E1 | 1.28 | 34.2 | 0.164 |
+| E2 | 1.41 | 27.6 | 0.132 |
+| E3 | 1.19 | 41.5 | 0.188 |
+
+## 3.2 Interaction specification
+
+The recommended specification is a long data frame with four required
+columns:
+
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `interaction` | character | yes | Unique interaction-hypothesis label |
+| `parent` | character | yes | Parent feature label within that interaction |
+| `modality` | character | yes | Covariate-block name |
+| `variable` | character | yes | Exact post-quality-control column name |
+
+Example:
+
+| interaction | parent | modality | variable |
+|---|---|---|---|
+| temperature_x_density | temperature | weather | T2M_mean_reproductive |
+| temperature_x_density | density | soil | bulk_density_root |
+| rainfall_x_clay | rainfall | weather | PRECTOTCORR_sum_reproductive |
+| rainfall_x_clay | clay | soil | clay_root |
+| nitrogen_x_water | nitrogen | management | nitrogen_kg_ha |
+| nitrogen_x_water | water | weather | water_balance_reproductive |
+
+Each interaction requires at least two distinct parents. Several rows can share
+the same interaction and parent. This defines a multicolumn parent, which is
+useful for a categorical management factor represented by several indicator
+columns.
+
+The equivalent named-list format is:
+
+```{r interaction-list-format, eval=FALSE}
+interaction_hypotheses <- list(
+  temperature_x_density = list(
+    temperature = list(
+      modality = "weather",
+      variables = "T2M_mean_reproductive"
+    ),
+    density = list(
+      modality = "soil",
+      variables = "bulk_density_root"
+    )
+  )
+)
+```
+
+## 3.3 Optional construction controls
+
+| Argument | Default | Purpose |
+|---|---|---|
+| `bandwidth_multipliers` | `c(0.5, 1, 2)` | Average several Gaussian bandwidths |
+| `orthogonalise` | `TRUE` | Residualise the tensor feature against its parents |
+| `hierarchy` | `"strong"` | Retain exact parent-variable kernels |
+| `max_tensor_columns` | `200` | Prevent unnoticed categorical expansion |
+| `min_residual_fraction` | `1e-6` | Reject an interaction almost completely explained by its parents |
+
+`build_environment_kernels()` exposes these controls through one compact
+argument, `variable_interaction_control`.
+
+# 4. Construction method
+
+## 4.1 Parent features
+
+For interaction \(h\), let \(X_{h1},\ldots,X_{hq}\) denote the \(q\) parent
+feature blocks. Each column is centred and scaled. Non-informative columns are
+rejected because they cannot distinguish environments.
+
+## 4.2 Row-wise tensor product
+
+The raw interaction feature matrix contains every row-wise product across the
+parent blocks. If two parents contain \(p_1\) and \(p_2\) columns, the raw
+two-way tensor contains \(p_1p_2\) columns. Three parents contain
+\(p_1p_2p_3\) columns. Therefore, the `max_tensor_columns` guard is a
+statistical and computational requirement rather than a convenience.
+
+## 4.3 Parent-effect residualisation
+
+Let \(Q_h\) be the standardised tensor feature matrix and
+\(P_h=[\mathbf{1},X_{h1},\ldots,X_{hq}]\) the parent design. The default
+residual interaction feature is:
+
+\[
+Q_h^\perp =
+\left[I-P_h(P_h'P_h)^{-}P_h'\right]Q_h.
+\]
+
+This removes the component linearly explained by the intercept and parent
+features. Residualisation occurs before the Gaussian kernel is constructed.
+Therefore, the final kernel remains positive semidefinite. The audit reports:
+
+\[
+r_h =
+\frac{\lVert Q_h^\perp\rVert_F^2}
+     {\lVert Q_h\rVert_F^2},
+\]
+
+the fraction of tensor-feature information retained after residualisation.
+An extremely small value indicates aliasing or inadequate environmental
+variation.
+
+Residualisation reduces main-effect leakage but does not make a causal claim.
+Nor does it guarantee independence from every nonlinear function in the broad
+modality kernels.
+
+## 4.4 Dedicated Gaussian kernel
+
+The residual feature matrix is standardised again and converted to a Gaussian
+bandwidth ensemble. This provides an exact, separately named environmental
+similarity for the stated interaction. The kernel is symmetric, positive
+semidefinite, and normalised.
+
+## 4.5 Strong heredity
+
+Strong heredity means that an interaction is never assessed without its exact
+parent-variable kernels. This rule prevents an apparent interaction from
+substituting for an omitted parent main effect. It is structural: a historical
+simplex calibration may assign a very small weight to a parent because kernel
+weights are covariance contributions, not regression coefficients.
+
+# 5. End-to-end construction
+
+```{r build-dedicated-interactions, eval=FALSE}
+library(OptiSparseMET)
+
+interaction_hypotheses <- data.frame(
+  interaction = c(
+    "temperature_x_density", "temperature_x_density",
+    "rainfall_x_clay", "rainfall_x_clay"
+  ),
+  parent = c("temperature", "density", "rainfall", "clay"),
+  modality = c("weather", "soil", "weather", "soil"),
+  variable = c(
+    "T2M_mean_reproductive", "bulk_density_root",
+    "PRECTOTCORR_sum_reproductive", "clay_root"
+  )
+)
+
+environment_model <- build_environment_kernels(
+  weather = weather_features,
+  soil = soil_features,
+  management = management_features,
+  geography = site_coordinates,
+  include_interactions = TRUE,
+  variable_interactions = interaction_hypotheses,
+  variable_interaction_control = list(
+    hierarchy = "strong",
+    orthogonalise = TRUE,
+    max_tensor_columns = 100L
+  )
+)
+
+names(environment_model$kernels)
+environment_model$variable_interaction_audit
+environment_model$variable_ledger
+environment_model$kernel_hierarchy
+```
+
+The broad and dedicated kernels coexist. For example,
+`weather_x_soil` remains the omnibus uncertainty structure, whereas
+`variable_x__temperature_x_density` represents the named variable
+hypothesis.
+
+# 6. Audit and failure conditions
+
+The interaction audit contains:
+
+| Field | Interpretation |
+|---|---|
+| `interaction` | User-defined hypothesis label |
+| `kernel` | Realised safe kernel name |
+| `order` | Number of parent features |
+| `scope` | Within-modality or cross-modality |
+| `modalities` | Ordered parent modalities |
+| `variables` | Exact matched covariate columns |
+| `parent_kernels` | Strong-heredity parent mapping |
+| `raw_tensor_columns` | Dimension before filtering |
+| `informative_tensor_columns` | Informative dimension before residualisation |
+| `final_tensor_columns` | Informative residual dimension |
+| `residual_information_fraction` | Information retained beyond parent main effects |
+| `effective_kernel_rank` | Numerically informative kernel dimensions |
+| `bandwidths` | Realised Gaussian bandwidth ensemble |
+| `status` | Structural-construction result |
+
+Construction stops when:
+
+1. A modality is absent.
+2. A named variable did not survive quality control.
+3. A parent contains no informative variation.
+4. The raw tensor exceeds `max_tensor_columns`.
+5. The tensor is constant.
+6. Residualisation retains less than `min_residual_fraction`.
+7. Distinct definitions produce colliding safe kernel names.
+
+These failures should not be bypassed automatically. They indicate either an
+input mismatch or an interaction that cannot be distinguished in the available
+environment sample.
+
+# 7. Known-truth interaction demonstration
+
+A simulation can verify whether the calibration recovers an interaction that
+is known to generate environmental genetic covariance. The simulated weights
+are part of the data-generating mechanism; they are not user-defined priors for
+a real no-history analysis.
+
+```{r known-truth-variable-interaction, eval=FALSE}
+variable_only <- build_variable_interaction_kernels(
+  covariates = environment_model$covariates,
+  interactions = interaction_hypotheses[1:2, ]
+)
+
+true_weights <- stats::setNames(
+  c(0.20, 0.20, 0.50, 0.10),
+  c(names(variable_only$kernels), "identity")
+)
+
+known_truth <- simulate_environment_model_benchmark(
+  kernels = variable_only$kernels,
+  true_weights = true_weights,
+  n_genotypes = 300,
+  n_years = 12,
+  sigma_g2 = 1,
+  sigma_e2 = 1,
+  reps_per_cell = 2,
+  missing_rate = 0.05,
+  n_boot = 500,
+  seed = 2026
+)
+
+known_truth$weight_recovery
+known_truth$benchmark$scores
+known_truth$benchmark$cross_validation
+```
+
+The benchmark should report: (i) recovery of the known parent and interaction
+weights, (ii) off-diagonal root-mean-square error and relative Frobenius error,
+(iii) leave-year-out and leave-environment-out prediction, and (iv) bootstrap
+weight uncertainty. Recovery should improve as the number of genotypes, years,
+and informative environment pairs increases. Failure under a realistic sample
+size indicates that the interaction is not identifiable enough for central
+weighting, even though it can remain a robustness scenario.
+
+# 8. Historical response evidence
+
+## 8.1 Input format
+
+Historical responses are optional. When supplied, they should be adjusted
+genetic values, best linear unbiased estimators (BLUEs), or best linear
+unbiased predictors (BLUPs), not unadjusted plot observations.
+
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `genotype` | character | yes | Historical genotype identifier |
+| `environment` | character | yes | Environment identifier aligned to the kernels |
+| `value` | numeric | yes | Adjusted genetic value for one target trait |
+| `year` | integer or character | no | Defines year-specific targets and leave-year-out validation |
+
+Example:
+
+| genotype | environment | value | year |
+|---|---|---:|---:|
+| G001 | E1 | 0.84 | 2023 |
+| G001 | E2 | 0.31 | 2023 |
+| G002 | E1 | -0.12 | 2023 |
+| G002 | E2 | 0.18 | 2023 |
+
+## 8.2 Component-wise assessment
+
+```{r assess-dedicated-interactions, eval=FALSE}
+interaction_evidence <- assess_variable_interactions(
+  kernels = environment_model$kernels,
+  historical = adjusted_historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  value_col = "value",
+  year_col = "year",
+  alpha = 0.05,
+  p_adjust = "holm",
+  n_boot = 500,
+  seed = 2026
+)
+
+interaction_evidence$evidence
+interaction_evidence$supported
+interaction_evidence$structural_uncertainty
+```
+
+Every dedicated interaction is compared separately with the same main-effect
+model. Leave-year-out validation is preferred when several year-specific
+targets exist. Otherwise, leave-environment-out validation is used.
+
+An interaction is supported only when:
+
+1. Its mean blocked-validation root-mean-square error improvement is positive.
+2. The one-sided paired sign test is significant after the selected
+   multiplicity correction.
+3. Its fitted covariance contribution is positive.
+
+Holm correction is the default because it controls the family-wise error rate
+without requiring independent tests. `p_adjust = "none"` is defensible only
+for one pre-registered hypothesis or an explicitly exploratory analysis.
+
+Bootstrap inclusion is the fraction of pair-bootstrap fits in which the
+interaction received a positive covariance contribution. It quantifies
+weight-selection stability but does not replace blocked prediction.
+
+## 8.3 Central covariance and uncertainty candidates
+
+```{r calibrate-screened-interactions, eval=FALSE}
+environment_covariance <- calibrate_environment_covariance(
+  kernels = environment_model$kernels,
+  historical = adjusted_historical_met,
+  year_col = "year",
+  interaction_kernels =
+    interaction_evidence$evidence$interaction,
+  eligible_interactions = interaction_evidence$supported,
+  interaction_policy = "evidence",
+  n_boot = 500,
+  seed = 2026
+)
+
+Sigma_E <- environment_covariance$Sigma_E
+environment_covariance$interaction_evidence
+names(environment_covariance$candidates)
+```
+
+`eligible_interactions` controls entry into the central covariance only.
+Screened interactions remain in `candidates` and therefore remain available
+for robust sensitivity analysis. The aggregate evidence gate then verifies
+that the supported components improve prediction jointly.
+
+# 9. No historical MET responses
+
+```{r no-history-interactions, eval=FALSE}
+interaction_evidence <- assess_variable_interactions(
+  kernels = environment_model$kernels
+)
+
+environment_covariance <- calibrate_environment_covariance(
+  kernels = environment_model$kernels
+)
+```
+
+The no-history branch has four explicit consequences:
+
+1. `Sigma_E` is the identity matrix.
+2. Kernel weights are `NULL`.
+3. No dedicated interaction is labelled supported or unsupported.
+4. Every main, omnibus interaction, and dedicated interaction kernel remains a
+   separate unweighted structural scenario.
+
+Designs should be compared by maximin performance across these structures.
+Equal weights or user-defined probabilities must not be introduced merely to
+obtain one combined kernel.
+
+# 10. What the method can and cannot establish
+
+The method can establish that:
+
+- every requested variable survived quality control;
+- a named interaction was represented separately;
+- its tensor feature contained information beyond the parent linear features;
+- its kernel was positive semidefinite and numerically informative;
+- historical blocked prediction improved, when sufficient response data exist;
+- the conclusion was or was not stable across bootstrap resamples; and
+- the released design remains acceptable when the interaction is treated as a
+  structural uncertainty scenario.
+
+The method cannot establish that:
+
+- an implicit Gaussian feature corresponds to one identifiable biological
+  mechanism;
+- a historical association is causal;
+- an unsupported interaction is physically absent;
+- a supported interaction will transport to a new target population of
+  environments without prospective validation; or
+- a small environment network can support exhaustive interaction discovery.
+
+# 11. Recommended breeding workflow
+
+Use the following sequence:
+
+1. Define the target population of environments and the target trait.
+2. Quality-control weather, soil, management, and geographic inputs.
+3. Construct separate modality main kernels.
+4. Retain omnibus modality interactions as broad structural scenarios.
+5. Pre-specify a short list of physiological or management interactions.
+6. Construct dedicated residualised kernels with strong heredity.
+7. Review the variable ledger, residual information, effective rank, and
+   tensor dimension.
+8. Assess each dedicated interaction with blocked historical response evidence
+   when available.
+9. Control multiplicity and evaluate bootstrap stability.
+10. Admit supported interactions to the aggregate central-covariance gate.
+11. Retain all broad, weakly supported, and rejected interactions as separate
+    maximin scenarios.
+12. Report both the central recommendation and the structural sensitivity
+    results before releasing the field design.
+
+Hence, environmental interactions inform the design without being confused
+with established genetic covariance or causal environmental mechanisms. This
+is the appropriate distinction for an auditable breeding decision.

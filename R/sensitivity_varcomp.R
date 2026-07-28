@@ -6,7 +6,7 @@
 #' `sensitivity_varcomp()` sweeps the residual-to-genetic variance ratio
 #' \eqn{\lambda = \sigma_e^2/\sigma_g^2} for a fixed allocation and reports the
 #' across-TPE mean PEV and CDmean at each value (via [met_information()]), so a
-#' program can judge whether its design choice is robust to variance
+#' programme can judge whether its design choice is robust to variance
 #' misspecification.
 #'
 #' @inheritParams met_information

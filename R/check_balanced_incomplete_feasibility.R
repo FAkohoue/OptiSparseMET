@@ -1,10 +1,11 @@
-#' Evaluate feasibility of an exact balanced incomplete sparse MET allocation
+#' Evaluate feasibility of an exact equireplicate sparse MET allocation
 #'
-#' `check_balanced_incomplete_feasibility()` determines whether the parameters
-#' of a proposed sparse MET design admit an exact balanced incomplete
-#' allocation -- that is, whether the total number of sparse-allocatable
-#' treatment slots across environments exactly equals the number of non-common
-#' treatments multiplied by the target replication. The function is a
+#' `check_equireplicate_feasibility()` (with
+#' `check_balanced_incomplete_feasibility()` retained as a legacy alias)
+#' determines whether a proposed sparse MET admits an exact equireplicate
+#' allocation: the sparse-slot total must equal the number of non-common
+#' treatments multiplied by target replication, and the requested binary
+#' degree sequence must be realisable. The function is a
 #' diagnostic companion to [allocate_sparse_met()] with
 #' `allocation_method = "equireplicate"`, and should be called before
 #' allocation when the user wants to verify feasibility or understand the
@@ -12,7 +13,7 @@
 #' `allow_approximate = TRUE`.
 #'
 #' @description
-#' For a balanced incomplete allocation to be exact, the slot identity:
+#' For an equireplicate allocation to be exact, the slot identity:
 #'
 #' \deqn{J^* \times r = \sum_{e=1}^{I} k_e^*}
 #'
@@ -53,9 +54,11 @@
 #' and the function stops with an error before evaluating the balance
 #' condition.
 #'
-#' This function performs no allocation. It only evaluates the arithmetic
-#' condition and returns the components needed to diagnose feasibility. For
-#' the actual construction of the incidence matrix, see [allocate_sparse_met()].
+#' Slot equality is necessary but not sufficient when environment loads differ:
+#' the binary treatment-by-environment degree sequence must also be realisable.
+#' The function therefore applies the Gale--Ryser condition used by the strict
+#' constructor. It performs no allocation. For construction of the incidence
+#' matrix, see [allocate_sparse_met()].
 #'
 #' @param n_treatments_total Positive integer. Total number of test treatments,
 #'   including any common treatments. This is the full candidate pool before
@@ -84,8 +87,11 @@
 #'
 #' @return A named list with the following components:
 #' \describe{
-#'   \item{`feasible`}{Logical. `TRUE` if and only if the slot identity
-#'     holds exactly, i.e. `difference == 0`.}
+#'   \item{`feasible`}{Logical. `TRUE` if and only if the slot identity holds
+#'     and the binary degree sequence is realisable.}
+#'   \item{`slot_identity_ok`}{Logical. Whether `difference == 0`.}
+#'   \item{`degree_sequence_realizable`}{Logical. Whether the requested equal
+#'     treatment degrees and environment loads pass the Gale--Ryser condition.}
 #'   \item{`n_sparse_treatments`}{Integer. Number of non-common treatments
 #'     \eqn{J^* = J - C}. These are the treatments subject to sparse
 #'     allocation.}
@@ -164,17 +170,16 @@ check_balanced_incomplete_feasibility <- function(
     n_common_treatments = 0L
 ) {
 
-  if (!is.numeric(n_treatments_total) || length(n_treatments_total) != 1 ||
-      is.na(n_treatments_total) || n_treatments_total < 1)
+  whole_scalar <- function(x, lower)
+    is.numeric(x) && length(x) == 1L && is.finite(x) &&
+      x >= lower && abs(x - round(x)) <= 1e-8
+  if (!whole_scalar(n_treatments_total, 1))
     stop("`n_treatments_total` must be a single positive integer.")
-  if (!is.numeric(n_environments) || length(n_environments) != 1 ||
-      is.na(n_environments) || n_environments < 2)
+  if (!whole_scalar(n_environments, 2))
     stop("`n_environments` must be a single integer >= 2.")
-  if (!is.numeric(target_replications) || length(target_replications) != 1 ||
-      is.na(target_replications) || target_replications < 1)
+  if (!whole_scalar(target_replications, 1))
     stop("`target_replications` must be a single positive integer.")
-  if (!is.numeric(n_common_treatments) || length(n_common_treatments) != 1 ||
-      is.na(n_common_treatments) || n_common_treatments < 0)
+  if (!whole_scalar(n_common_treatments, 0))
     stop("`n_common_treatments` must be a single integer >= 0.")
 
   n_treatments_total  <- as.integer(n_treatments_total)
@@ -182,10 +187,16 @@ check_balanced_incomplete_feasibility <- function(
   target_replications <- as.integer(target_replications)
   n_common_treatments <- as.integer(n_common_treatments)
 
-  if (length(n_test_entries_per_environment) == 1) {
-    k_vec <- rep(as.integer(n_test_entries_per_environment), n_environments)
+  if (!is.numeric(n_test_entries_per_environment) ||
+      any(!is.finite(n_test_entries_per_environment)) ||
+      any(abs(n_test_entries_per_environment -
+                round(n_test_entries_per_environment)) > 1e-8))
+    stop("`n_test_entries_per_environment` must contain finite integers.")
+  if (length(n_test_entries_per_environment) == 1L) {
+    k_vec <- rep(as.integer(round(n_test_entries_per_environment)),
+                 n_environments)
   } else {
-    k_vec <- as.integer(n_test_entries_per_environment)
+    k_vec <- as.integer(round(n_test_entries_per_environment))
     if (length(k_vec) != n_environments)
       stop("If `n_test_entries_per_environment` is a vector, its length must match `n_environments`.")
   }
@@ -194,6 +205,8 @@ check_balanced_incomplete_feasibility <- function(
     stop("All values in `n_test_entries_per_environment` must be positive integers.")
   if (n_common_treatments > n_treatments_total)
     stop("`n_common_treatments` cannot exceed `n_treatments_total`.")
+  if (any(k_vec > n_treatments_total))
+    stop("Environment capacity cannot exceed `n_treatments_total`.")
   if (any(k_vec < n_common_treatments))
     stop("At least one environment has fewer slots than the number of common treatments.")
 
@@ -202,12 +215,20 @@ check_balanced_incomplete_feasibility <- function(
   total_sparse_slots    <- sum(k_sparse)
   required_sparse_slots <- n_sparse_treatments * target_replications
   difference            <- total_sparse_slots - required_sparse_slots
-  feasible              <- (difference == 0L)
+  slot_identity_ok      <- (difference == 0L)
+  degree_sequence_realizable <- if (n_sparse_treatments == 0L) {
+    all(k_sparse == 0L)
+  } else {
+    .equireplicate_degree_feasible(
+      k_sparse, target_replications, n_sparse_treatments)
+  }
+  feasible <- slot_identity_ok && degree_sequence_realizable
 
   # -- Strict BIBD existence conditions (informational only) -------------------
-  # The equireplicate constructor needs ONLY the slot identity (feasible == TRUE):
-  # equal replication and equal environment size. A strict balanced incomplete
-  # block design (constant pairwise concurrence lambda) additionally requires:
+  # The equireplicate constructor needs the exact slot total plus a realizable
+  # binary degree sequence (feasible == TRUE); environment loads may differ.
+  # A strict balanced incomplete block design (constant pairwise concurrence
+  # lambda) additionally requires:
   #   (1) equal environment sizes (k* constant),
   #   (2) lambda = r (k* - 1) / (J* - 1) a positive integer, and
   #   (3) Fisher's inequality: #blocks >= #treatments, i.e. I >= J*.
@@ -235,16 +256,25 @@ check_balanced_incomplete_feasibility <- function(
       if (!strict_bibd_possible)
         "constructor delivers a near-balanced equireplicate design." else ""
     )
-  } else {
+  } else if (!slot_identity_ok) {
     paste0(
       "Exact equireplicate allocation is not feasible: available sparse slots = ",
       total_sparse_slots, ", required sparse slots = ",
       required_sparse_slots, ", difference = ", difference, "."
     )
+  } else {
+    paste0(
+      "The sparse-slot total is exact, but the requested binary degree ",
+      "sequence is not realizable. Each treatment must occur in ",
+      target_replications, " distinct environments and no environment can ",
+      "contain more than ", n_sparse_treatments, " sparse treatments."
+    )
   }
 
   list(
     feasible              = feasible,
+    slot_identity_ok      = slot_identity_ok,
+    degree_sequence_realizable = degree_sequence_realizable,
     n_sparse_treatments   = n_sparse_treatments,
     k_sparse              = k_sparse,
     total_sparse_slots    = total_sparse_slots,

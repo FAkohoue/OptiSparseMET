@@ -6,14 +6,15 @@
 \alias{OptiSparseMET-package}
 \title{OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local Field Layout}
 \description{
-\code{OptiSparseMET} constructs sparse multi-environment trial designs by
-addressing treatment allocation across environments and field layout
-construction within environments as a two-level problem, solved jointly
-under shared statistical and genetic constraints. The package is intended
-for breeding programs where the number of candidate lines exceeds what any
-single environment can accommodate, environments are heterogeneous in
-capacity and genetic composition, and seed availability imposes practical
-limits on replication that purely theoretical designs ignore.
+\code{OptiSparseMET} constructs sparse multi-environment trial (MET) designs by
+integrating treatment allocation across environments with field layout
+within environments. It is intended for breeding programmes in which
+candidate numbers exceed local field capacity, environments differ in
+relevance and precision, and finite seed stocks constrain replication. The
+workflow addresses three linked decisions: (i) which environments and
+treatments to test; (ii) how to connect and replicate those treatments
+across the trial network; and (iii) how to arrange their plots within each
+field.
 }
 \details{
 \subsection{Stage 1: across-environment sparse allocation}{
@@ -21,45 +22,81 @@ limits on replication that purely theoretical designs ignore.
 \code{allocate_sparse_met()} determines which treatments enter which
 environments. Two allocation strategies are available.
 \code{"random_balanced"} implements an M3-type stochastic allocation that
-approximates balance without requiring exact BIBD parameters to be
-satisfiable -- appropriate when environment capacities differ or when the
-trial dimensions do not admit an exact balanced solution.
+approximates balance without requiring exact balanced incomplete block
+design (BIBD) parameters. It is appropriate when environment capacities
+differ or when the trial dimensions do not admit an exact balanced solution.
 \code{"equireplicate"} implements an M4-type allocation at the MET level,
-enforcing equal replication and equal environment size (optionally refined
-toward near-balanced pairwise co-occurrence via \code{balance}) -- appropriate
-when environments are comparable in size and equal replication is a hard
-requirement. It is not a strict BIBD, which generally cannot exist when
-treatments greatly outnumber environments.
+enforcing equal distinct-environment incidence across the network while
+allowing unequal environment sizes when the requested row and column degrees are
+jointly realisable. Optional balancing improves pairwise co-occurrence
+without changing either margin. It is not a strict BIBD, which generally
+cannot exist when treatments greatly outnumber environments.
 
-Allocation can be guided by genetic structure through family labels, genomic
-relationship clusters (GRM), or pedigree relationship clusters (A), ensuring
-that genetic groups are distributed across environments rather than
-concentrated within a subset of them. Common treatments can be forced into
-all environments to establish direct cross-environment connectivity
-independent of model assumptions. Feasibility of an exact balanced
-incomplete allocation can be checked in advance with
-\code{check_balanced_incomplete_feasibility()}.
+Allocation can be guided by family labels, a genomic relationship matrix
+(GRM), or a pedigree numerator relationship matrix (A). Additive
+relationships are the default; dominance is optional and is intended for
+hybrids. Common treatments establish direct cross-environment connectivity
+independent of an assumed covariance model. Their number and identities can
+be selected with \code{optimize_common_treatments()}; local plot replication is
+assigned afterwards from remaining seed. Feasibility of an exact equireplicate
+allocation can be checked before construction with
+\code{check_equireplicate_feasibility()}.
+
+When seed limits are supplied, allocation draws from one network-wide
+inventory. A treatment consumes seed only at environments where it is
+present, but its consumption is accumulated across all such environments.
+An optional per-treatment reserve is protected; its default is zero grams.
 
 The underlying resource identity is:
 
-\deqn{N = J \times r = I \times k}
+\deqn{N = J \times r = \sum_{e=1}^{I} k_e}
 
 where \eqn{J} is the number of treatments, \eqn{r} is the number of
 environments each treatment enters, \eqn{I} is the number of environments,
-and \eqn{k} is the number of treatments per environment. This identity makes
-the tradeoff between coverage and replication depth explicit given fixed
-total resources \eqn{N}.
+and \eqn{k_e} is the number of treatments in environment \eqn{e}. Equal
+site size is the special case \eqn{k_e = k}. This identity makes the trade-off
+between coverage and replication depth explicit given fixed total resources
+\eqn{N}.
+}
+
+\subsection{Environmental evidence and uncertainty}{
+
+Weather, soil, management, and geography are quality-controlled and retained
+as separate environmental kernels. Weather-by-soil,
+weather-by-management, and soil-by-management kernels represent explicit
+cross-modality hypotheses; they are not interpreted as evidence that the
+corresponding effects are non-zero. Dedicated variable-level hypotheses
+can be constructed with \code{build_variable_interaction_kernels()}. Their tensor
+features are residualised against their exact parent features, and strong
+heredity retains the parent-variable kernels. When historical MET responses are
+available, \code{calibrate_environment_covariance()} estimates non-negative
+kernel contributions by blocked validation.
+\code{assess_variable_interactions()} evaluates dedicated components separately
+with multiplicity control before their joint central-covariance assessment.
+When those responses are
+unavailable, no user-defined modality weights are required: identity is the
+central genetic environment covariance and the unweighted kernels define
+separate maximin sensitivity scenarios.
+
+\code{infer_mega_environments()} estimates the number of descriptive
+environmental groups by stability-screened hierarchical and
+kernel-principal-coordinate clustering. It reports a provisional or stable
+partition only when separation, group size, and reproducibility requirements
+are met; otherwise it returns one unpartitioned network. Descriptive
+environmental groups are not labelled genetic mega-environments without
+historical response evidence.
 }
 
 \subsection{Stage 2: within-environment field design}{
 
 Each environment is designed independently after allocation.
 \code{met_prep_famoptg()} constructs augmented, partially replicated (p-rep), or
-RCBD-type repeated-check designs for environments where block-based local
-control is appropriate. \code{met_alpha_rc_stream()} constructs stream-based
-alpha row-column designs for environments with fixed grid geometry and
-continuous field-book order, accommodating AR1 and AR1xAR1 spatial models
-at the analysis stage.
+randomised complete block design (RCBD)-type repeated-check layouts for
+environments where block-based local control is appropriate.
+\code{met_alpha_rc_stream()} constructs stream-based alpha row-column designs for
+environments with fixed grid geometry and continuous field-book order,
+accommodating first-order autoregressive spatial models in one dimension
+(AR1) or two dimensions (AR1xAR1) at the analysis stage.
 
 Note: \code{met_prep_famoptg()} and \code{met_alpha_rc_stream()} are the
 OptiSparseMET-specific versions of the constructors from the OptiDesign
@@ -68,14 +105,18 @@ both packages are loaded simultaneously. Their argument lists and return
 values are identical to \code{prep_famoptg()} and \code{alpha_rc_stream()} in
 OptiDesign.
 
-When replication within an environment is flexible,
-\code{assign_replication_by_seed()} evaluates seed availability against the
-per-plot seed requirement for each treatment and assigns replication roles
--- replicated, unreplicated, or excluded -- before the field layout is
-constructed. Both within-environment design functions accept optional
-relationship matrices for structure-aware entry arrangement and dispersion
-optimisation, and can evaluate the resulting design under a mixed-model
-framework prior to field deployment.
+When replication within an environment is flexible, the remaining
+network-wide seed inventory is evaluated against the local per-plot
+requirement before assigning replicated, unreplicated, or excluded roles.
+\code{optimize_common_treatments()} selects common presence only: every selected
+anchor occurs in every environment and counts once for pairwise
+connectivity. Local plot replication is assigned afterwards from the
+remaining seed inventory and never increases connectivity.
+Both local design functions accept optional relationship matrices for
+structure-aware entry arrangement and dispersion optimisation. Statistical
+information, simulation, and cost summaries use delivered plot counts,
+including repeated checks and partial replication, rather than incidence
+alone.
 
 Environment-level field books are assembled into a single MET field book
 with \code{combine_met_fieldbooks()}, which handles heterogeneous column sets
@@ -88,18 +129,32 @@ The complete two-stage pipeline can also be run end-to-end through
 \tabular{ll}{
    Function \tab Role \cr
    \code{allocate_sparse_met()} \tab Allocate treatments across environments \cr
-   \code{check_balanced_incomplete_feasibility()} \tab Verify slot identity before allocation \cr
+   \code{check_equireplicate_feasibility()} \tab Verify the equireplicate degree sequence before allocation \cr
    \code{derive_allocation_groups()} \tab Derive genetic group labels for allocation \cr
    \code{min_k_for_full_coverage()} \tab Minimum per-environment capacity for full coverage \cr
    \code{suggest_safe_k()} \tab Suggest a safe per-environment capacity \cr
    \code{warn_if_k_too_small()} \tab Non-fatal capacity pre-flight check \cr
    \code{assign_replication_by_seed()} \tab Classify treatments into replication roles \cr
+   \code{optimize_common_treatments()} \tab Robustly select the size and identities of the global common core \cr
    \code{met_prep_famoptg()} \tab Build block-based within-environment layouts \cr
    \code{met_alpha_rc_stream()} \tab Build stream-based row-column layouts \cr
    \code{met_evaluate_famoptg_efficiency()} \tab Evaluate efficiency of met_prep_famoptg() designs \cr
    \code{met_evaluate_alpha_efficiency()} \tab Evaluate efficiency of met_alpha_rc_stream() designs \cr
-   \code{met_optimize_famoptg()} \tab Optimise met_prep_famoptg() designs (Random Restart) \cr
-   \code{met_optimize_alpha_rc()} \tab Optimise met_alpha_rc_stream() designs (RS/SA/GA) \cr
+   \code{build_environment_kernels()} \tab Construct separate environmental main and interaction kernels \cr
+   \code{build_variable_interaction_kernels()} \tab Construct residualised, auditable kernels for named variable interactions \cr
+   \code{assess_variable_interactions()} \tab Assess dedicated interactions by blocked validation and multiplicity control \cr
+   \code{calibrate_environment_covariance()} \tab Calibrate genetic environment covariance from historical MET responses \cr
+   \code{infer_mega_environments()} \tab Infer stable descriptive environmental groups \cr
+   \code{met_information()} \tab Evaluate coupled MET prediction-error variance and mean coefficient of determination (CDmean) \cr
+   \code{simulate_met()} \tab Estimate selection accuracy and gain with Monte Carlo uncertainty \cr
+   \code{make_met_benchmark_designs()} \tab Construct full, random, M3, and feasible strict-M4 comparators \cr
+   \code{benchmark_met_designs()} \tab Compare paired performance and operational feasibility across stress scenarios \cr
+   \code{benchmark_environment_models()} \tab Compare separate and combined environmental covariance hypotheses \cr
+   \code{simulate_environment_model_benchmark()} \tab Quantify recovery of a known environmental covariance \cr
+   \code{benchmark_environment_missingness()} \tab Stress-test environmental kernels after covariate masking and imputation \cr
+   \code{summarize_design_stability()} \tab Quantify common-set, capacity, and allocation stability \cr
+   \code{met_optimize_famoptg()} \tab Optimise met_prep_famoptg() designs by random restart \cr
+   \code{met_optimize_alpha_rc()} \tab Optimise met_alpha_rc_stream() designs by random restart, simulated annealing, or genetic algorithm \cr
    \code{combine_met_fieldbooks()} \tab Stack environment field books into one MET field book \cr
    \code{plan_sparse_met_design()} \tab Run the full two-stage pipeline \cr
 }
@@ -130,7 +185,7 @@ modification. Load with:
 
 \section{Dependencies}{
 
-\strong{Matrix} is used for sparse matrix operations in efficiency evaluation and
+\strong{Matrix} supports sparse matrix operations in efficiency evaluation and
 design construction. \strong{pracma} provides \code{mod()} for serpentine traversal
 logic in \code{met_alpha_rc_stream()} and \code{met_prep_famoptg()}.
 }
@@ -157,6 +212,11 @@ Useful links:
 }
 \author{
 \strong{Maintainer}: Félicien Akohoue \email{akohoue.f@gmail.com} (\href{https://orcid.org/0000-0002-2160-0182}{ORCID})
+
+Authors:
+\itemize{
+  \item Félicien Akohoue \email{akohoue.f@gmail.com} (\href{https://orcid.org/0000-0002-2160-0182}{ORCID})
+}
 
 }
 \keyword{internal}

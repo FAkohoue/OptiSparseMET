@@ -189,7 +189,7 @@ single-plot feasibility and assigned \code{"unreplicated"} or \code{"excluded"}.
 \strong{\code{"rcbd_type"}}: All treatments are targeted for \code{desired_replications}.
 Treatments satisfying the replicated feasibility condition receive role
 \code{"p_rep"} at the requested replication level. For treatments that fail,
-behavior depends on \code{shortage_action}: \code{"error"} stops immediately;
+behaviour depends on \code{shortage_action}: \code{"error"} stops immediately;
 \code{"exclude"} drops the treatment from the design; \code{"downgrade"} reduces the
 treatment to a single unreplicated plot if the single-plot feasibility
 condition is met, or excludes it otherwise.

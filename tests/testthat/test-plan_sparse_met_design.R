@@ -34,6 +34,7 @@ test_that("plan_sparse_met_design returns a correctly structured list", {
     "environment_summary",
     "group_environment_summary",
     "efficiency_summary",
+    "seed_ledger",
     "summary",
     "seed_used"
   )
@@ -44,6 +45,38 @@ test_that("plan_sparse_met_design returns a correctly structured list", {
   expect_true(is.data.frame(out$combined_field_book))
   expect_true(is.data.frame(out$environment_summary))
   expect_true(is.data.frame(out$efficiency_summary))
+  expect_true(is.data.frame(out$seed_ledger))
+})
+
+test_that("seed ledger equals grams in final fieldbooks and keeps the buffer", {
+  x <- make_example_sparsemet_data()
+  out <- plan_sparse_met_design(
+    treatments = x$treatments,
+    environments = x$environments,
+    allocation_method = "random_balanced",
+    n_test_entries_per_environment = 30,
+    target_replications = 1,
+    common_treatments = x$common_treatments,
+    env_design_specs = x$env_design_specs,
+    treatment_info = x$treatment_info,
+    seed_info = x$seed_info,
+    seed_required_per_plot = x$seed_required_per_plot,
+    minimum_seed_buffer = 1,
+    seed = 123)
+
+  expected <- stats::setNames(numeric(length(x$treatments)), x$treatments)
+  q <- stats::setNames(x$seed_required_per_plot$SeedRequiredPerPlot,
+                       x$seed_required_per_plot$Environment)
+  for (e in x$environments) {
+    tt <- table(as.character(out$environment_designs[[e]]$field_book$Treatment))
+    ids <- intersect(names(tt), x$treatments)
+    expected[ids] <- expected[ids] + as.numeric(tt[ids]) * q[e]
+  }
+  ledger <- out$seed_ledger
+  expect_equal(ledger$SeedAllocated,
+               unname(expected[ledger$Treatment]))
+  expect_true(all(ledger$SeedRemaining >= ledger$MinimumBuffer - 1e-8))
+  expect_true(all(ledger$Feasible))
 })
 
 

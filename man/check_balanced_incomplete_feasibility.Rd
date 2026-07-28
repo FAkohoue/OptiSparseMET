@@ -3,7 +3,7 @@
 \name{check_balanced_incomplete_feasibility}
 \alias{check_balanced_incomplete_feasibility}
 \alias{check_equireplicate_feasibility}
-\title{Evaluate feasibility of an exact balanced incomplete sparse MET allocation}
+\title{Evaluate feasibility of an exact equireplicate sparse MET allocation}
 \usage{
 check_balanced_incomplete_feasibility(
   n_treatments_total,
@@ -50,8 +50,11 @@ with no forced common entries.}
 \value{
 A named list with the following components:
 \describe{
-\item{\code{feasible}}{Logical. \code{TRUE} if and only if the slot identity
-holds exactly, i.e. \code{difference == 0}.}
+\item{\code{feasible}}{Logical. \code{TRUE} if and only if the slot identity holds
+and the binary degree sequence is realisable.}
+\item{\code{slot_identity_ok}}{Logical. Whether \code{difference == 0}.}
+\item{\code{degree_sequence_realizable}}{Logical. Whether the requested equal
+treatment degrees and environment loads pass the Gale--Ryser condition.}
 \item{\code{n_sparse_treatments}}{Integer. Number of non-common treatments
 \eqn{J^* = J - C}. These are the treatments subject to sparse
 allocation.}
@@ -71,7 +74,7 @@ the direction of any imbalance.}
 }
 }
 \description{
-For a balanced incomplete allocation to be exact, the slot identity:
+For an equireplicate allocation to be exact, the slot identity:
 
 \deqn{J^* \times r = \sum_{e=1}^{I} k_e^*}
 
@@ -94,11 +97,12 @@ under-replicated. Both cases can be handled by \code{\link[=allocate_sparse_met]
 whether the resulting imbalance is practically acceptable.
 }
 \details{
-\code{check_balanced_incomplete_feasibility()} determines whether the parameters
-of a proposed sparse MET design admit an exact balanced incomplete
-allocation -- that is, whether the total number of sparse-allocatable
-treatment slots across environments exactly equals the number of non-common
-treatments multiplied by the target replication. The function is a
+\code{check_equireplicate_feasibility()} (with
+\code{check_balanced_incomplete_feasibility()} retained as a legacy alias)
+determines whether a proposed sparse MET admits an exact equireplicate
+allocation: the sparse-slot total must equal the number of non-common
+treatments multiplied by target replication, and the requested binary
+degree sequence must be realisable. The function is a
 diagnostic companion to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}} with
 \code{allocation_method = "equireplicate"}, and should be called before
 allocation when the user wants to verify feasibility or understand the
@@ -123,9 +127,11 @@ where \eqn{J} is \code{n_treatments_total}. If any environment has
 and the function stops with an error before evaluating the balance
 condition.
 
-This function performs no allocation. It only evaluates the arithmetic
-condition and returns the components needed to diagnose feasibility. For
-the actual construction of the incidence matrix, see \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.
+Slot equality is necessary but not sufficient when environment loads differ:
+the binary treatment-by-environment degree sequence must also be realisable.
+The function therefore applies the Gale--Ryser condition used by the strict
+constructor. It performs no allocation. For construction of the incidence
+matrix, see \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.
 }
 \examples{
 ## Example 1: exact feasibility -- 110 sparse treatments x 2 reps = 220,

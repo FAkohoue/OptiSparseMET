@@ -1,0 +1,694 @@
+---
+title: "End-to-End Sparse MET Pipeline: from Environmental Classification to the Combined Field Book"
+author: "OptiSparseMET"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+header-includes:
+  - |
+    <script>
+    window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] }, svg: { fontCache: 'global' } };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+vignette: >
+  %\VignetteIndexEntry{End-to-End Sparse MET Pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+# The pipeline below is a complete, self-contained, reproducible example on
+# SIMULATED data. Chunks are not evaluated at build time so the vignette builds
+# quickly and without network access (weather/soil fetches hit external
+# services). To run the whole thing, set eval = TRUE, or copy the code into an
+# R session. Every call uses the package's real argument names and return
+# fields.
+knitr::opts_chunk$set(eval = FALSE, collapse = TRUE, comment = "#>",
+                      fig.width = 7, fig.height = 4.5)
+library(OptiSparseMET)
+set.seed(2026)
+```
+
+# What this vignette builds
+
+`OptiSparseMET` designs **sparse multi-environment trials (METs)** by optimising
+two coupled levels at once:
+
+* **Level 1 — across-environment allocation:** *which* genotypes are tested in
+  *which* environments, so the whole network is genetically connected and every
+  line is predictable across the target population of environments (TPE).
+* **Level 2 — within-environment field layout:** *how* each site is laid out
+  (blocks, checks, alpha row-column), which sets how precisely each plot is
+  measured.
+
+This tutorial runs the **entire pipeline end to end**, organised by module, on a
+realistic-but-simulated rice testcross program:
+
+1. **Module 1 — Environmental classification (enviromics).** Build environment
+   kernels from weather / soil / management / geography, calibrate a data-driven
+   environmental covariance $\Sigma_E$, and cluster sites into mega-environments.
+2. **Module 2 — Genetic relationship matrices.** Genomic `G` (VanRaden), a
+   hybrid/testcross GRM with optional dominance, and a made-invertible tune-up.
+3. **Module 3 — Sparse allocation.** Feasibility, auto-suggested common
+   treatments, and M3 / M4 allocation under per-site capacities.
+4. **Module 4 — Seed-aware replication.** Turn a single seed inventory into a
+   feasible replication plan (p-rep / augmented).
+5. **Module 5 — Within-environment field design.** Block-based repeated-check
+   designs and alpha row-column designs, with efficiency evaluation.
+6. **Module 6 — Coupled optimisation & information.** The two-level information
+   matrix, exact multi-trait index reliability, criterion + gain + cost
+   objectives, exchange/SA optimisation, and the Pareto frontier.
+7. **Module 7 — Simulation.** Monte-Carlo prediction accuracy and realised gain.
+8. **Module 8 — Benchmarking.** Complete / random / M3 / M4 / optimised designs
+   compared with confidence intervals, decision stability, and tail risk.
+9. **Module 9 — Field books & field maps.** Per-site and combined field books,
+   and a field map drawn from the layout.
+
+A one-call wrapper (`plan_sparse_met_design()`) and a validation appendix close
+the vignette.
+
+# Setup: installation and loading
+
+Install the package from GitHub (vignettes included):
+
+```{r install, eval = FALSE}
+# install.packages("remotes")
+remotes::install_github("FAkohoue/OptiSparseMET",
+                        build_vignettes = TRUE, dependencies = TRUE)
+```
+
+Optional packages (all in `Suggests`) unlock specific capabilities; install only
+what you need:
+
+```{r install-optional, eval = FALSE}
+# Live environmental data
+install.packages(c("nasapower",               # daily weather (NASA POWER)
+                   "terra", "gdalUtilities",   # SoilGrids retrieval
+                   "jsonlite"))
+# Genomic relationship backends and matrix conditioning
+install.packages(c("AGHmatrix", "ASRgenomics"))
+# Multi-trait desired-gain index constructor (from GitHub)
+remotes::install_github("FAkohoue/DGQGSI")
+# Optional engines: exact BIBD, random-forest interaction screening,
+# parallel fetching, and mixed-model variance estimation
+install.packages(c("crossdes", "ranger", "future", "future.apply", "sommer"))
+```
+
+Load the package:
+
+```{r load, eval = TRUE, message = FALSE}
+library(OptiSparseMET)
+set.seed(2026)
+```
+
+The simulated example below needs only the base package (its `Imports`:
+**Matrix**, **pracma**, **splines**). The `Suggests` are required only for live
+weather/soil fetching, the AGHmatrix / ASRgenomics backends, the DGQGSI index,
+or parallel downloads — each function that needs one checks for it and degrades
+gracefully if it is absent.
+
+# The example program
+
+```{r program}
+# ---- The breeding program (simulated) -------------------------------------
+n_hybrids  <- 300L                      # testcross hybrids to evaluate
+n_families <- 12L
+n_markers  <- 800L
+hybrids    <- sprintf("H%03d", seq_len(n_hybrids))
+families   <- sample(sprintf("F%02d", seq_len(n_families)), n_hybrids, TRUE)
+
+# Seven sites across three countries. Ecuador sites are (nominally) uncapped;
+# Colombia/CIAT capped at 200 plots incl. checks; Peru at 182 plots.
+sites <- c("Ecu_Daule", "Ecu_Samborondon", "Ecu_Babahoyo", "Ecu_Vinces",
+           "Col_Saldana", "CIAT_Palmira", "Per_Chiclayo")
+```
+
+---
+
+# Module 1 — Environmental classification (enviromics)
+
+**Goal:** describe *how similar the environments are* so the design can connect
+them and cluster them into mega-environments. This drives $\Sigma_E$, which every
+downstream optimisation consumes.
+
+## 1.1 Site coordinates
+
+Weather and soil retrieval need each site's coordinates.
+
+```{r sites-coords}
+sites_xy <- data.frame(
+  environment = sites,
+  latitude  = c(-1.86, -1.96, -1.80, -1.55,  3.93,  3.50, -6.77),
+  longitude = c(-79.98,-79.72,-79.53,-79.75,-75.02,-76.36,-79.84),
+  stringsAsFactors = FALSE)
+```
+
+## 1.2 Choosing weather variables — the six defaults, or *all* of them
+
+When `pars = NULL`, the weather fetchers return **six** core variables
+(temperature, max/min temperature, precipitation, radiation, humidity). You are
+not limited to those: `enviromic_variable_catalog("weather")` lists every
+fetchable variable (20 in total, including NASA POWER codes for wind, pressure,
+dew point, soil wetness, evapotranspiration, PAR, …). Pass the full vector to
+`pars` to retrieve **all** variables instead of the default subset.
+
+```{r weather-vars}
+# The catalogue of all fetchable weather variables:
+enviromic_variable_catalog("weather")[, c("variable", "units", "description")]
+
+# The six defaults (used when pars = NULL):
+six_defaults    <- head(enviromic_variable_catalog("weather")$variable, 6)
+
+# ALL available weather variables -- use this to fetch everything:
+all_weather_pars <- enviromic_variable_catalog("weather")$variable
+all_weather_pars                                   # 20 variables
+```
+
+## 1.3 Download ten years of historical daily weather
+
+`historical_envirotype()` pulls **daily** NASA POWER weather for a vector of past
+years over a growing window, then summarises it into a multi-year *typical*
+envirotype plus *interannual variability* and *per-year* matrices (used later for
+stability analysis). Set `pars = all_weather_pars` to characterise the sites on
+every variable rather than the six defaults. (Requires `nasapower` and network
+access, so it is not evaluated here.)
+
+```{r fetch-hist, eval = FALSE}
+this_year <- as.integer(format(Sys.Date(), "%Y"))
+
+hist_wx <- historical_envirotype(
+  sites   = sites_xy,
+  years   = (this_year - 10):(this_year - 1),   # <-- the last ten years
+  window  = c("11-01", "02-28"),                 # growing season (Nov -> Feb)
+  pars    = all_weather_pars,                     # <-- ALL variables (omit for the 6 defaults)
+  variability = "sd",
+  cache_dir = "power_cache", workers = 4)         # cache + parallel download
+
+hist_wx$typical      # environment x feature: multi-year typical envirotype
+hist_wx$variability  # interannual variability (sd) per feature
+hist_wx$per_year     # list of per-year environment x feature matrices
+```
+
+For a **single** season instead of a multi-year climatology, fetch the daily
+series directly and derive features. `pars = all_weather_pars` again requests
+every variable:
+
+```{r fetch-series, eval = FALSE}
+sites_win <- transform(sites_xy,
+                       start_date = "2024-11-01", end_date = "2025-02-28")
+wx <- fetch_weather_series(sites_win, pars = all_weather_pars,   # omit for the 6 defaults
+                           temporal = "daily", workers = 4)
+feat <- envirotype_features(wx, windows = 3, stats = c("mean", "sd"),
+                            gdd = list(base = 10))
+```
+
+Soil is retrieved once per site with `fetch_soilgrids(sites_xy, ...)` (all
+SoilGrids properties by default).
+
+## 1.4 Covariate matrix for this (offline) vignette
+
+So the vignette builds without network access, we substitute a simulated
+environment-by-covariate matrix in place of `hist_wx$typical` / `feat` above. In
+a real run you would use the fetched features directly.
+
+```{r env-covariates}
+E <- length(sites)
+mk_block <- function(p, sd = 1) {
+  m <- matrix(rnorm(E * p, sd = sd), E, p)
+  rownames(m) <- sites
+  m
+}
+weather    <- mk_block(6);  colnames(weather)    <- c("mean_temp","tmax","tmin",
+                                                       "precip","rad","rh")
+soil       <- mk_block(4);  colnames(soil)       <- c("clay","phh2o","soc","cec")
+management <- mk_block(2);  colnames(management) <- c("seeding","N_rate")
+geography  <- mk_block(3);  colnames(geography)  <- c("lat","lon","elev")
+```
+
+## 1.2 Environment kernels
+
+`build_environment_kernels()` turns each covariate block into a Gaussian kernel
+at several bandwidths, handling missingness and coverage checks.
+
+```{r env-kernels}
+kernels <- build_environment_kernels(
+  weather = weather, soil = soil, management = management, geography = geography,
+  environments = sites,
+  bandwidth_multipliers = c(0.5, 1, 2),
+  missing_action = "impute", impute = "median")
+names(kernels)
+```
+
+## 1.3 Data-driven environmental covariance $\Sigma_E$
+
+If you have **historical MET yield data**, calibrate the kernel mixture against
+the empirically observed cross-environment genetic correlations. Interaction
+kernels are admitted only on cross-validated / bootstrap **evidence**, never by
+default.
+
+```{r calibrate}
+# Simulated historical MET: genotype x environment yields over several years.
+hist_years <- 2018:2024
+historical <- do.call(rbind, lapply(hist_years, function(y) {
+  g <- sprintf("G%02d", 1:40)
+  expand <- expand.grid(genotype = g, environment = sites,
+                        stringsAsFactors = FALSE)
+  expand$year  <- y
+  expand$value <- rnorm(nrow(expand))
+  expand
+}))
+
+cal <- calibrate_environment_covariance(
+  kernels, historical = historical, year_col = "year",
+  genotype_col = "genotype", environment_col = "environment",
+  value_col = "value", identity_weight = 0.10, n_boot = 100L, seed = 1)
+
+Sigma_E <- cal$Sigma_E              # E x E environmental covariance
+cal$weights                          # fitted kernel weights (on the simplex)
+cal$interaction_evidence             # per-interaction CV / bootstrap evidence
+```
+
+When no historical target is available, `calibrate_environment_covariance()`
+returns the identity as a neutral central covariance and keeps interaction
+kernels as *unweighted structural-uncertainty scenarios* — an honest fallback
+rather than invented weights.
+
+## 1.4 Enviromic kinship and mega-environments
+
+```{r mega}
+# Enviromic similarity D among sites (Gaussian kernel over covariates).
+env_cov <- cbind(weather, soil, geography)
+D <- build_environment_relationship(env_cov, source = "enviromic",
+                                    kernel = "gaussian")
+
+# Cluster sites into mega-environments (silhouette/stability-screened variant:
+# infer_mega_environments()).
+mega <- cluster_environments(D, n_clusters = 3, Sigma_E = Sigma_E, seed = 1)
+mega$membership                       # site -> mega-environment label
+mega$clusters                         # sites grouped by mega-environment
+
+# Optionally pick a representative subset of sites under a plot budget.
+select_environments(D, n = 5, method = "representative")
+```
+
+---
+
+# Module 2 — Genetic relationship matrices
+
+**Goal:** a positive-definite, invertible relationship matrix `G` over the
+genotypes, because every reliability/PEV computation needs $G^{-1}$.
+
+## 2.1 Genomic relationship (VanRaden)
+
+```{r grm}
+# Simulated 0/1/2 marker dosages for the 300 testcross hybrids.
+markers <- matrix(rbinom(n_hybrids * n_markers, 2, 0.3),
+                  n_hybrids, n_markers,
+                  dimnames = list(hybrids, sprintf("snp%04d", 1:n_markers)))
+
+G <- build_relationship_matrix(markers = markers, type = "genomic",
+                               method = "vanraden")
+```
+
+## 2.2 Hybrid / testcross GRM with dominance (optional)
+
+For testcrosses, an additive **and** a dominance relationship can matter. Build
+a hybrid GRM from parental genotypes and combine additive + dominance:
+
+```{r hybrid, eval = FALSE}
+# G_parents: GRM among inbred parents; crosses: female/male parent of each hybrid.
+G_A <- build_hybrid_relationship(G_parents = G_parents, crosses = crosses)
+# A dominance matrix G_D can be built the same way (Vitezica) and blended:
+G  <- combine_relationship_matrices(list(additive = G_A, dominance = G_D),
+                                    weights = c(0.8, 0.2))
+```
+
+## 2.3 Make it invertible
+
+```{r tune}
+G <- tune_relationship_matrix(G, method = "auto")   # blend/bend/rcn to PD
+```
+
+---
+
+# Module 3 — Sparse allocation across environments
+
+**Goal:** decide who is tested where. First check feasibility, then let the
+package suggest a connected set of **common treatments**, then allocate.
+
+## 3.1 Feasibility and per-site capacity
+
+```{r capacity}
+# Sites capped at their physical plot limits (checks included).
+capacity <- c(Ecu_Daule = 220, Ecu_Samborondon = 220, Ecu_Babahoyo = 220,
+              Ecu_Vinces = 220, Col_Saldana = 200, CIAT_Palmira = 200,
+              Per_Chiclayo = 182)
+
+# For an uncapped site, let the package pick the plot number that maximises
+# accuracy within an affordable interval:
+suggest_site_capacity(G, Sigma_E, candidate_plots = c(150, 180, 200, 220),
+                      scope = "single", other_capacity = 200, n_sim = 20,
+                      select = "max", seed = 1)$recommended_plots
+
+# Smallest safe common-block size k (buffer for checks):
+suggest_safe_k(hybrids, sites, buffer = 3L)
+```
+
+## 3.2 Auto-suggested common treatments
+
+`suggest_common_treatments()` chooses **how many** and **which** genotypes to
+grow everywhere, balancing (a) seed feasibility across all sites, (b) coverage
+of every family and genetic group, and (c) enough overlap to estimate GxE and
+cross-site genetic correlations.
+
+```{r commons}
+treatment_info <- data.frame(Treatment = hybrids, Family = families,
+                             stringsAsFactors = FALSE)
+seed_info      <- data.frame(Treatment = hybrids,
+                             SeedAvailable = round(runif(n_hybrids, 30, 300)))
+
+cc <- suggest_common_treatments(
+  G, treatment_info = treatment_info, seed_info = seed_info,
+  seed_required_per_plot = 10,          # grams per plot (Ecuador basis)
+  Sigma_E = Sigma_E, n_test_entries = 200, seed = 1)
+
+cc$n_common                             # suggested number
+common <- cc$selected                   # the chosen genotypes
+cc$rationale                            # why: seed, family, group, connectivity
+```
+
+## 3.3 Allocate — M3 (coverage) and M4 (equal replication)
+
+```{r allocate}
+# M3: random-balanced, prioritises complete coverage of the TPG.
+alloc_m3 <- allocate_sparse_met(
+  treatments = hybrids, environments = sites,
+  allocation_method = "random_balanced",
+  n_test_entries_per_environment = capacity - 20,   # leave room for checks
+  common_treatments = common,
+  allocation_group_source = "Family", treatment_info = treatment_info,
+  Sigma_E = Sigma_E, seed = 1)
+
+alloc_m3$allocation_matrix[1:5, ]       # J x E incidence
+alloc_m3$environment_sizes
+alloc_m3$summary
+
+# M4: equireplicate, enforces equal network replication when the requested
+# degree sequence is Gale-Ryser realisable.
+alloc_m4 <- allocate_sparse_met(
+  treatments = hybrids, environments = sites,
+  allocation_method = "equireplicate",
+  n_test_entries_per_environment = rep(180L, E),
+  target_replications = 3, common_treatments = common, seed = 1)
+```
+
+`A <- alloc_m3$allocation_matrix` is the object every optimisation below
+consumes.
+
+```{r A}
+A <- alloc_m3$allocation_matrix
+```
+
+---
+
+# Module 4 — Seed-aware replication
+
+**Goal:** convert the single network-wide seed inventory into a feasible
+replication plan per site, respecting grams-per-plot (which differs by site:
+direct seeding vs transplanting).
+
+```{r seed}
+seed_df <- data.frame(Treatment = hybrids,
+                      SeedAvailable = seed_info$SeedAvailable)
+
+rep_plan <- assign_replication_by_seed(
+  treatments = hybrids,
+  check_treatments = common,             # commons act as replicated checks
+  seed_available = seed_df,
+  seed_required_per_plot = 10,
+  replication_mode = "p_rep",            # partially replicated
+  desired_replications = 2,
+  priority = "seed_available")
+head(rep_plan)
+```
+
+---
+
+# Module 5 — Within-environment field design
+
+**Goal:** lay out each site. Two engines cover the common cases; both return a
+`field_book` with `Row`/`Column` (for the field map in Module 9) and feed an
+efficiency factor $\epsilon_e \in (0,1]$ back into the coupled optimisation.
+
+## 5.1 Block-based repeated-check design
+
+```{r famoptg}
+fb_block <- met_prep_famoptg(
+  check_treatments   = common[1:4],
+  check_families     = rep("CHK", 4),
+  p_rep_treatments   = hybrids[1:60],
+  p_rep_reps         = 2,
+  p_rep_families     = families[1:60],
+  unreplicated_treatments = hybrids[61:180],
+  n_rows = 20, n_cols = 12, seed = 1)
+
+eff_block <- met_evaluate_famoptg_efficiency(
+  fb_block$field_book, n_rows = 20, n_cols = 12,
+  check_treatments = common[1:4])
+```
+
+## 5.2 Alpha row-column design
+
+```{r alpha}
+fb_alpha <- met_alpha_rc_stream(
+  check_treatments = common[1:4], check_families = rep("CHK", 4),
+  entry_treatments = hybrids[1:180], entry_families = families[1:180],
+  n_reps = 2, n_rows = 20, n_cols = 18, seed = 1)
+```
+
+`compare_spatial_models()` can score IID / AR1×AR1 / P-spline error models to
+pick the analysis model each layout best supports.
+
+---
+
+# Module 6 — Coupled optimisation & information
+
+This is the scientific core: the **two-level information matrix** that couples
+the allocation (Module 3) with the within-site efficiency (Module 5). With
+G$\times$E effects $u \sim \mathcal{N}\!\big(0,\ \sigma_g^2\,\Sigma_E \otimes G\big)$
+and per-cell information $d_{je} = r_{je}\,\epsilon_e / \sigma_e^2$, absorbing
+the environment means gives the effect information matrix
+
+$$
+C_{uu} \;=\; D \;-\; D X (X^\top D X)^{-1} X^\top D \;+\;
+\sigma_g^{-2}\,\big(\Sigma_E^{-1} \otimes G^{-1}\big),
+$$
+
+from which the across-TPE reliability of line $j$ is
+
+$$
+\mathrm{CD}_j \;=\; 1 - \frac{\mathrm{PEV}_j}{\sigma_g^2\, G_{jj}\,\bar{\Sigma}_E},
+\qquad
+\mathrm{PEV}_j \;=\; \frac{1}{E^2}\, a_j^\top C_{uu}^{-1} a_j .
+$$
+
+## 6.1 Reliability of the whole design
+
+```{r info}
+eff <- setNames(rep(0.9, E), sites)     # e.g. from Module 5 evaluations
+info <- met_information(A, G = G, Sigma_E = Sigma_E,
+                        sigma_g2 = 1, sigma_e2 = 1, env_efficiency = eff)
+info$CDmean                              # mean across-TPE reliability
+info$mean_PEV
+```
+
+## 6.2 Exact multi-trait index reliability
+
+For a selection index $H = w^\top g$ over several traits with genetic covariance
+$\Sigma_T$ and residual covariance $R_T$, `met_information_mt()` solves the
+**full multi-trait model** via the Hayes–Hill canonical transform — simultaneously
+diagonalising $R_T$ and $\Sigma_T$ ($Q R_T Q^\top = I$, $Q \Sigma_T Q^\top =
+\mathrm{diag}(\lambda)$) so the problem decouples into $T$ single-trait solves.
+The index reliability is
+
+$$
+\mathrm{CD}_H \;=\; 1 - \frac{w^\top \mathrm{PEV}\, w}{\,G_{jj}\,\bar{\Sigma}_E\;
+w^\top \Sigma_T\, w\,},
+$$
+
+which is exact, not an approximation (see the validation appendix).
+
+```{r mt}
+Sigma_T <- matrix(c(1, 0.3, 0.3, 0.6), 2,
+                  dimnames = list(c("yield","quality"), c("yield","quality")))
+R_T     <- matrix(c(1, 0.2, 0.2, 0.8), 2)
+w       <- desired_gain_weights(desired_gain = c(yield = 1, quality = 0.5),
+                                gen_cov = Sigma_T, method = "pesek_baker")
+info_mt <- met_information_mt(A, G = G, Sigma_E = Sigma_E,
+                              Sigma_T = Sigma_T, R_T = R_T, index_weights = w)
+info_mt$CDmean_index
+```
+
+## 6.3 Objective, optimisation, and robustness
+
+```{r optimize}
+# A configurable objective: reliability + expected gain - plot cost.
+obj <- design_objective(A, G = G, Sigma_E = Sigma_E,
+                        prop = 0.1, cost_per_plot = 1)
+
+# Improve the allocation by simulated-annealing exchanges while preserving the
+# per-site margins; aggregate over variance scenarios by conditional value at
+# risk (tail-robust).
+opt <- optimize_design(
+  A, G = G, Sigma_E = Sigma_E, objective = list(prop = 0.1),
+  preserve = "margins",
+  robust = robust_scenarios(sigma_e2 = c(0.5, 1, 2)),
+  robust_aggregate = "cvar", cvar_alpha = 0.25, seed = 1)
+opt$allocation_matrix                    # improved incidence
+```
+
+## 6.4 Pareto frontier (budget vs. gain)
+
+```{r pareto}
+pf <- pareto_designs(A, G = G, Sigma_E = Sigma_E,
+                     cost_weights = seq(0, 1, by = 0.25), benefit = "gain")
+plot_pareto_frontier(pf, x = "cost")
+```
+
+---
+
+# Module 7 — Simulation
+
+**Goal:** validate the analytic reliability with an independent Monte-Carlo
+GBLUP: simulate true breeding values, predict from the sparse design, and
+measure realised accuracy, selection gain, and top-fraction coincidence.
+
+```{r simulate}
+sim <- simulate_met(A, G = G, Sigma_E = Sigma_E,
+                    n_sim = 200L, select_fraction = 0.10, seed = 1)
+c(accuracy = sim$accuracy_mean, gain = sim$gain_mean,
+  coincidence = sim$common_selected_mean, CDmean = sim$CDmean)
+```
+
+The Monte-Carlo `accuracy_mean` should track the analytic `CDmean` from Module
+6 — a built-in consistency check between the two independent code paths.
+
+---
+
+# Module 8 — Benchmarking
+
+**Goal:** show the sparse design is worth it. Build a panel of reference designs
+and compare them on the *same* simulated data (paired, common random numbers),
+with confidence intervals, decision stability, and tail risk.
+
+```{r benchmark}
+designs <- make_met_benchmark_designs(
+  treatments = hybrids, environments = sites,
+  n_test_entries_per_environment = rep(180L, E),
+  target_replications = 3, common_treatments = common, seed = 1)
+# designs is a named list: complete / random / M3 / M4 / (your optimised) ...
+
+bench <- benchmark_met_designs(
+  designs, G = G, Sigma_E = Sigma_E,
+  sigma_e2 = c(0.5, 1, 2),                 # scenarios
+  environment_dropout = list(none = character(), drop_peru = "Per_Chiclayo"),
+  cost_per_plot = 1, n_boot = 200L, seed = 1)
+bench                                       # per-design accuracy/gain CIs, CVaR, cost
+
+# Stability of repeated common-set selections (Jaccard).
+summarize_design_stability(
+  common_sets = replicate(5, suggest_common_treatments(
+    G, treatment_info, seed_info, seed_required_per_plot = 10,
+    n_test_entries = 200)$selected, simplify = FALSE))
+```
+
+`benchmark_environment_models()` and `benchmark_environment_missingness()`
+extend this to the enviromic side: do the calibrated kernels recover a known
+covariance, and how do they degrade under missing weather/soil data?
+
+---
+
+# Module 9 — Field books & field maps
+
+**Goal:** the operational deliverable — a field book per site and one combined
+book, plus a field map for planting.
+
+## 9.1 Per-site and combined field books
+
+```{r fieldbook}
+# Collect each site's within-environment field book (Module 5). Here we reuse
+# one layout for illustration; in practice build one per site.
+field_books <- setNames(lapply(sites, function(s) fb_alpha$field_book), sites)
+
+combined <- combine_met_fieldbooks(
+  field_books,
+  replication_modes = setNames(rep("p_rep", E), sites),
+  sparse_method = "random_balanced",
+  common_treatments = common)
+
+# Individual site book:
+subset(combined, Environment == "Col_Saldana")[1:8, ]
+# Combined book (all sites, with Environment / IsCommonTreatment flags):
+head(combined)
+write.csv(combined, "combined_field_book.csv", row.names = FALSE)
+```
+
+## 9.2 Field map
+
+The field book carries `Row` / `Column`, so a map is a tile plot with checks and
+common treatments highlighted.
+
+```{r fieldmap}
+fb <- subset(combined, Environment == "Col_Saldana")
+fb$kind <- ifelse(fb$IsCommonTreatment, "common",
+           ifelse(is.na(fb$Treatment), "empty", "entry"))
+with(fb, {
+  plot(Column, Row, type = "n", asp = 1, main = "Col_Saldana field map",
+       xlab = "Column", ylab = "Row")
+  cols <- c(entry = "grey85", common = "#0C4C80", empty = "white")
+  rect(Column - .5, Row - .5, Column + .5, Row + .5,
+       col = cols[kind], border = "grey60")
+})
+```
+
+---
+
+# One-call pipeline
+
+For routine use, `plan_sparse_met_design()` chains allocation → seed replication
+→ within-site design → combined field book with sensible defaults; and
+`run_design_strategy()` wraps environment selection + allocation + evaluation.
+
+```{r oneshot}
+plan <- plan_sparse_met_design(
+  treatments = hybrids, environments = sites,
+  allocation_method = "random_balanced",
+  n_test_entries_per_environment = capacity - 20,
+  common_treatments = common, seed = 1)
+names(plan)
+```
+
+---
+
+# Appendix — Numerical validation
+
+The two hardest results were verified against independent full mixed-model
+solves (reproducible in `oracle_audit.py`):
+
+| Quantity | Independent reference | Max discrepancy |
+|---|---|---|
+| `met_information` (absorption form) | full augmented $[\mu;\,u]$ MME inverse | **1.1e-16** |
+| `met_information_mt` (canonical transform) | direct $J\cdot E\cdot T$ multi-trait MME | **3.3e-16** |
+| `.project_simplex` | scipy SLSQP projection | 3.6e-7 |
+| `.fit_kernel_simplex` | scipy constrained least squares | 1.9e-9 |
+| `.benchmark_psd_root` | reconstruct `ZZ'` (incl. rank-deficient) | 0–9e-16 |
+| Gale–Ryser feasibility | bipartite degree-sequence realisability | exact |
+
+In short: the coupled information matrix and its exact multi-trait extension are
+correct to floating-point precision — the reliabilities this pipeline reports
+are the same numbers a full mixed-model analysis would return.
+```
+

@@ -234,7 +234,7 @@ for near-singular \code{K}.
 
 \strong{D-criterion} (lower = better):
 \deqn{D_\text{criterion} = \exp\!\left(\frac{\log\det(HVH)}{p-1}\right)}
-where \eqn{H = I_p - p^{-1}J_p} is the centering matrix and \eqn{V} is
+where \eqn{H = I_p - p^{-1}J_p} is the centring matrix and \eqn{V} is
 the treatment variance-covariance submatrix.
 
 \strong{Efficiency forms} (higher = better):

@@ -2,10 +2,10 @@
 #'
 #' @description
 #' `recommend_replication()` sweeps candidate replication levels for a given
-#' allocation and reports the realized accuracy, genetic gain, and design-based
+#' allocation and reports the realised accuracy, genetic gain, and design-based
 #' PEV at each level (via [simulate_met()]), then recommends the level at the
 #' point of diminishing returns. It is the resource-aware form of decision 4 in
-#' Colmant et al. (2026): it evaluates replication at the program's own spatial
+#' Colmant et al. (2026): it evaluates replication at the programme's own spatial
 #' noise (`sigma_e2`), relationship matrix, and -- optionally -- seed budget,
 #' and it varies replication with the number of unique entries held fixed, so
 #' the two are not confounded (as they were in the paper's field-size grid).

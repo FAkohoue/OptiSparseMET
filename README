@@ -4,6 +4,8 @@
   <img src="man/figures/logo.png" alt="OptiSparseMET logo" width="100%">
 </p>
 
+[Download the OptiSparseMET Breeder's Guide (PDF)](https://github.com/FAkohoue/OptiSparseMET/raw/master/inst/guides/OptiSparseMET_Breeders_Guide.pdf).
+
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/R-CMD-check.yaml)
 [![pkgdown](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/FAkohoue/OptiSparseMET/actions/workflows/pkgdown.yaml)
@@ -14,22 +16,35 @@
 ## Overview
 
 `OptiSparseMET` is an R framework for constructing sparse multi-environment
-trials (METs) that jointly addresses treatment allocation across environments
-and field design within environments -- under shared statistical, genetic, and
+trials (METs). It integrates treatment allocation across environments with
+field design within environments under shared statistical, genetic, and
 logistical constraints.
 
-The package targets a structural challenge common to modern breeding programs:
-the number of candidate lines routinely exceeds what any single environment
-can accommodate, environments are heterogeneous rather than interchangeable,
-and seed availability imposes limits that purely theoretical designs ignore.
-Standard MET tools typically address one of these problems at a time.
-`OptiSparseMET` integrates all of them within a single workflow.
+Modern breeding programmes routinely evaluate more candidate genotypes than
+any one environment can accommodate. Moreover, environments differ in
+capacity, precision, and relevance, while finite seed stocks constrain both
+presence and replication. Addressing these decisions separately can produce a
+statistically attractive design that cannot be planted, or a feasible field
+book with weak cross-environment information. `OptiSparseMET` therefore
+coordinates (i) environmental evidence and uncertainty, (ii) common and sparse
+treatment allocation, (iii) network-wide seed accounting, (iv) local field
+layout, and (v) robust pre-deployment evaluation.
+
+The package distinguishes evidence from assumptions. Historical MET responses,
+when available, calibrate genetic environment covariance. When they are
+unavailable, the package does not ask the user to invent environmental weights:
+the identity matrix defines the central covariance, and separate environmental
+main and interaction kernels define unweighted maximin sensitivity scenarios.
 
 ---
 
 ## Conceptual Framework
 
-Sparse MET design is a two-level problem and should be treated as such.
+Sparse MET design is a two-level problem embedded within an environmental
+uncertainty problem.
+
+The target population of environments (TPE) is the set of environments for
+which the breeding programme seeks prediction and selection decisions.
 
 **Level 1 — Across-environment allocation** determines which treatments
 appear in which environments, how many times each treatment is replicated
@@ -40,21 +55,22 @@ sufficient genetic connectivity for valid cross-environment inference.
 spatial layout, replication within each environment, and local control of
 field heterogeneity.
 
-These two levels are not merely sequential steps — they are statistically
-coupled, and optimizing them independently produces inferior designs. The
+These two levels are not merely sequential steps. They are statistically
+coupled, and optimising them independently can produce inefficient or locally
+infeasible designs. The
 linkage operates through four mechanisms.
 
 **1. The incidence matrix couples both levels inside the information matrix.**
 
-In the linear mixed model: 
-$y = X\beta + Zg + e$, 
-the precision of all genetic value estimates is governed by the coefficient matrix:
-$C = Z^\top V^{-1} Z - Z^\top V^{-1} X(X^\top V^{-1} X)^{-1} X^\top V^{-1} Z$,
-where $V = ZKZ^\top \sigma_g^2 + R\sigma_e^2$. The allocation decision
-determines the sparsity pattern of $Z$ (which lines appear where);
-the within-environment blocking structure determines $R$ (the residual
-covariance). Both enter $V$ and therefore $C^{-1}$. Neither can be optimized
-in isolation because they interact inside the inversion of $V$.
+In the package's genotype-by-environment mixed model, the random-effect
+coefficient matrix is
+$C_{uu}=D-DX(X^\top D X)^{-1}X^\top D+
+\{\sigma_g^2(\Sigma_E\otimes G)\}^{-1}$.
+The diagonal information $D$ is determined by allocation, actual cell
+replication, residual variance, and local design efficiency; the prior
+precision couples environments through $\Sigma_E$ and lines through $G$.
+Both design levels therefore enter $C_{uu}^{-1}$ and cannot be optimised in
+isolation.
 
 **2. Allocation fixes which within-environment designs are feasible.**
 
@@ -68,30 +84,42 @@ be co-designed.
 
 **3. Block efficiency propagates into cross-environment inference.**
 
-The precision of a genetic value estimate for line $j$ in environment $e$
-is proportional to $e_j \, r_j^{(e)}$, where $r_j^{(e)}$ is the number of
-plots and $e_j \in (0, 1]$ is the efficiency factor of the within-environment
-design relative to a completely randomized layout. A poor block design reduces
-$e_j$, inflating the variance of each BLUP. These inflated variances propagate
+The observation-information contribution for line $j$ in environment $e$ is
+$d_{je}=r_{je}\epsilon_e/\sigma_e^2$, where $r_{je}$ is its number of plots
+and $\epsilon_e \in (0,1]$ is the environment's within-design efficiency
+factor. A poor block design reduces $\epsilon_e$, increasing prediction error.
+That loss of information propagates
 into cross-environment covariance estimates, degrading G×E inference and
 genetic correlation estimation even when the allocation incidence structure is
 perfectly balanced.
 
-**4. CDmean — the genomic prediction criterion — depends on both levels.**
+**4. The mean coefficient of determination (CDmean) depends on both levels.**
 
-The CDmean criterion,
-$\text{CDmean} = 1 - \overline{\text{PEV}} / \sigma_g^2$,
-where PEV depends on both $Z$ (allocation) and $R^{-1}$ (blocking), cannot
-be maximized by fixing either level independently. Spreading genetically
+For target genetic value $h_j$, line reliability is
+$CD_j=1-\text{PEV}(h_j)/\text{Var}(h_j)$ and
+$\text{CDmean}=J^{-1}\sum_j CD_j$. The denominator therefore respects the
+line's relationship diagonal and the chosen environment target rather than
+assuming a common prior variance. Prediction-error variance (PEV) depends on
+both $Z$ (allocation) and
+$R^{-1}$ (blocking), so CDmean cannot
+be maximised by fixing either level independently. Spreading genetically
 diverse lines across environments improves the genomic connectivity captured
 in $Z^\top R^{-1} Z$; efficient blocking sharpens $R^{-1}$. Both
 contributions are necessary.
 
-`OptiSparseMET` formalizes the link between the two levels: the allocation
+`OptiSparseMET` formalises the link between the two levels: the allocation
 output specifies exactly which lines enter each environment, and the
 within-environment design engine receives precisely that set, ensuring that
-the incidence structure and the blocking structure are optimized consistently
+the incidence structure and the blocking structure are optimised consistently
 within the same statistical framework.
+
+This coupling is made concrete by `met_information()`, which assembles the
+across-environment (MET-level) information matrix from the allocation incidence
+(Level 1) and a within-environment efficiency factor (Level 2) under a G × E
+model (`Sigma_E ⊗ G`), and returns the across-TPE mean PEV and CDmean.
+`simulate_met()` then reports the realised selection accuracy and genetic gain
+those designs achieve, and `optimize_allocation_gxe()` optimises the allocation
+directly against that coupled objective.
 
 ---
 
@@ -102,50 +130,66 @@ within the same statistical framework.
 The theoretical basis follows Montesinos-Lopez et al. (2023), who formalize
 the resource identity underlying balanced sparse designs:
 
-$$N = J \times r = I \times k$$
+$$N = J \times r = \sum_{e=1}^{I} k_e$$
 
 | Symbol | Meaning |
 |--------|---------|
 | $J$ | Total number of treatments |
 | $I$ | Number of environments |
-| $k$ | Number of treatments per environment |
+| $k_e$ | Number of treatments in environment $e$ |
 | $r$ | Number of environments per treatment |
 
 Given fixed total resources $N$, this identity makes the tradeoff between
-coverage breadth ($k$) and replication depth ($r$) explicit.
+coverage breadth ($k_e$) and replication depth ($r$) explicit. For equal site
+sizes, $\sum_e k_e = I k$.
 
 ### Allocation strategies
 
-Two strategies are available, corresponding to M3 and M4 in
+Two strategies are available, inspired by M3 and M4 in
 Montesinos-Lopez et al. (2023):
 
 | Strategy | Argument | Properties |
 |----------|----------|------------|
 | M3-inspired | `random_balanced` | Coverage-first stochastic allocation; guarantees every treatment appears at least once; tolerates unequal environment sizes |
-| M4 BIBD | `balanced_incomplete` | Enforces equal replication and equal environment sizes (slot identity J* × r = I × k*); pairwise co-occurrence is computed and returned but not enforced |
+| Equireplicate (M4-type) | `equireplicate` | Enforces equal distinct-environment incidence; supports unequal named site capacities when the degree sequence is realisable. Optional `balance = "env_pair"`/`"line_pair"` drives concurrence towards a **near-balanced (regular-graph)** design |
 
-#### M4 -- equal replication and equal environment sizes
+> **Note on terminology.** `"equireplicate"` is the accurate name for this
+> M4-type constructor (the paper's `"M4"` label is also accepted as an alias).
+> Here, replication means the number of distinct environments containing a
+> genotype. It does not mean repeated plots within one environment, and local
+> plot replication never increases cross-environment connectivity.
+> It is *not* a strict balanced incomplete block design (BIBD): a strict BIBD requires
+> constant pairwise concurrence λ, which — with integrality of
+> λ = r(k−1)/(J−1) and Fisher's inequality I ≥ J — generally **cannot exist**
+> when treatments greatly outnumber environments (the usual sparse-testing
+> case). The constructor therefore guarantees equal replication and the exact
+> requested environment sizes, and `balance` targets the *achievable* near-balanced
+> concurrence. Use `check_equireplicate_feasibility()` to see whether a strict
+> BIBD is possible (`strict_bibd_possible`), and `construct_exact_bibd()` to
+> build one via `crossdes` in the small-J regime where it exists.
 
-The M4 method (Montesinos-Lopez et al. 2023) enforces two structural
-guarantees:
+#### Equireplicate -- equal replication with exact requested site sizes
+
+The `equireplicate` method (M4-type; after Montesinos-Lopez et al. 2023)
+enforces two structural guarantees:
 
 1. **Equal replication** — every non-common treatment appears in exactly
    $r$ environments.
-2. **Equal environment sizes** — every environment receives exactly
-   k* sparse treatments, enforcing the resource identity
-   J* × r = I × k* exactly, where J* = J − C and k* = k − C
-   (C = number of common treatments).
+2. **Exact requested environment sizes** — each environment receives its named
+   sparse load. Equal sizes are a special case; with unequal sizes, the total
+   identity is $\sum_e k_e^* = J^*r$ and the degree sequence must be
+   realisable (checked before construction).
 
 These are the guarantees that distinguish M4 from M3 in the paper. In
-plant breeding programs where thousands of lines are tested across a few
-environments, equal replication means every candidate is evaluated the
-same number of times -- a fundamental fairness and precision requirement.
+plant breeding programmes where thousands of lines are tested across a few
+environments, equal replication means every candidate is evaluated in the
+same number of environments. It does not count repeated plots at one location.
 
 `allow_approximate = FALSE` (the default) enforces both conditions strictly.
-If the slot identity J* × r = I × k* does not hold for the chosen dimensions,
-the function stops with a clear error before any allocation is attempted. Use
-`check_balanced_incomplete_feasibility()` to verify the slot identity first,
-or adjust k and r so that the identity holds.
+If the total slot identity or degree sequence does not hold for the chosen
+dimensions, the function stops with a clear error before allocation. Use
+`check_equireplicate_feasibility()` to verify total slots and the degree
+sequence first.
 Construction uses a greedy load-balanced constructor that guarantees equal replication.
 
 `allow_approximate = TRUE` relaxes the slot identity and allows minor
@@ -157,15 +201,175 @@ primary mode.
 `OptiSparseMET` addresses genetic disconnectedness through three mechanisms:
 **common treatments** forced into every environment establish model-free
 cross-environment connectivity; **family-based allocation** distributes each
-family group across environments; and **GRM/A-based allocation** uses genomic
-or pedigree relationships to prevent genetic clustering.
+family group across environments; and relationship-based allocation uses a
+genomic relationship matrix (GRM) or pedigree numerator relationship matrix
+(A) to prevent genetic clustering.
+
+The package does not impose one universal number of common treatments. During
+planning, there are two explicit routes:
+
+1. Supply `common_treatments` when the identities have already been chosen from
+   biological, operational, or external evidence. The package then treats that
+   set as fixed.
+2. Use `suggest_common_treatments()` for a feasible starting set or
+   `optimize_common_treatments()` to compare nested candidate sizes and select
+   the size and identities under environmental and variance-component
+   uncertainty.
+
+After either route, the selected identities are fixed in the released design:
+every selected common treatment must occur in every environment. “Common”
+therefore refers to presence across environments, not equal replication. A
+common treatment may have one plot at one site and two or more at another when
+the downstream local design and remaining seed inventory support it.
+Re-running the planning analysis with different evidence or constraints may
+select a different set; an already released fieldbook does not change
+automatically.
 
 ### Seed constraints
 
-`assign_replication_by_seed()` takes a data frame of available seed quantities
-and a per-plot seed requirement and returns a replication plan that respects
-those constraints -- making designs deployable rather than merely theoretically
-optimal.
+`allocate_sparse_met()` and `plan_sparse_met_design()` treat seed as one
+network-wide inventory. A treatment's grams are debited only at sites where it
+is present, including every site for common treatments, and again for any local
+p-rep plots; absent treatment-site cells consume zero. The inventory is never
+reset at each environment. Environment-specific grams per plot and an optional
+reserve (default 0 g) are supported. The final plan returns a `seed_ledger` reconstructed from the
+delivered fieldbooks.
+
+`assign_replication_by_seed()` remains available for a genuinely local,
+single-environment replication decision.
+
+### Relationship models
+
+Additive relationship is the default. A dominance relationship is never added
+automatically: request it only when hybrid performance or specific combining
+ability (SCA) is part of the breeding target. For testcrosses,
+`build_hybrid_relationship()` derives the
+additive hybrid relationship from the parental GRM, while an explicitly
+requested marker-based dominance kernel can be combined using estimated
+additive and dominance variance components.
+
+### Environmental data and genetic environmental covariance
+
+Environmental similarity and genetic covariance are not treated as
+interchangeable. `build_environment_kernels()` constructs separate normalised
+weather, soil, management, and geographic kernels, optionally including
+weather-by-soil, weather-by-management, and soil-by-management reaction-norm
+products. Interactions default to centred functional analysis of variance
+(functional-ANOVA) kernels,
+\((H K_a H)\circ(H K_b H)\), rather than raw products. Centring removes the
+constant baseline from each parent feature space and reduces duplication of
+main-effect similarity. `add_environment_kernel_interactions()` also accepts
+explicit higher-order hypotheses such as weather-by-soil-by-management; the
+legacy uncentred product remains available with `mode = "product"`.
+Consequently,
+150 weather features do not automatically outweigh ten soil variables merely
+because the weather block has more columns. Gaussian kernels use a bandwidth
+ensemble by default, which is safer than a single median bandwidth in small MET
+networks. `combine_environment_kernels()` requires explicit weights whenever
+more than one kernel is supplied; it never silently substitutes equal weights.
+
+OptiSparseMET distinguishes implicit within-modality nonlinearity, omnibus
+modality interactions, and dedicated named variable interactions. A Gaussian
+weather kernel and an omnibus weather-by-soil kernel can represent
+temperature-by-bulk-density functions, but neither isolates that variable pair.
+`build_variable_interaction_kernels()` guarantees a pre-specified interaction
+by constructing its row-wise tensor feature, residualising it against the
+parent main effects, and building a Gaussian bandwidth-ensemble kernel. Strong
+heredity retains the exact parent-variable kernels.
+
+The recommended hypothesis input is a long data frame:
+
+| interaction | parent | modality | variable |
+|---|---|---|---|
+| temperature_x_density | temperature | weather | T2M_mean_reproductive |
+| temperature_x_density | density | soil | bulk_density_root |
+
+The four required columns are `interaction`, `parent`, `modality`, and
+`variable`. The returned audit records exact variable matching, tensor
+dimensions, residual information, effective rank, bandwidths, and hierarchy.
+`assess_variable_interactions()` then compares every dedicated interaction with
+the same main-effect model, applies Holm multiplicity control, and reports
+bootstrap inclusion. Supported terms can be passed through
+`eligible_interactions` to `calibrate_environment_covariance()`. Screened terms
+remain separate robustness scenarios. Without valid historical MET responses,
+no support decision or environmental weight is created.
+
+`qc_environmental_data()` rejects duplicate environment/date keys, applies
+declared physical ranges and coverage thresholds, and returns coverage,
+provenance, and row-level imputation ledgers. Supplied observations are merged
+cell by cell with fetched values. Missing values are never silently converted
+to zero.
+
+Weather ingestion preserves and orders actual dates from the National
+Aeronautics and Space Administration (NASA) Prediction of Worldwide Energy
+Resources (POWER) service.
+`historical_envirotype()` can calibrate gridded weather against overlapping
+station observations, use observed phenology or thermal time, and retain
+historical tails, trends, interannual variability, and observed-year counts.
+`rice_weather_features()` derives vapour-pressure deficit (VPD), diurnal
+temperature range, water
+balance, hot-night/heat/cold severity, root-water deficit, and consecutive
+dry, wet, and hot spells by crop stage. Across-year kernel stability is
+reported with a bootstrap interval, and STATIS consensus weights are based on
+centred off-diagonal relationships rather than a shared unit diagonal.
+
+`fetch_soilgrids()` supports several depths and Q0.05/Q0.5/Q0.95 predictions,
+plus neighbourhood means and SDs. `soil_profile_features()` thickness-weights
+layers over the crop root zone and derives prediction-width, spatial
+heterogeneity, plant-available-water, and sand-silt-clay compositional
+features.
+
+Finally, `calibrate_environment_covariance()` learns non-negative modality
+weights against historical MET genetic correlations and reports
+leave-environment-out or leave-year-out diagnostics plus bootstrap uncertainty.
+When historical genetic information is unavailable, no modality weights are
+defined or used: the central `Sigma_E` is identity and each kernel is retained
+separately as a sensitivity structure. `consensus_environment_kernels()` uses
+the median of within-kernel similarity ranks, without elicited weights, for
+descriptive mega-environment clustering only; it is never treated as genetic
+covariance. Designs are then evaluated by maximin performance across the
+separate covariance structures, so no arbitrary probability or mixture weight
+is assigned to them.
+
+The user does not need to guess the number of mega-environments.
+`infer_mega_environments()` evaluates a feasible range of group counts using
+both hierarchical clustering on kernel-induced distances and k-means on
+kernel-principal coordinates. K-means uses finite objective descent from
+multiple non-empty starts, so it terminates without iteration-limit failures.
+A candidate must have adequate silhouette separation, no undersized group, and reproducible membership across algorithms,
+environmental modalities, years, and relationship-level bootstrap draws.
+Repeated years are nested within their modality so weather cannot gain an
+implicit weight merely by having more matrices. Selection among candidates
+that pass these requirements is lexicographic, not a user-weighted score. If no
+partition is supported, all sites are returned as one unpartitioned set. A
+single evidence block can produce only a provisional descriptive grouping;
+historical MET response evidence is required before interpreting an
+environmental grouping as genetic mega-environments.
+
+An interaction kernel is still a structured tensor-product hypothesis. It
+does not assert that an interaction effect has been observed, and it does not
+make interaction similarity independent of its parent kernels. Historical MET
+responses determine whether an interaction kernel contributes to genetic
+environment covariance. Calibration compares a main-effects-only model with a
+main-plus-interactions model using paired blocked validation; unsupported
+interaction weights are fixed at zero in the central model. Every interaction
+kernel nevertheless remains a separate structural uncertainty scenario:
+failure to estimate or validate a weight is not evidence that the underlying
+physical interaction is absent. Without historical responses, the central
+covariance remains identity and all main and interaction kernels are evaluated
+without weights by maximin robust design. In the rice workflow this same
+uncertainty set drives capacity selection, common-treatment optimisation,
+allocation refinement, and final design evaluation. Calibration is data-driven
+by default (`ridge = 0`); shrinkage toward user-supplied prior weights is
+opt-in.
+
+### Physical plots and uncertainty
+
+When actual replication counts are supplied, `met_information()`,
+`simulate_met()`, and `design_objective()` use those counts rather than treating
+every non-zero incidence cell as one plot. Simulation residual variance is
+scaled once by replication and local efficiency, and simulation summaries
+include Monte Carlo standard errors and 95% intervals.
 
 ---
 
@@ -176,7 +380,7 @@ optimal.
 | Function | Description |
 |----------|-------------|
 | `allocate_sparse_met()` | Distribute treatments across environments (M3 or M4) with enforced equal replication under M4 |
-| `check_balanced_incomplete_feasibility()` | Verify the slot identity J* × r = I × k* before attempting M4 allocation |
+| `check_equireplicate_feasibility()` | Verify the equireplicate slot total and degree sequence before attempting M4 allocation |
 | `derive_allocation_groups()` | Derive grouping structure from family labels, GRM, or pedigree matrix |
 
 ### Feasibility and capacity helpers
@@ -190,22 +394,55 @@ optimal.
 Call `suggest_safe_k()` or `min_k_for_full_coverage()` before
 `allocate_sparse_met()` whenever trial dimensions change.
 
-### Seed-aware replication
+### Common treatments and seed-aware replication
 
 | Function | Description |
 |----------|-------------|
+| `suggest_common_treatments()` | Suggest a feasible common-set size and identities from connectivity, representation, and seed constraints |
+| `optimize_common_treatments()` | During planning, optimise common-set size and identities under robust scenarios; local replication remains separate |
 | `assign_replication_by_seed()` | Partition treatments into replicated, unreplicated, and excluded roles based on seed availability |
+
+### Environmental evidence and uncertainty
+
+| Function | Description |
+|----------|-------------|
+| `qc_environmental_data()` | Validate environmental observations and return coverage, provenance, and imputation ledgers |
+| `build_environment_kernels()` | Construct separate weather, soil, management, geographic, and cross-modality interaction kernels |
+| `build_variable_interaction_kernels()` | Construct residualised, auditable kernels for named variable interactions |
+| `assess_variable_interactions()` | Assess dedicated interactions by blocked validation and multiplicity control |
+| `calibrate_environment_covariance()` | Calibrate genetic environment covariance against historical MET responses |
+| `consensus_environment_kernels()` | Form an unweighted descriptive consensus for clustering only |
+| `infer_mega_environments()` | Infer a stable number of descriptive groups or return an unpartitioned network |
+| `robust_scenarios()` | Construct variance and environmental covariance sensitivity scenarios |
 
 ### Within-environment field design
 
 | Function | Description |
 |----------|-------------|
-| `met_prep_famoptg()` | Augmented, p-rep, and RCBD-type repeated-check block designs |
+| `met_prep_famoptg()` | Augmented, partially replicated (p-rep), and randomised complete block design (RCBD)-type repeated-check layouts |
 | `met_alpha_rc_stream()` | Alpha row-column stream designs for fixed-grid field deployment |
 | `met_evaluate_famoptg_efficiency()` | A/D/CDmean efficiency evaluation for `met_prep_famoptg()` designs |
 | `met_evaluate_alpha_efficiency()` | A/D/CDmean efficiency evaluation for `met_alpha_rc_stream()` designs |
 | `met_optimize_famoptg()` | Random Restart optimisation for `met_prep_famoptg()` designs |
 | `met_optimize_alpha_rc()` | RS/SA/GA optimisation for `met_alpha_rc_stream()` designs |
+
+### Decision-point framework (Colmant et al. 2026, corrected)
+
+| Function | Decision | Description |
+|----------|----------|-------------|
+| `select_environments()` | 1 | Choose representative environments from a TPE (coverage-based, with `optcontrib`/`kmeans`/`hclust`/`random` baselines) |
+| `select_individuals()` | 2 | Choose a representative training subset of the target population of genotypes (TPG) by CDmean (Rincent et al. 2012) |
+| `optimize_allocation_gxe()` | 3 | Refine an allocation to minimise across-TPE PEV under the coupled G×E model |
+| `recommend_replication()` | 4 | Recommend a replication level from accuracy, cost, and seed constraints |
+
+### Coupled evaluation, simulation, and sensitivity
+
+| Function | Description |
+|----------|-------------|
+| `met_information()` | Across-environment (MET-level) information matrix; returns across-TPE PEV and CDmean |
+| `simulate_met()` | Simulate a MET under a G×E model; report realised accuracy and genetic gain |
+| `sensitivity_varcomp()` | Sweep the residual/genetic variance ratio to assess robustness of a design |
+| `construct_exact_bibd()` | Build a strict BIBD via `crossdes` in the small-J regime where one exists |
 
 ### Pipeline and assembly
 
@@ -225,8 +462,8 @@ STEP 0  Verify capacity
 STEP 1  Allocate treatments across environments
         allocate_sparse_met()
         |
-STEP 2  Define replication based on seed availability
-        assign_replication_by_seed()
+STEP 2  Reconcile allocation and replication against one seed inventory
+        plan_sparse_met_design() (or assign_replication_by_seed() locally)
         |
 STEP 3  Build within-environment field designs
         met_prep_famoptg()  OR  met_alpha_rc_stream()
@@ -239,115 +476,344 @@ Or run the entire pipeline in one call: `plan_sparse_met_design()`.
 
 ---
 
-## 5.5 Pipeline inputs: required and optional
+## Input contract: required and optional data
 
-Before running any pipeline function, it helps to know exactly what each
-function needs. The tables below list every input for the four main pipeline
-functions, distinguishing what is strictly required from what is optional.
+This section defines the inputs expected by the end-to-end package workflow.
+A required input has no usable default. A
+conditional input becomes required only when its associated analysis is
+requested. Optional evidence can improve a design, but its absence must not be
+hidden by invented values.
 
-### `allocate_sparse_met()` — across-environment allocation
+### General formatting rules
 
-**Required inputs**
+1. Treatment and environment identifiers must be non-missing, non-empty, and
+   unique within their defining table.
+2. The same identifier must be written identically in every object. Matching is
+   case-sensitive.
+3. Check treatments are supplied to the local field-design specifications; they
+   are not included in the `treatments` vector used for sparse allocation.
+4. Named vectors are recommended whenever values differ among environments or
+   treatments. Names, rather than position, then control alignment.
+5. Relationship and covariance matrices must be numeric, finite, square,
+   symmetric, and identically named by row and column.
+6. Seed availability and seed requirement must use the same unit. The rice
+   scenario uses grams. An absent treatment-by-environment cell consumes 0 g.
+7. Missing environmental observations must remain `NA` until an explicit
+   quality-control and imputation rule is applied.
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `treatments` | character vector | All candidate line IDs (J total) |
-| `environments` | character vector | Environment names (≥ 2) |
-| `allocation_method` | character | `"random_balanced"` (M3) or `"balanced_incomplete"` (M4) |
-| `n_test_entries_per_environment` | integer | Total entries per environment including common treatments (k) |
+### End-to-end design: `plan_sparse_met_design()`
 
-**Optional inputs**
+#### Required arguments
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `target_replications` | inferred | Target environments per sparse line (r); computed from slot identity if NULL |
-| `common_treatments` | none | Lines forced into every environment before sparse allocation |
-| `allow_approximate` | `FALSE` | `FALSE` = strict equal replication; `TRUE` = relaxed fallback |
-| `allocation_group_source` | `"none"` | Genetic grouping: `"Family"`, `"GRM"`, or `"A"` |
-| `treatment_info` | NULL | Data frame with `Treatment` and `Family` columns (required when `allocation_group_source = "Family"`) |
-| `GRM` | NULL | Genomic relationship matrix (required when `allocation_group_source = "GRM"`) |
-| `A` | NULL | Pedigree relationship matrix (required when `allocation_group_source = "A"`) |
-| `min_groups_per_environment` | NULL | Minimum genetic groups per environment |
-| `min_env_per_group` | NULL | Minimum environments per genetic group |
-| `seed` | NULL | Integer seed for reproducibility |
+| Argument | Accepted format | Requirement |
+|---|---|---|
+| `treatments` | Unique character vector | Test-entry IDs. Do not include local checks. |
+| `environments` | Unique character vector of length at least 2 | Environment IDs used consistently throughout the design. |
+| `n_test_entries_per_environment` | Positive integer scalar, positional integer vector, or named integer vector | Number of distinct test entries at each environment, including common entries but excluding local check plots and extra replication plots. |
+| `env_design_specs` | Named list with one list per environment | Local design engine, field dimensions, checks, and engine-specific settings. Names must cover every value in `environments`. |
 
-### `assign_replication_by_seed()` — seed-aware replication
+Example core vectors:
 
-**Required inputs**
+```r
+treatments <- sprintf("G%03d", seq_len(120))
+environments <- c("Environment_A", "Environment_B", "Environment_C")
+n_test_entries_per_environment <- c(
+  Environment_A = 80L,
+  Environment_B = 60L,
+  Environment_C = 60L
+)
+```
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `treatments` | character vector | All candidate line IDs |
-| `seed_available` | data frame | Must contain `Treatment` and `SeedAvailable` columns |
-| `seed_required_per_plot` | integer | Seeds needed per plot (scalar or named vector per environment) |
-| `replication_mode` | character | `"augmented"`, `"p_rep"`, or `"rcbd_type"` |
+#### Optional and conditional arguments
 
-**Optional inputs**
+| Argument | Default | When it is used |
+|---|---:|---|
+| `allocation_method` | `"random_balanced"` | Use `"equireplicate"` when equal environment replication and the required degree sequence are feasible. `"M3"` and `"M4"` remain aliases. |
+| `target_replications` | Inferred | Target number of environments per non-common treatment; strict for `equireplicate`. |
+| `common_treatments` | `NULL` | Character vector of preselected entries. When supplied, these identities are fixed and required at every environment; their local replication may differ. |
+| `balance` | `"none"` | `"env_pair"`, `"line_pair"`, or `"both"` for concurrence refinement. |
+| `balance_iter`, `balance_seed` | `2000L`, `NULL` | Iteration budget and reproducibility seed for concurrence refinement. |
+| `treatment_info` | `NULL` | Required for family-guided allocation; also supplies family labels to local designs. |
+| `seed_info` | `NULL` | Activates network-wide seed accounting and seed-aware local replication. |
+| `seed_required_per_plot` | `NULL` | Required with `seed_info`; scalar, named vector/list, or an environment-level data frame. |
+| `minimum_seed_buffer` | `0` | Non-negative reserve retained per treatment after the complete network is planned. |
+| `allocation_group_source` | `"none"` | `"Family"`, `"GRM"`, or `"A"` activates genetic grouping. |
+| `GRM` | `NULL` | Required when `allocation_group_source = "GRM"`. |
+| `A` | `NULL` | Required when `allocation_group_source = "A"`. |
+| `id_map` | `NULL` | Required only when treatment IDs differ from relationship-matrix IDs. |
+| `group_method` | `"kmeans"` | `"kmeans"` or `"hclust"` for matrix-derived allocation groups. |
+| `group_seed`, `group_attempts`, `n_pcs_use` | `1`, `25`, `Inf` | Reproducibility, restarts, and retained principal components for matrix-derived groups. |
+| `min_groups_per_environment` | `NULL` | Minimum represented genetic groups per environment, where feasible. |
+| `min_env_per_group` | `NULL` | Minimum environments representing each genetic group, where feasible. |
+| `balance_groups_across_env` | `TRUE` | Balances group counts across environments. |
+| `force_group_connectivity` | `TRUE` | Prioritises groups that have not reached `min_env_per_group`. |
+| `allow_approximate` | `FALSE` | Relaxes exact equireplication only for an explicitly exploratory fallback. |
+| `seed` | `NULL` | Reproducibility seed for allocation and tie-breaking. |
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `desired_replications` | 2 | Target number of plots per replicated line |
-| `shortage_action` | `"downgrade"` | What to do when seed is insufficient: `"downgrade"`, `"exclude"`, or `"error"` |
-| `max_prep` | NULL | Maximum number of p-rep treatments (p-rep mode only) |
-| `priority` | `"seed_available"` | Selection criterion for p-rep candidates |
-| `minimum_seed_buffer` | 0 | Extra seeds reserved per line beyond the plot requirement |
-| `seed` | NULL | Integer seed for reproducibility |
+### Core tabular objects
 
-### `met_prep_famoptg()` — block-based field design
+#### Treatment information
 
-**Required inputs**
+`treatment_info` is required for family-guided allocation. It must contain one
+row per treatment and cover every allocated treatment.
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `check_treatments` | character vector | Check (control) treatment IDs; appear in every block |
-| `check_families` | character vector | Family labels for checks; same length as `check_treatments` |
-| `n_blocks` | integer | Number of incomplete blocks |
-| `n_rows` | integer | Number of field rows |
-| `n_cols` | integer | Number of field columns |
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `Treatment` | character | yes | Identifier matching `treatments`. |
+| `Family` | character | yes for family grouping | Breeding family or genetic stratum. |
+| Additional columns | any | no | Programme metadata retained outside the core allocator. |
 
-At least one of `p_rep_treatments` or `unreplicated_treatments` must be
-supplied.
+Example:
 
-**Optional inputs**
+| Treatment | Family |
+|---|---|
+| G001 | Fam01 |
+| G002 | Fam01 |
+| G003 | Fam07 |
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `p_rep_treatments` | NULL | Treatments to replicate; typically `rep_plan$p_rep_treatments` |
-| `p_rep_reps` | NULL | Replication count per p-rep line; typically `rep_plan$p_rep_reps` |
-| `p_rep_families` | NULL | Family labels for p-rep treatments |
-| `unreplicated_treatments` | NULL | Treatments to appear once; typically `rep_plan$unreplicated_treatments` |
-| `unreplicated_families` | NULL | Family labels for unreplicated treatments |
-| `replication_mode` | `"p_rep"` | `"p_rep"`, `"augmented"`, or `"rcbd_type"` |
-| `cluster_source` | `"none"` | Genetic dispersion grouping: `"none"`, `"Family"`, `"GRM"`, `"A"` |
-| `eval_efficiency` | `FALSE` | Compute A, D, CDmean efficiency metrics |
-| `order` | `"row"` | Plot traversal order: `"row"`, `"col"`, or `"serpentine"` |
-| `seed` | NULL | Integer seed for reproducibility |
+#### Network-wide seed inventory
 
-### `met_alpha_rc_stream()` — row-column alpha design
+`seed_info` contains one row per treatment. `SeedAvailable` must be finite and
+non-negative. In the rice workflow its unit is grams.
 
-**Required inputs**
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `Treatment` | character | yes | Identifier matching `treatments`. |
+| `SeedAvailable` | numeric | yes | Total inventory for the complete network, not inventory per site. |
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `check_treatments` | character vector | Check treatment IDs; appear in every incomplete block |
-| `check_families` | character vector | Family labels for checks |
-| `entry_treatments` | character vector | Entry (non-check) treatment IDs |
-| `entry_families` | character vector | Family labels for entries |
-| `n_reps` | integer | Number of field replicates |
-| `n_rows` | integer | Number of field rows |
-| `n_cols` | integer | Number of field columns |
+Example:
 
-**Optional inputs**
+| Treatment | SeedAvailable |
+|---|---:|
+| G001 | 185 |
+| G002 | 92 |
+| G003 | 240 |
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `min_block_size` | 6 | Minimum entries (excluding checks) per incomplete block |
-| `max_block_size` | NULL | Maximum entries per incomplete block |
-| `cluster_source` | `"none"` | Genetic dispersion grouping: `"none"`, `"Family"`, `"GRM"`, `"A"` |
-| `eval_efficiency` | `FALSE` | Compute A, D, CDmean efficiency metrics |
-| `order` | `"row"` | Plot traversal order: `"row"`, `"col"`, or `"serpentine"` |
-| `serpentine` | `FALSE` | Reverse alternating rows/columns for physical continuity |
-| `seed` | NULL | Integer seed for reproducibility |
+Environment-specific seed requirement may be supplied as a scalar, a named
+numeric vector, or this data frame:
+
+| Environment | SeedRequiredPerPlot |
+|---|---:|
+| Environment_A | 10 |
+| Environment_B | 16 |
+| Environment_C | 20 |
+
+The allocation debit includes the mandatory local replication. For example,
+an alpha design with two replicates at Environment_C requires
+\(2\times20=40\) g for
+each treatment assigned there.
+
+#### Treatment-to-matrix identifier map
+
+`id_map` is needed only when field treatment IDs and relationship-matrix IDs
+differ.
+
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `Treatment` | character | yes | Field and allocation identifier. |
+| `LineID` | character | yes | Corresponding row and column name in `GRM` or `A`. |
+
+Example:
+
+| Treatment | LineID |
+|---|---|
+| G001 | M001 |
+| G002 | M002 |
+| G003 | M003 |
+
+### Relationship and covariance matrices
+
+A genomic relationship matrix (`GRM`) or pedigree numerator relationship
+matrix (`A`) uses treatment or mapped line IDs on both axes:
+
+|  | G001 | G002 | G003 |
+|---|---:|---:|---:|
+| G001 | 1.08 | 0.42 | 0.07 |
+| G002 | 0.42 | 1.03 | 0.05 |
+| G003 | 0.07 | 0.05 | 0.96 |
+
+An environmental covariance matrix (`Sigma_E`) follows the same rule with
+environment IDs on both axes. Additive relationship is the default. A
+dominance matrix is optional and should be supplied only when hybrid or
+testcross dominance is part of the prediction target.
+
+### Local field-design specifications
+
+`env_design_specs` is a named list, not a data frame. Each environment must use
+one of the two built-in engines.
+
+For `met_prep_famoptg`, the required fields are `design`,
+`check_treatments`, `check_families`, `n_blocks`, `n_rows`, and `n_cols`.
+Optional pipeline fields include `replication_mode`, `desired_replications`,
+`candidate_prep`, `max_prep`, `max_extra_replication_plots`,
+`shortage_action`, and a named positive-integer vector
+`fixed_treatment_reps`.
+
+For `met_alpha_rc_stream`, the required fields are `design`,
+`check_treatments`, `check_families`, `n_reps`, `n_rows`, and `n_cols`.
+Allocated entries and their families are inserted by the pipeline. Optional
+fields include `min_block_size`, `max_block_size`, `cluster_source`,
+`order`, `serpentine`, and `seed`.
+
+All optional `met_prep_famoptg` specification fields are:
+
+| Field or fields | Default | Purpose |
+|---|---:|---|
+| `replication_mode` | Inferred | Pipeline replication class: `"augmented"`, `"p_rep"`, or `"rcbd_type"`. |
+| `desired_replications` | `2L` | Target plots for replicated entries. |
+| `candidate_prep` | `NULL` | Entries eligible for partial replication. |
+| `max_prep` | `NULL` | Maximum number of partially replicated entries. |
+| `max_extra_replication_plots` | `NULL` | Physical ceiling on plots beyond one base plot per allocated entry. |
+| `shortage_action` | `"downgrade"` | Seed-shortage response. |
+| `fixed_treatment_reps` | Empty named vector | Exact site-specific replication for selected allocated entries. |
+| `order`, `serpentine` | `"column"`, `FALSE` | Field traversal direction and alternating traversal. |
+| `seed`, `attempts` | `NULL`, `1000` | Randomisation seed and within-block search effort. |
+| `warn_and_correct`, `fix_rows` | `TRUE`, `TRUE` | Whether and how an undersized grid is expanded. |
+| `cluster_source` | `"Family"` | Adjacency groups from family, `GRM`, or `A`. |
+| `GRM`, `A`, `id_map` | `NULL` | Conditional relationship inputs and identifier map. |
+| `cluster_method`, `cluster_seed`, `cluster_attempts`, `n_pcs_use` | `"kmeans"`, `1`, `25`, `Inf` | Relationship-based clustering controls. |
+| `check_placement`, `check_opt_attempts` | `"random"`, `200` | Random, systematic, or optimised check placement and its search effort. |
+| `use_dispersion`, `dispersion_source` | `FALSE`, `"K"` | Optional local dispersion of related entries and the relationship source. |
+| `dispersion_radius`, `dispersion_iters`, `dispersion_seed` | `1`, `2000`, `1` | Dispersion neighbourhood, search effort, and seed. |
+| `K`, `line_id_map` | `NULL` | Conditional dispersion matrix and its identifier map. |
+| `verbose` | `TRUE` | Print the local design summary. |
+
+All optional `met_alpha_rc_stream` specification fields are:
+
+| Field or fields | Default | Purpose |
+|---|---:|---|
+| `order`, `serpentine` | `"column"`, `FALSE` | Field traversal direction and alternating traversal. |
+| `seed`, `attempts` | `NULL`, `5000` | Randomisation seed and within-block search effort. |
+| `warn_and_correct`, `fix_rows` | `TRUE`, `TRUE` | Compatibility controls; alpha field geometry remains fixed. |
+| `cluster_source` | `"Family"` | Adjacency groups from family, `GRM`, or `A`. |
+| `GRM`, `A`, `id_map` | `NULL` | Conditional relationship inputs and identifier map. |
+| `cluster_method`, `cluster_seed`, `cluster_attempts`, `n_pcs_use` | `"kmeans"`, `1`, `25`, `Inf` | Relationship-based clustering controls. |
+| `n_blocks_per_rep` | `NULL` | Exact incomplete-block count per replicate; otherwise inferred. |
+| `min_block_size`, `max_block_size` | `NULL`, `NULL` | Bounds on total block size, including checks. |
+| `check_placement`, `check_position_pattern` | `"systematic"`, `"spread"` | Check-position controls. |
+| `use_dispersion`, `dispersion_source` | `FALSE`, `"K"` | Optional local dispersion of related entries and the relationship source. |
+| `dispersion_radius`, `dispersion_iters`, `dispersion_seed` | `1`, `2000`, `1` | Dispersion neighbourhood, search effort, and seed. |
+| `K`, `line_id_map` | `NULL` | Conditional dispersion matrix and its identifier map. |
+| `verbose` | `TRUE` | Print the local design summary. |
+
+```r
+env_design_specs <- list(
+  Environment_A = list(
+    design = "met_prep_famoptg",
+    check_treatments = c("CHK_A", "CHK_B"),
+    check_families = c("CHECK", "CHECK"),
+    n_blocks = 4L,
+    n_rows = 12L,
+    n_cols = 14L,
+    replication_mode = "p_rep",
+    desired_replications = 2L,
+    max_extra_replication_plots = 36L
+  ),
+  Environment_B = list(
+    design = "met_alpha_rc_stream",
+    check_treatments = c("CHK_A", "CHK_B"),
+    check_families = c("CHECK", "CHECK"),
+    n_reps = 2L,
+    n_rows = 10L,
+    n_cols = 20L,
+    min_block_size = 6L,
+    serpentine = TRUE
+  ),
+  Environment_C = list(
+    design = "met_alpha_rc_stream",
+    check_treatments = c("CHK_A", "CHK_B"),
+    check_families = c("CHECK", "CHECK"),
+    n_reps = 2L,
+    n_rows = 10L,
+    n_cols = 20L,
+    min_block_size = 6L,
+    serpentine = TRUE
+  )
+)
+```
+
+The physical grid must accommodate the fieldbook produced after check and
+replication plots are added. `n_test_entries_per_environment` is therefore not
+the same quantity as `n_rows * n_cols`.
+
+### Environmental evidence
+
+Environmental inputs are optional for constructing a feasible fieldbook but
+required for environment-informed grouping, representativeness, or covariance
+analysis. Each feature block may be a data frame with an `environment` column
+or a matrix with environment row names.
+
+#### Precomputed weather, soil, or management features
+
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `environment` | character | yes for data frames | Environment identifier. |
+| Feature columns | numeric; management may also be categorical | at least one | Audited environmental variables or derived features. |
+
+Weather example:
+
+| environment | T2M_mean_vegetative | PRECTOTCORR_sum_reproductive | VPD_q90 |
+|---|---:|---:|---:|
+| Environment_A | 26.8 | 318.4 | 1.72 |
+| Environment_B | 27.4 | 212.7 | 2.06 |
+| Environment_C | 24.1 | 286.3 | 1.48 |
+
+Management example:
+
+| environment | planting_mode | irrigation_mm | nitrogen_kg_ha |
+|---|---|---:|---:|
+| Environment_A | direct | 420 | 130 |
+| Environment_B | direct | 510 | 145 |
+| Environment_C | transplanting | 620 | 160 |
+
+Geography requires:
+
+| environment | latitude | longitude |
+|---|---:|---:|
+| Environment_A | -1.80 | -79.53 |
+| Environment_B | 3.93 | -75.02 |
+| Environment_C | 3.50 | -76.35 |
+
+#### Historical MET values
+
+Historical values are optional. When supplied, they must be adjusted genetic
+values or best linear unbiased estimates, not raw plot observations.
+
+| Column | Type | Required | Meaning |
+|---|---|---:|---|
+| `genotype` | character | yes | Historical genotype identifier. |
+| `environment` | character | yes | Historical environment identifier. |
+| `value` | numeric | yes | Adjusted genetic value for the target trait. |
+| `year` | integer or character | no | Enables year-specific targets and leave-year-out validation. |
+
+Example:
+
+| genotype | environment | value | year |
+|---|---|---:|---:|
+| H001 | Environment_A | 0.84 | 2023 |
+| H001 | Environment_B | 0.31 | 2023 |
+| H002 | Environment_A | -0.12 | 2023 |
+
+Without valid historical MET values, `Sigma_E` is the identity matrix and the
+separate environmental kernels remain unweighted maximin scenarios.
+
+### Lower-level function requirements
+
+When the pipeline functions are called separately:
+
+- `allocate_sparse_met()` requires `treatments`, `environments`, and
+  `n_test_entries_per_environment`; `allocation_method` has a default.
+- `assign_replication_by_seed()` requires `treatments`, `seed_available`, and
+  `seed_required_per_plot`; `replication_mode` defaults to `"augmented"`.
+- `met_prep_famoptg()` requires checks, check families, the replicated and
+  unreplicated treatment/family vectors, their replication counts, and block
+  and field dimensions. Either non-check treatment set may be empty, but not
+  both.
+- `met_alpha_rc_stream()` requires checks, check families, entry treatments,
+  entry families, `n_reps`, `n_rows`, and `n_cols`.
+
+The corresponding function help pages define every advanced optimiser and
+efficiency argument.
 
 ### Minimum working example
 
@@ -443,13 +909,13 @@ alloc_m3 <- allocate_sparse_met(
 alloc_m3$summary$min_sparse_replication  # every treatment in >= 1 environment
 alloc_m3$summary$mean_sparse_replication
 
-# Step 1b: M4 BIBD allocation -- slot identity must hold exactly.
+# Step 1b: M4-type equireplicate allocation -- slot identity holds exactly.
 # J*=110, I=4, r=2: k* = 110*2/4 = 55, k = 55+10 = 65.
 # Slot identity: 110*2 = 4*55 = 220. Satisfied.
 alloc_m4 <- allocate_sparse_met(
   treatments                     = treatments,
   environments                   = envs,
-  allocation_method              = "balanced_incomplete",
+  allocation_method              = "equireplicate",
   n_test_entries_per_environment = 65,
   target_replications            = 2,
   common_treatments              = common,
@@ -563,15 +1029,16 @@ out <- plan_sparse_met_design(
 
 out$combined_field_book  # full MET field book
 out$environment_summary  # per-environment design summary
-out$efficiency_summary   # efficiency metrics (when eval_efficiency = TRUE)
+out$efficiency_summary   # populated when a local engine returns efficiency
 ```
 
 ---
 
-## 6.4 Slot identity feasibility by J\*, I, and r
+## Equal-site slot-identity feasibility by J\*, I, and r
 
-The slot identity J* × r = I × k* requires that J* × r be exactly divisible
-by I. Whether this is achievable for a given combination of sparse treatments
+For the equal-site special case, the slot identity J* × r = I × k* requires
+that J* × r be exactly divisible by I. Whether this is achievable for a given
+combination of sparse treatments
 (J*), environments (I), and replication (r) depends on the shared factors of
 these three numbers.
 
@@ -634,7 +1101,7 @@ not for that combination. Add C (common treatments) to k* to get the
 
 ### What to do when your combination gives `--`
 
-Use `check_balanced_incomplete_feasibility()` to diagnose the problem and
+Use `check_equireplicate_feasibility()` to diagnose the problem and
 try one of these adjustments:
 
 1. **Adjust $C$ by 1**: adding or removing one common treatment changes $J^{*}$
@@ -679,14 +1146,15 @@ allocation is acceptable. Unlike the original M3 of Montesinos-Lopez et al.
 (2023), this implementation guarantees every treatment appears in at least one
 environment before replication filling begins.
 
-**Use `balanced_incomplete` with `allow_approximate = FALSE`** (the default)
+**Use `equireplicate` with `allow_approximate = FALSE`** (the default)
 when equal replication is a hard requirement -- every sparse treatment must
-appear in exactly r environments. Verify the slot identity J* × r = I × k* first with
-`check_balanced_incomplete_feasibility()`. The function stops with a clear
-error if the identity does not hold, so you always know whether the
-equal-replication guarantee was met.
+appear in exactly r environments. Verify
+$J^*r=\sum_e k_e^*$ and the resulting degree sequence with
+`check_equireplicate_feasibility()`. For equal site sizes this reduces to
+$J^*r=Ik^*$. The function stops clearly when the requested degrees are not
+realisable, so the equal-replication guarantee is explicit.
 
-**Use `balanced_incomplete` with `allow_approximate = TRUE`** as a fallback
+**Use `equireplicate` with `allow_approximate = TRUE`** as a fallback
 when the slot identity cannot be satisfied for the chosen dimensions but you
 still want to attempt a balanced allocation. Some lines will receive more or
 fewer replications than r. This is an exploratory mode, not the primary path.
@@ -705,7 +1173,29 @@ when related lines risk clustering into the same environments.
 
 **Include common treatments** whenever environments are weakly correlated,
 when genetic connectivity cannot otherwise be guaranteed, or when a stable
-reference set is needed for cross-environment benchmarking.
+reference set is needed for cross-environment benchmarking. If the identities
+are already justified, supply them through `common_treatments`; allocation
+treats them as fixed across all environments. Otherwise,
+`optimize_common_treatments()` chooses the size and identities during planning
+under variance uncertainty and returns a binary genotype-by-site presence
+matrix. Once that result is adopted, its identities are fixed in
+the released design. “Common” means present everywhere—not equally replicated
+everywhere.
+
+```r
+common_opt <- optimize_common_treatments(
+  G, Sigma_E, treatment_info, seed_info,
+  # Include all plots that the local design mandates for one presence.
+  seed_required_per_plot = mandatory_seed_per_presence,
+  entry_capacities = entries_per_site,
+  pair_aggregate = "maximin",
+  minimum_seed_buffer = 0
+)
+
+common_opt$selected
+common_opt$common_presence
+common_opt$pareto
+```
 
 ---
 
@@ -738,6 +1228,25 @@ Full documentation, function reference, and tutorials are available at:
 
 <https://FAkohoue.github.io/OptiSparseMET/>
 
+### The Breeder's Guide
+
+A decision-oriented companion for breeders, quantitative geneticists, trial
+managers, and reviewers. It explains the scientific assumptions, environmental
+evidence branches, common-treatment and seed decisions, allocation strategies,
+local field designs, robustness analyses, and deployment checks without
+requiring the reader to follow R code.
+
+📘 **[Download the OptiSparseMET Breeder's Guide (PDF)](https://github.com/FAkohoue/OptiSparseMET/raw/master/inst/guides/OptiSparseMET_Breeders_Guide.pdf)**
+
+After installation, locate the same public PDF with:
+
+```r
+system.file(
+  "guides", "OptiSparseMET_Breeders_Guide.pdf",
+  package = "OptiSparseMET"
+)
+```
+
 To read the vignette after installation:
 
 ```r
@@ -753,7 +1262,7 @@ If you use `OptiSparseMET` in published research, please cite:
 ```
 Akohoue, F. (2026).
 OptiSparseMET: Sparse Multi-Environment Trial Design with Flexible Local
-Field Layout. R package version 0.1.0.
+Field Layout. R package version 0.2.0.
 https://github.com/FAkohoue/OptiSparseMET
 ```
 

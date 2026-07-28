@@ -9,7 +9,9 @@ select_individuals(
   n_train,
   lambda = 1,
   target = NULL,
-  method = c("cdmean_exchange", "random"),
+  criterion = c("cdmean", "cdmax", "pevmean", "pevmax", "aopt", "dopt", "goptpev",
+    "neg_dist"),
+  method = c("exchange", "random", "cdmean_exchange"),
   iters = 500L,
   seed = NULL
 )
@@ -21,17 +23,29 @@ select_individuals(
 
 \item{lambda}{Variance ratio \eqn{\sigma_e^2/\sigma_g^2}. Default 1.}
 
-\item{target}{Optional character vector of genotype names over which CDmean is
-averaged. Defaults to all genotypes in \code{G}.}
+\item{target}{Optional character vector of genotype names over which the
+criterion is evaluated. Defaults to all genotypes in \code{G}.}
 
-\item{method}{\code{"cdmean_exchange"} (default) or \code{"random"} (control).}
+\item{criterion}{Training-set relationship measurement to optimise (Mothukuri
+et al. 2025; STPGA, Akdemir 2017). One of \code{"cdmean"} (default), \code{"cdmax"},
+\code{"pevmean"}, \code{"pevmax"}, \code{"aopt"} (trace of PEV), \code{"dopt"} (log-determinant
+of PEV), \code{"goptpev"} (largest PEV eigenvalue), or \code{"neg_dist"} (negative
+mean genetic distance to the training set). CD-type and \code{neg_dist} are
+maximised; the PEV/A/D/GOPT criteria are minimised. Note (per the paper)
+that these criteria predict realised accuracy only weakly, so validate the
+chosen criterion for your programme with \code{\link[=validate_design_criteria]{validate_design_criteria()}}.}
+
+\item{method}{\code{"exchange"} (default; searches by swapping members) or
+\code{"random"} (control). \code{"cdmean_exchange"} is accepted as a deprecated alias.}
 
 \item{iters}{Number of exchange iterations.}
 
 \item{seed}{Optional RNG seed.}
 }
 \value{
-A list with \code{selected} (genotype names), \code{mean_CD}, and \code{method}.
+A list with \code{selected} (genotype names), the optimised \code{criterion} and
+its \code{score}, \code{measures} (all eight relationship measurements for the chosen
+set), \code{mean_CD} (kept for backward compatibility), and \code{method}.
 }
 \description{
 \code{select_individuals()} chooses \code{n_train} genotypes that best represent the
