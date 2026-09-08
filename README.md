@@ -37,7 +37,7 @@ C_{uu} \;=\; D \;-\; D X (X^\top D X)^{-1} X^\top D \;+\;
 \sigma_g^{-2}\,\big(\Sigma_E^{-1} \otimes G^{-1}\big).
 $$
 
-📘 **[Download the Breeder's Guide (PDF)](https://github.com/FAkohoue/OptiSparseMET/raw/master/inst/guides/OptiSparseMET_Breeders_Guide.pdf)** ·
+📘 **[Read the Breeder's Guide](https://FAkohoue.github.io/OptiSparseMET/breeder-guide.html)** ·
 📖 **[Full documentation & tutorials](https://FAkohoue.github.io/OptiSparseMET/)**
 
 <p align="center">
@@ -119,7 +119,7 @@ vignette("OptiSparseMET-pipeline", package = "OptiSparseMET")
 | [Introduction](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-introduction.html) | Statistical framework, feasibility rules, and input contract |
 | [Environmental interactions](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-environmental-interactions.html) | Enviromic kernels and interaction evidence |
 | [Benchmarking](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-benchmarking.html) | Comparing and validating designs before release |
-| [Breeder's Guide (PDF)](https://github.com/FAkohoue/OptiSparseMET/raw/master/inst/guides/OptiSparseMET_Breeders_Guide.pdf) | Decision-oriented companion, no R required |
+| [Breeder's Guide](https://FAkohoue.github.io/OptiSparseMET/breeder-guide.html) | HTML guide page with an embedded and downloadable PDF |
 | [Function reference](https://FAkohoue.github.io/OptiSparseMET/reference/) | All 86 functions, grouped by module |
 
 ```r
