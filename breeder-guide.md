@@ -1,7 +1,4 @@
----
-title: "OptiSparseMET Breeder's Guide"
-description: "A decision-oriented guide to designing connected, seed-feasible, and statistically robust sparse multi-environment trials."
----
+# OptiSparseMET Breeder's Guide
 
 The Breeder's Guide explains the decisions made by OptiSparseMET, the evidence
 required for each decision, and the checks to complete before releasing a field
@@ -21,12 +18,11 @@ characterized through one high-level workflow.
   </a>
 </p>
 
-<div class="ratio" style="--bs-aspect-ratio: 112%; min-height: 720px;">
-  <iframe
-    src="OptiSparseMET_Breeders_Guide.pdf#view=FitH"
-    title="OptiSparseMET Breeder's Guide PDF"
-    loading="lazy">
-  </iframe>
-</div>
+<iframe
+  src="OptiSparseMET_Breeders_Guide.pdf#view=FitH"
+  title="OptiSparseMET Breeder's Guide PDF"
+  loading="lazy"
+  style="display:block; width:100%; height:78vh; min-height:720px; border:1px solid #d9e2ec; border-radius:0.25rem;">
+</iframe>
 
 If the embedded viewer is unavailable, use the button above to open the PDF.
