@@ -33,9 +33,11 @@
 #' -- your own dated field measurements, which you can pass directly as the
 #' `soil` argument of [build_enviromic_covariates()] (including one set per year).
 #'
-#' Predictions exist for six standard depth intervals
-#' (`0-5cm`, `5-15cm`, `15-30cm`, `30-60cm`, `60-100cm`, `100-200cm`) and four
-#' prediction statistics (`mean`, `Q0.05`, `Q0.5`, `Q0.95`). SoilGrids native
+#' Most properties exist for six standard depth intervals
+#' (`0-5cm`, `5-15cm`, `15-30cm`, `30-60cm`, `60-100cm`, `100-200cm`). Organic
+#' carbon stock (`ocs`) is instead supported at `0-30cm`. Property-specific
+#' availability is reported by [enviromic_variable_catalog()]. Four prediction
+#' statistics are supported (`mean`, `Q0.05`, `Q0.5`, `Q0.95`). SoilGrids native
 #' data are on the Interrupted Goode Homolosine grid (EPSG:152160) at 250 m
 #' resolution; the WCS and WebDAV backends reproject site coordinates onto that
 #' grid with [terra::project()] and read only the cells needed via GDAL's
@@ -49,7 +51,9 @@
 #'   package is absent), `"rest"` (legacy beta properties/query endpoint, needs
 #'   \pkg{jsonlite}), or `"local"` (read from local raster files).
 #' @param properties Character vector of SoilGrids property names to retrieve.
-#' @param depth One or more of the six standard depth intervals.
+#' @param depth One or more property-supported depth intervals. A named list can
+#'   map properties to different depths, for example
+#'   `list(clay = c("0-5cm", "5-15cm"), ocs = "0-30cm")`.
 #' @param quantile One or more prediction statistics: `"mean"`, `"Q0.05"`,
 #'   `"Q0.5"` or `"Q0.95"`. Retrieving Q0.05/Q0.5/Q0.95 makes model uncertainty
 #'   available to [soil_profile_features()].
@@ -102,11 +106,11 @@ fetch_soilgrids <- function(sites,
                             spatial_summary = c("point", "mean_sd")) {
   backend <- match.arg(backend)
   spatial_summary <- match.arg(spatial_summary)
-  .validate_soil_request(depth, quantile, properties)
+  combos <- .soil_request_combinations(depth, quantile, properties)
 
   if (backend == "rest") {
-    if (length(depth) != 1L || depth != "0-5cm" ||
-        length(quantile) != 1L || quantile != "mean" ||
+    if (any(combos$depth != "0-5cm") ||
+        any(combos$quantile != "mean") ||
         spatial_summary != "point")
       stop("The legacy REST backend supports only depth = '0-5cm', ",
            "quantile = 'mean', and spatial_summary = 'point'. Use WCS, ",
@@ -118,7 +122,8 @@ fetch_soilgrids <- function(sites,
   if (!requireNamespace("terra", quietly = TRUE)) {
     if (backend == "local")
       stop("Package 'terra' is required for backend = 'local'.")
-    if (length(depth) > 1L || length(quantile) > 1L ||
+    if (length(unique(combos$depth)) > 1L ||
+        length(unique(combos$quantile)) > 1L ||
         spatial_summary != "point") {
       warning("Package 'terra' is required for multi-depth, multi-quantile, ",
               "or neighbourhood SoilGrids retrieval; soil was not fetched.",
@@ -142,10 +147,6 @@ fetch_soilgrids <- function(sites,
             call. = FALSE)
     return(NULL)
   }
-  combos <- expand.grid(
-    property = properties, depth = depth, quantile = quantile,
-    stringsAsFactors = FALSE
-  )
   if (backend == "local" && is.null(local_paths))
     stop("`local_paths` is required when backend = 'local'.")
   if (backend == "local") {
@@ -197,7 +198,8 @@ fetch_soilgrids <- function(sites,
   })
 
   legacy_names <- nrow(combos) == length(properties) &&
-    length(depth) == 1L && length(quantile) == 1L &&
+    !anyDuplicated(combos$property) && length(unique(combos$depth)) == 1L &&
+    length(unique(combos$quantile)) == 1L &&
     spatial_summary == "point"
   named_cols <- lapply(seq_along(cols), function(k) {
     M <- cols[[k]]
@@ -222,8 +224,8 @@ fetch_soilgrids <- function(sites,
     buffer_m = buffer_m,
     requested_resolution_m = resolution_m,
     spatial_summary = spatial_summary,
-    depths = paste(depth, collapse = ";"),
-    quantiles = paste(quantile, collapse = ";"),
+    depths = paste(unique(combos$depth), collapse = ";"),
+    quantiles = paste(unique(combos$quantile), collapse = ";"),
     properties = paste(properties, collapse = ";"),
     apply_conversion = apply_conversion,
     stringsAsFactors = FALSE
@@ -243,8 +245,9 @@ fetch_soilgrids <- function(sites,
 # Interrupted Goode Homolosine projection SoilGrids is stored in (EPSG:152160).
 .SOILGRIDS_IGH <- "+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs"
 
-.SOILGRIDS_DEPTHS <- c("0-5cm", "5-15cm", "15-30cm",
-                       "30-60cm", "60-100cm", "100-200cm")
+.SOILGRIDS_PROFILE_DEPTHS <- c("0-5cm", "5-15cm", "15-30cm",
+                               "30-60cm", "60-100cm", "100-200cm")
+.SOILGRIDS_DEPTHS <- c(.SOILGRIDS_PROFILE_DEPTHS, "0-30cm")
 
 .SOILGRIDS_QUANTILES <- c("mean", "Q0.05", "Q0.5", "Q0.95")
 
@@ -254,6 +257,37 @@ fetch_soilgrids <- function(sites,
 
 
 # ---- helpers ----------------------------------------------------------------
+
+.soilgrids_property_metadata <- function() {
+  property <- .SOILGRIDS_PROPERTIES
+  description <- c(
+    "Bulk density of the fine earth fraction",
+    "Cation exchange capacity (at pH 7)",
+    "Volumetric fraction of coarse fragments (> 2 mm)",
+    "Clay (< 0.002 mm) mass fraction", "Total nitrogen",
+    "Organic carbon density", "Organic carbon stock", "Soil pH in water",
+    "Sand (0.05-2 mm) mass fraction", "Silt (0.002-0.05 mm) mass fraction",
+    "Soil organic carbon content", "Volumetric water content at 10 kPa",
+    "Volumetric water content at 33 kPa",
+    "Volumetric water content at 1500 kPa"
+  )
+  units <- c("kg/dm^3", "cmol(c)/kg", "vol%", "%", "g/kg", "kg/m^3",
+             "kg/m^2", "-", "%", "%", "g/kg", "vol%", "vol%", "vol%")
+  supported_depths <- lapply(property, function(p) {
+    if (p == "ocs") "0-30cm" else .SOILGRIDS_PROFILE_DEPTHS
+  })
+  supported_quantiles <- rep(list(.SOILGRIDS_QUANTILES), length(property))
+  data.frame(
+    property = property, description = description, units = units,
+    conversion_factor = vapply(property, .soilgrids_conversion_factor,
+                               numeric(1)),
+    default_depth = ifelse(property == "ocs", "0-30cm", "0-5cm"),
+    profile_variable = property != "ocs", stock_variable = property == "ocs",
+    supported_depths = I(supported_depths),
+    supported_quantiles = I(supported_quantiles),
+    stringsAsFactors = FALSE
+  )
+}
 
 # Divide raw SoilGrids integers by these to reach conventional units.
 .soilgrids_conversion_factor <- function(prop) {
@@ -266,17 +300,66 @@ fetch_soilgrids <- function(sites,
 }
 
 .validate_soil_request <- function(depth, quantile, properties) {
-  if (!length(depth) || any(!depth %in% .SOILGRIDS_DEPTHS))
-    stop("`depth` values must be among: ",
-         paste(.SOILGRIDS_DEPTHS, collapse = ", "), ".")
-  if (!length(quantile) || any(!quantile %in% .SOILGRIDS_QUANTILES))
-    stop("`quantile` must be one of: ",
-         paste(.SOILGRIDS_QUANTILES, collapse = ", "), ".")
+  .soil_request_combinations(depth, quantile, properties)
+  invisible(TRUE)
+}
+
+.soil_request_combinations <- function(depth, quantile, properties) {
+  properties <- as.character(properties)
+  if (!length(properties) || anyNA(properties) || any(!nzchar(properties)))
+    stop("`properties` must contain at least one non-missing property name.")
   unknown <- setdiff(properties, .SOILGRIDS_PROPERTIES)
   if (length(unknown))
     stop("Unknown SoilGrids propert", if (length(unknown) > 1) "ies: " else "y: ",
          paste(unknown, collapse = ", "), ".")
-  invisible(TRUE)
+  if (!length(quantile) || anyNA(quantile) ||
+      any(!quantile %in% .SOILGRIDS_QUANTILES))
+    stop("`quantile` must be one of: ",
+         paste(.SOILGRIDS_QUANTILES, collapse = ", "), ".")
+
+  if (is.list(depth)) {
+    if (is.null(names(depth)) || any(!nzchar(names(depth))) ||
+        anyDuplicated(names(depth)) || !setequal(names(depth), properties))
+      stop("A list `depth` must name every requested SoilGrids property once.")
+    base <- do.call(rbind, lapply(properties, function(p) data.frame(
+      property = p, depth = as.character(depth[[p]]),
+      stringsAsFactors = FALSE
+    )))
+  } else if (!is.null(names(depth)) && any(nzchar(names(depth)))) {
+    if (any(!nzchar(names(depth))) ||
+        !setequal(unique(names(depth)), properties))
+      stop("A named `depth` vector must cover every requested property.")
+    base <- data.frame(property = names(depth), depth = as.character(depth),
+                       stringsAsFactors = FALSE)
+  } else {
+    if (!length(depth)) stop("`depth` must contain at least one interval.")
+    base <- expand.grid(property = properties, depth = as.character(depth),
+                        stringsAsFactors = FALSE)
+  }
+  if (!nrow(base) || anyNA(base$depth) || any(!nzchar(base$depth)))
+    stop("Every requested property needs at least one non-missing depth.")
+  if (any(!base$depth %in% .SOILGRIDS_DEPTHS))
+    stop("`depth` values must be among: ",
+         paste(.SOILGRIDS_DEPTHS, collapse = ", "), ".")
+
+  meta <- .soilgrids_property_metadata()
+  valid <- vapply(seq_len(nrow(base)), function(i) {
+    supported <- meta$supported_depths[[match(base$property[i], meta$property)]]
+    base$depth[i] %in% supported
+  }, logical(1))
+  if (any(!valid)) {
+    bad <- base[which(!valid)[1L], , drop = FALSE]
+    supported <- meta$supported_depths[[match(bad$property, meta$property)]]
+    stop("Property '", bad$property, "' is available for ",
+         paste(supported, collapse = ", "), " and cannot be requested at ",
+         bad$depth, ".", call. = FALSE)
+  }
+  combos <- merge(base, data.frame(quantile = as.character(quantile),
+                                   stringsAsFactors = FALSE),
+                  by = NULL, sort = FALSE)
+  combos <- combos[, c("property", "depth", "quantile"), drop = FALSE]
+  rownames(combos) <- NULL
+  combos
 }
 
 # Build a WCS 2.0.1 GetCoverage URL for a property over a Homolosine bbox.
@@ -472,6 +555,17 @@ soil_profile_features <- function(soil, root_depth_cm = 100,
   for (ii in groups) {
     mm <- meta[ii, , drop = FALSE]
     vals <- data.matrix(S[, mm$column, drop = FALSE])
+    property_meta <- .soilgrids_property_metadata()
+    is_stock <- property_meta$stock_variable[
+      match(mm$property[1L], property_meta$property)
+    ]
+    if (isTRUE(is_stock)) {
+      qtag <- gsub("\\.", "", tolower(mm$quantile[1L]))
+      nm <- paste0(mm$property[1L], "_stock_0_30_", qtag, "_",
+                   mm$summary[1L])
+      out[[nm]] <- vals[, 1L]
+      next
+    }
     w <- mm$thickness_in_root
     ans <- apply(vals, 1L, function(z) {
       ok <- is.finite(z) & is.finite(w) & w > 0

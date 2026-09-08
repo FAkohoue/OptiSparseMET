@@ -6,6 +6,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-introduction.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-pipeline.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/authors.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/breeder-guide.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/CRITIQUE_Colmant2026_and_OptiSparseMET.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/DECISION_POINTS_DESIGN.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/favicon.html</loc></url>
@@ -13,7 +14,6 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/index.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/LICENSE-text.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/LICENSE.html</loc></url>
-<url><loc>https://FAkohoue.github.io/OptiSparseMET/my-writing-style-SKILL.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/news/index.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/add_environment_kernel_interactions.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/add_management_interactions.html</loc></url>
@@ -23,6 +23,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/assess_envirotype_stability.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/assess_variable_interactions.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/assign_replication_by_seed.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/available_weather_parameters.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/benchmark_environment_missingness.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/benchmark_environment_models.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/benchmark_met_designs.html</loc></url>
@@ -60,8 +61,10 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fetch_soilgrids.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fetch_weather_series.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/field_plot_accounting.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/historical_environment_characterization.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/historical_envirotype.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/index.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/infer_environmental_strata.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/infer_mega_environments.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/kinship_pca.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/list_candidate_interactions.html</loc></url>

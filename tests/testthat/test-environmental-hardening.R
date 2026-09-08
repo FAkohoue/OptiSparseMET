@@ -101,6 +101,35 @@ test_that("modality kernels are separate, normalised, and PSD", {
   )
 })
 
+test_that("within-block redundancy control is optional and audited", {
+  set.seed(18)
+  env <- paste0("E", 1:10)
+  a <- rnorm(10)
+  weather <- cbind(a = a, a_copy = a, b = rnorm(10), c = rnorm(10))
+  rownames(weather) <- env
+
+  none <- build_environment_kernels(weather = weather, redundancy = "none")
+  corr <- build_environment_kernels(
+    weather = weather, redundancy = "correlation",
+    redundancy_control = list(correlation_threshold = 0.95)
+  )
+  pca <- build_environment_kernels(
+    weather = weather, redundancy = "pca",
+    redundancy_control = list(pca_variance = 0.80)
+  )
+  white <- build_environment_kernels(weather = weather, redundancy = "whiten")
+
+  expect_equal(ncol(none$covariates$weather), 4L)
+  expect_equal(ncol(corr$original_covariates$weather), 4L)
+  expect_equal(ncol(corr$covariates$weather), 3L)
+  expect_true(any(corr$redundancy$weather$correlation_groups$n_variables == 2L))
+  expect_true(ncol(pca$covariates$weather) <= 3L)
+  expect_equal(ncol(white$redundancy$weather$loadings),
+               ncol(white$covariates$weather))
+  expect_true(all(c("effective_rank_before", "effective_rank") %in%
+                    names(corr$block_diagnostics)))
+})
+
 test_that("ANOVA interactions are centred and higher orders are explicit", {
   env <- paste0("E", 1:6)
   K_weather <- outer(1:6, 1:6, function(i, j) exp(-abs(i - j) / 2))

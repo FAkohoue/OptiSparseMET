@@ -38,9 +38,10 @@
 #'   (e.g. `c("T2M", "PRECTOTCORR", "WS2M", "GWETROOT", "EVPTRNS")`). Defaults to
 #'   the six core variables. See [enviromic_variable_catalog()] for codes and
 #'   meanings.
-#' @param weather_stats Optional named vector giving how to aggregate each
-#'   requested parameter over the window: `"mean"` (default), `"sum"` (e.g.
-#'   precipitation, evapotranspiration), `"min"`, `"max"`, `"sd"`, or `"median"`.
+#' @param weather_stats Optional named vector overriding how requested
+#'   parameters are aggregated over the window: `"mean"`, `"sum"`, `"min"`,
+#'   `"max"`, `"sd"`, or `"median"`. Without an override, advisory
+#'   parameter-specific defaults from [enviromic_variable_catalog()] are used.
 #' @param weather_temporal NASA POWER temporal resolution to pull before
 #'   aggregating: `"daily"` (default), `"monthly"`, or `"climatology"`
 #'   (long-term). The covariate matrix always holds one aggregated value per
@@ -250,6 +251,30 @@ build_enviromic_covariates <- function(sites, management = NULL,
                          PRECTOTCORR = "sum", ALLSKY_SFC_SW_DWN = "mean",
                          RH2M = "mean")
 
+.resolve_weather_stats <- function(pars, stats = NULL) {
+  catalog <- enviromic_variable_catalog("weather")
+  recommended <- stats::setNames(catalog$default_aggregation,
+                                 catalog$api_code)
+  out <- as.list(recommended[pars])
+  names(out) <- pars
+  missing <- vapply(out, function(z) is.na(z) || !nzchar(z), logical(1))
+  out[missing] <- "mean"
+  if (!is.null(stats)) {
+    if (is.null(names(stats)) || any(!nzchar(names(stats))))
+      stop("`weather_stats` must be named by POWER API code.")
+    unknown <- setdiff(names(stats), pars)
+    if (length(unknown))
+      stop("`weather_stats` names not present in `weather_pars`: ",
+           paste(unknown, collapse = ", "), ".")
+    allowed <- c("mean", "sum", "min", "max", "sd", "median")
+    if (any(!stats %in% allowed))
+      stop("`weather_stats` values must be among: ",
+           paste(allowed, collapse = ", "), ".")
+    for (p in names(stats)) out[[p]] <- as.character(stats[[p]])
+  }
+  out
+}
+
 # Column name a parameter maps to (friendly for defaults, else the POWER code).
 .power_colname <- function(p) if (p %in% names(.POWER_FRIENDLY))
   unname(.POWER_FRIENDLY[p]) else p
@@ -290,9 +315,7 @@ build_enviromic_covariates <- function(sites, management = NULL,
     pars_vec <- names(.POWER_DEFAULT_STAT); stat_map <- as.list(.POWER_DEFAULT_STAT)
   } else {
     pars_vec <- as.character(pars)
-    stat_map <- stats::setNames(rep(list("mean"), length(pars_vec)), pars_vec)
-    if (!is.null(stats)) for (p in names(stats))
-      if (p %in% pars_vec) stat_map[[p]] <- stats[[p]]
+    stat_map <- .resolve_weather_stats(pars_vec, stats)
   }
   out_names <- vapply(pars_vec, .power_colname, character(1))
   na_row <- as.data.frame(stats::setNames(as.list(rep(NA_real_, length(out_names))),

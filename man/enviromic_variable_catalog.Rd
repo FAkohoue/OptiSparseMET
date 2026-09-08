@@ -4,16 +4,24 @@
 \alias{enviromic_variable_catalog}
 \title{Catalogue of enviromic variable names, descriptions and units}
 \usage{
-enviromic_variable_catalog(source = c("all", "weather", "soil"))
+enviromic_variable_catalog(
+  source = c("all", "weather", "soil"),
+  names = c("output", "api")
+)
 }
 \arguments{
 \item{source}{Which variables to list: \code{"all"} (default), \code{"weather"}, or
 \code{"soil"}.}
+
+\item{names}{Whether \code{variable} should contain output-column names
+(\code{"output"}, the backward-compatible default) or source API codes
+(\code{"api"}). The explicit \code{api_code} and \code{output_name} columns are always
+returned.}
 }
 \value{
-A data frame with columns \code{variable} (the exact column name to use),
-\code{source}, \code{description}, and \code{units} (conventional units after the
-package's SoilGrids conversion factors are applied).
+A data frame with separate \code{api_code} and \code{output_name} columns,
+advisory \code{default_aggregation} metadata for weather, and property-specific
+depth, quantile, conversion, profile, and stock metadata for soil.
 }
 \description{
 The weather (NASA POWER) and soil (SoilGrids) fetchers return columns with

@@ -52,9 +52,10 @@ so you can complete a partly-collected dataset automatically.}
 the six core variables. See \code{\link[=enviromic_variable_catalog]{enviromic_variable_catalog()}} for codes and
 meanings.}
 
-\item{weather_stats}{Optional named vector giving how to aggregate each
-requested parameter over the window: \code{"mean"} (default), \code{"sum"} (e.g.
-precipitation, evapotranspiration), \code{"min"}, \code{"max"}, \code{"sd"}, or \code{"median"}.}
+\item{weather_stats}{Optional named vector overriding how requested
+parameters are aggregated over the window: \code{"mean"}, \code{"sum"}, \code{"min"},
+\code{"max"}, \code{"sd"}, or \code{"median"}. Without an override, advisory
+parameter-specific defaults from \code{\link[=enviromic_variable_catalog]{enviromic_variable_catalog()}} are used.}
 
 \item{weather_temporal}{NASA POWER temporal resolution to pull before
 aggregating: \code{"daily"} (default), \code{"monthly"}, or \code{"climatology"}

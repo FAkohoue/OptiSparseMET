@@ -12,10 +12,14 @@
 #'
 #' @param source Which variables to list: `"all"` (default), `"weather"`, or
 #'   `"soil"`.
+#' @param names Whether `variable` should contain output-column names
+#'   (`"output"`, the backward-compatible default) or source API codes
+#'   (`"api"`). The explicit `api_code` and `output_name` columns are always
+#'   returned.
 #'
-#' @return A data frame with columns `variable` (the exact column name to use),
-#'   `source`, `description`, and `units` (conventional units after the
-#'   package's SoilGrids conversion factors are applied).
+#' @return A data frame with separate `api_code` and `output_name` columns,
+#'   advisory `default_aggregation` metadata for weather, and property-specific
+#'   depth, quantile, conversion, profile, and stock metadata for soil.
 #'
 #' @seealso [build_enviromic_covariates()], [fetch_soilgrids()],
 #'   [build_environment_relationship()].
@@ -25,18 +29,21 @@
 #' # build_environment_relationship(X, source = "enviromic",
 #' #   variables = c("mean_temp", "total_precip", "clay", "phh2o"))
 #' @export
-enviromic_variable_catalog <- function(source = c("all", "weather", "soil")) {
+enviromic_variable_catalog <- function(source = c("all", "weather", "soil"),
+                                       names = c("output", "api")) {
   source <- match.arg(source)
+  name_view <- match.arg(names)
 
-  # The first six are the default fetched columns (friendly names). The rest are
-  # NASA POWER parameter codes you can request via `weather_pars` in
-  # build_enviromic_covariates(); the fetched column keeps the POWER code.
+  api_code <- c("T2M", "T2M_MAX", "T2M_MIN", "PRECTOTCORR",
+                "ALLSKY_SFC_SW_DWN", "RH2M", "T2MDEW", "T2MWET", "WS2M",
+                "WS10M", "PS", "QV2M", "TS", "GWETTOP", "GWETROOT",
+                "GWETPROF", "EVPTRNS", "EVLAND", "ALLSKY_SFC_PAR_TOT",
+                "CLRSKY_SFC_SW_DWN")
+  output_name <- vapply(api_code, .power_colname, character(1))
   weather <- data.frame(
-    variable = c("mean_temp", "max_temp", "min_temp", "total_precip",
-                 "mean_radiation", "mean_humidity",
-                 "T2MDEW", "T2MWET", "WS2M", "WS10M", "PS", "QV2M", "TS",
-                 "GWETTOP", "GWETROOT", "GWETPROF", "EVPTRNS", "EVLAND",
-                 "ALLSKY_SFC_PAR_TOT", "CLRSKY_SFC_SW_DWN"),
+    variable = if (name_view == "api") api_code else output_name,
+    api_code = api_code,
+    output_name = output_name,
     source = "weather",
     description = c("Mean 2 m air temperature over the window (POWER T2M)",
                    "Mean daily maximum 2 m air temperature (T2M_MAX)",
@@ -62,29 +69,32 @@ enviromic_variable_catalog <- function(source = c("all", "weather", "soil")) {
               "degC", "degC", "m/s", "m/s", "kPa", "kg/kg", "degC",
               "fraction", "fraction", "fraction", "mm/day", "mm/day",
               "W/m^2", "W/m^2"),
+    default_aggregation = c("mean", "mean", "mean", "sum", "mean", "mean",
+                            "mean", "mean", "mean", "mean", "mean", "mean",
+                            "mean", "mean", "mean", "mean", "sum", "sum",
+                            "sum", "mean"),
+    supported_depths = NA_character_, supported_quantiles = NA_character_,
+    conversion_factor = NA_real_, default_depth = NA_character_,
+    profile_variable = NA, stock_variable = NA,
     stringsAsFactors = FALSE)
 
+  soil_meta <- .soilgrids_property_metadata()
   soil <- data.frame(
-    variable = c("bdod", "cec", "cfvo", "clay", "nitrogen", "ocd", "ocs",
-                 "phh2o", "sand", "silt", "soc",
-                 "wv0010", "wv0033", "wv1500"),
+    variable = soil_meta$property,
+    api_code = NA_character_,
+    output_name = soil_meta$property,
     source = "soil",
-    description = c("Bulk density of the fine earth fraction",
-                   "Cation exchange capacity (at pH 7)",
-                   "Volumetric fraction of coarse fragments (> 2 mm)",
-                   "Clay (< 0.002 mm) mass fraction",
-                   "Total nitrogen",
-                   "Organic carbon density",
-                   "Organic carbon stock",
-                   "Soil pH in water",
-                   "Sand (0.05-2 mm) mass fraction",
-                   "Silt (0.002-0.05 mm) mass fraction",
-                   "Soil organic carbon content",
-                   "Volumetric water content at 10 kPa",
-                   "Volumetric water content at 33 kPa",
-                   "Volumetric water content at 1500 kPa"),
-    units = c("kg/dm^3", "cmol(c)/kg", "vol%", "%", "g/kg", "kg/m^3",
-              "kg/m^2", "-", "%", "%", "g/kg", "vol%", "vol%", "vol%"),
+    description = soil_meta$description,
+    units = soil_meta$units,
+    default_aggregation = NA_character_,
+    supported_depths = vapply(soil_meta$supported_depths, paste,
+                              collapse = ";", character(1)),
+    supported_quantiles = vapply(soil_meta$supported_quantiles, paste,
+                                 collapse = ";", character(1)),
+    conversion_factor = soil_meta$conversion_factor,
+    default_depth = soil_meta$default_depth,
+    profile_variable = soil_meta$profile_variable,
+    stock_variable = soil_meta$stock_variable,
     stringsAsFactors = FALSE)
 
   out <- switch(source,
@@ -93,4 +103,19 @@ enviromic_variable_catalog <- function(source = c("all", "weather", "soil")) {
                 all = rbind(weather, soil))
   rownames(out) <- NULL
   out
+}
+
+
+#' List supported NASA POWER weather parameters
+#'
+#' Returns every supported POWER API code, named by the corresponding output
+#' column. The result can be passed directly (after `unname()`) to
+#' `weather_pars` or `pars` arguments.
+#'
+#' @return A named character vector of NASA POWER API codes.
+#' @seealso [enviromic_variable_catalog()], [fetch_weather_series()].
+#' @export
+available_weather_parameters <- function() {
+  catalog <- enviromic_variable_catalog("weather", names = "api")
+  stats::setNames(catalog$api_code, catalog$output_name)
 }

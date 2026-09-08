@@ -106,6 +106,10 @@ cluster_environments <- function(
 #' @param n_boot Number of relationship-level bootstrap draws. Bootstrap is
 #'   performed when at least one evidence block contains repeated matrices.
 #' @param seed Integer seed for reproducible k-means and bootstrap sampling.
+#' @param mode `"mega_environment"` (default) preserves the conservative hard-
+#'   grouping behaviour. `"descriptive"` returns the best estimable candidate
+#'   partition as environmental strata while still reporting whether it passed
+#'   the strict validation gates.
 #'
 #' @return A list containing `membership`, `clusters`, `Sigma_E`, inferred
 #'   `n_clusters`, selected `method`, `status` (`"stable"`, `"provisional"`, or
@@ -121,7 +125,9 @@ infer_mega_environments <- function(
     Sigma_E = NULL, k_range = NULL,
     methods = c("hclust", "kmeans"), min_cluster_size = 2L,
     min_silhouette = 0.25, min_stability = 0.70,
-    stability_quantile = 0.10, n_boot = 200L, seed = 1L) {
+    stability_quantile = 0.10, n_boot = 200L, seed = 1L,
+    mode = c("mega_environment", "descriptive")) {
+  mode <- match.arg(mode)
   D <- .validate_mega_similarity(D, "D")
   envs <- rownames(D)
   E <- length(envs)
@@ -194,9 +200,23 @@ infer_mega_environments <- function(
   fallback <- function(reason, diagnostics = .empty_mega_diagnostics()) {
     cl <- stats::setNames(rep.int(1L, E), envs)
     out <- .assemble_mega_result(cl, Sigma_E)
-    c(out, list(
+    out <- c(out, list(
       n_clusters = 1L, method = NA_character_, status = "unstable",
       hard_groups = FALSE, reason = reason, diagnostics = diagnostics,
+      candidate_membership = NULL, candidate_clusters = NULL,
+      candidate_k = NA_integer_, candidate_method = NA_character_,
+      candidate_silhouette = NA_real_, candidate_stability = NA_real_,
+      candidate_stability_lower = NA_real_,
+      stability_by_block = data.frame(),
+      partition_agreement_by_block = data.frame(),
+      candidate_ari_by_relationship = data.frame(),
+      candidate_ari_by_year = data.frame(),
+      candidate_ari_by_modality = data.frame(),
+      consensus_partition_by_block = list(),
+      discovery = list(status = "not_estimable", candidate_k = NA_integer_,
+                       candidate_membership = NULL),
+      validation = list(passed = FALSE, hard_groups = FALSE,
+                        failures = reason),
       resampling = list(
         n_relationships = n_relationships,
         n_relationship_blocks = n_relationship_blocks,
@@ -204,6 +224,8 @@ infer_mega_environments <- function(
         n_boot_used = 0L
       )
     ))
+    class(out) <- c("optisparsemet_environment_partition", "list")
+    out
   }
 
   if (!length(k_range))
@@ -343,26 +365,60 @@ infer_mega_environments <- function(
 
   eligible <- diagnostics$separation_pass & diagnostics$size_pass &
     diagnostics$stability_pass
-  if (!any(eligible))
-    return(fallback(
-      paste0(
-        "No partition passed minimum separation, group-size, and stability ",
-        "requirements; environments are retained as one unpartitioned set."
-      ),
-      diagnostics
-    ))
-
-  pool <- diagnostics[eligible, , drop = FALSE]
+  pool <- if (mode == "mega_environment" && any(eligible))
+    diagnostics[eligible, , drop = FALSE] else
+      diagnostics[diagnostics$estimable, , drop = FALSE]
   method_rank <- match(pool$method, methods)
-  ord <- order(-pool$silhouette, -pool$stability_lower,
+  silhouette_rank <- ifelse(is.finite(pool$silhouette), pool$silhouette, -Inf)
+  stability_rank <- ifelse(is.finite(pool$stability_lower),
+                           pool$stability_lower, -Inf)
+  ord <- order(-silhouette_rank, -stability_rank,
                pool$k, method_rank)
   selected <- pool[ord[1L], , drop = FALSE]
-  cl <- alternatives[[as.character(selected$k)]][[
+  candidate <- alternatives[[as.character(selected$k)]][[
     paste0("central:", selected$method)
   ]]
-  out <- .assemble_mega_result(cl, Sigma_E)
-  status <- if (n_relationship_blocks >= 2L) "stable" else "provisional"
-  reason <- if (status == "stable") {
+  candidate_out <- .assemble_mega_result(candidate, Sigma_E)
+  evidence <- .mega_candidate_evidence(
+    candidate = candidate, k = selected$k, method = selected$method,
+    alternatives = alternatives[[as.character(selected$k)]],
+    relationships = rel, relationship_groups = relationship_groups,
+    stability_quantile = stability_quantile
+  )
+  thresholds_passed <- isTRUE(selected$separation_pass) &&
+    isTRUE(selected$size_pass) && isTRUE(selected$stability_pass)
+  would_validate_hard <- thresholds_passed && n_relationship_blocks >= 2L
+  validation_failures <- .mega_validation_failures(
+    selected, n_relationship_blocks
+  )
+
+  if (mode == "descriptive") {
+    out <- candidate_out
+    status <- "descriptive"
+    hard_groups <- FALSE
+    reason <- if (would_validate_hard) {
+      paste0("Best descriptive environmental partition; it also passed the ",
+             "strict validation gates, but descriptive mode does not label ",
+             "strata as genetic mega-environments.")
+    } else {
+      paste0("Best estimable descriptive environmental partition retained; ",
+             "strict hard-group validation was not satisfied.")
+    }
+  } else if (!thresholds_passed) {
+    strict <- stats::setNames(rep.int(1L, E), envs)
+    out <- .assemble_mega_result(strict, Sigma_E)
+    status <- "unstable"
+    hard_groups <- FALSE
+    reason <- paste0(
+      "No partition passed minimum separation, group-size, and stability ",
+      "requirements; strict membership is retained as one unpartitioned set, ",
+      "while the best descriptive candidate is available separately."
+    )
+  } else {
+    out <- candidate_out
+    status <- if (n_relationship_blocks >= 2L) "stable" else "provisional"
+    hard_groups <- identical(status, "stable")
+    reason <- if (status == "stable") {
     paste0(
       "Partition passed separation, minimum-size, and cross-relationship ",
       "stability requirements."
@@ -373,13 +429,47 @@ infer_mega_environments <- function(
       "one or no independent evidence block was supplied."
     )
   }
-  c(out, list(
-    n_clusters = as.integer(selected$k),
-    method = as.character(selected$method),
+  }
+  result <- c(out, list(
+    n_clusters = if (mode == "mega_environment" && !thresholds_passed)
+      1L else as.integer(selected$k),
+    method = if (mode == "mega_environment" && !thresholds_passed)
+      NA_character_ else as.character(selected$method),
     status = status,
-    hard_groups = identical(status, "stable"),
+    hard_groups = hard_groups,
     reason = reason,
     diagnostics = diagnostics,
+    candidate_membership = candidate,
+    candidate_clusters = candidate_out$clusters,
+    candidate_k = as.integer(selected$k),
+    candidate_method = as.character(selected$method),
+    candidate_silhouette = as.numeric(selected$silhouette),
+    candidate_stability = as.numeric(selected$stability_mean),
+    candidate_stability_lower = as.numeric(selected$stability_lower),
+    stability_by_block = evidence$stability_by_block,
+    partition_agreement_by_block = evidence$stability_by_block,
+    candidate_ari_by_relationship = evidence$ari_by_relationship,
+    candidate_ari_by_year = evidence$ari_by_year,
+    candidate_ari_by_modality = evidence$ari_by_modality,
+    consensus_partition_by_block = evidence$consensus_partition_by_block,
+    discovery = list(
+      status = "candidate_detected",
+      candidate_k = as.integer(selected$k),
+      candidate_method = as.character(selected$method),
+      candidate_membership = candidate,
+      candidate_clusters = candidate_out$clusters,
+      silhouette = as.numeric(selected$silhouette)
+    ),
+    validation = list(
+      passed = would_validate_hard,
+      thresholds_passed = thresholds_passed,
+      hard_groups = hard_groups,
+      failures = validation_failures,
+      min_silhouette = min_silhouette,
+      min_stability = min_stability,
+      min_cluster_size = min_cluster_size,
+      stability_quantile = stability_quantile
+    ),
     resampling = list(
       n_relationships = n_relationships,
       n_relationship_blocks = n_relationship_blocks,
@@ -387,6 +477,127 @@ infer_mega_environments <- function(
       n_boot_used = boot_used
     )
   ))
+  class(result) <- c("optisparsemet_environment_partition", "list")
+  result
+}
+
+
+#' Infer descriptive environmental strata
+#'
+#' A descriptive counterpart to [infer_mega_environments()]. It retains the
+#' best estimable environmental partition, permits singleton strata by default,
+#' and reports the strict validation result without calling the groups genetic
+#' mega-environments.
+#'
+#' @param ... Arguments passed to [infer_mega_environments()].
+#' @param min_cluster_size Smallest descriptive stratum; defaults to one.
+#' @return An `optisparsemet_environment_partition` object in descriptive mode.
+#' @export
+infer_environmental_strata <- function(..., min_cluster_size = 1L) {
+  infer_mega_environments(
+    ..., min_cluster_size = min_cluster_size, mode = "descriptive"
+  )
+}
+
+
+#' @export
+print.optisparsemet_environment_partition <- function(x, ...) {
+  cat("<OptiSparseMET environmental partition>\n")
+  if (isTRUE(x$hard_groups)) {
+    cat("Validated hard partition:", x$n_clusters, "groups.\n")
+  } else {
+    cat("No validated hard partition was supported.\n")
+  }
+  if (is.finite(x$candidate_k)) {
+    cat("Best descriptive candidate:", x$candidate_k, "groups",
+        paste0(" (", x$candidate_method, ").\n"))
+    if (is.finite(x$candidate_silhouette))
+      cat("Candidate silhouette:",
+          format(round(x$candidate_silhouette, 3), nsmall = 3), "\n")
+  }
+  cat("Status:", x$status, "\n")
+  invisible(x)
+}
+
+
+.mega_validation_failures <- function(selected, n_relationship_blocks) {
+  failures <- character()
+  if (!isTRUE(selected$separation_pass)) failures <- c(failures, "separation")
+  if (!isTRUE(selected$size_pass)) failures <- c(failures, "minimum_cluster_size")
+  if (!isTRUE(selected$stability_pass)) failures <- c(failures, "stability")
+  if (n_relationship_blocks < 2L)
+    failures <- c(failures, "independent_evidence_blocks")
+  unique(failures)
+}
+
+
+.mega_candidate_evidence <- function(candidate, k, method, alternatives,
+                                     relationships, relationship_groups,
+                                     stability_quantile) {
+  central_name <- paste0("central:", method)
+  comparison_names <- setdiff(names(alternatives), central_name)
+  ari_rows <- lapply(comparison_names, function(nm) {
+    raw <- .adjusted_rand_index(alternatives[[nm]], candidate)
+    type <- if (startsWith(nm, "central:")) "algorithm" else
+      if (startsWith(nm, "bootstrap:")) "bootstrap" else "relationship"
+    relationship <- if (type == "relationship") sub(
+      ":(hclust|kmeans)$", "", sub("^relationship:", "", nm)
+    ) else NA_character_
+    comparison_method <- sub("^.*:", "", nm)
+    block <- if (type == "algorithm") "algorithm" else
+      if (type == "bootstrap") "bootstrap" else
+        as.character(relationship_groups[[relationship]])
+    data.frame(
+      comparison = nm, type = type, relationship = relationship,
+      block = block, method = comparison_method, ari = raw,
+      stability_ari = pmax(0, pmin(1, raw)), stringsAsFactors = FALSE
+    )
+  })
+  ari <- if (length(ari_rows)) do.call(rbind, ari_rows) else data.frame(
+    comparison = character(), type = character(), relationship = character(),
+    block = character(), method = character(), ari = numeric(),
+    stability_ari = numeric(), stringsAsFactors = FALSE
+  )
+  by_block <- if (nrow(ari)) do.call(rbind, lapply(split(ari, ari$block),
+    function(z) data.frame(
+      block = z$block[1L],
+      agreement = if (identical(z$block[1L], "bootstrap"))
+        unname(stats::quantile(z$stability_ari, stability_quantile,
+                               names = FALSE, type = 8)) else
+        mean(z$stability_ari),
+      raw_agreement = mean(z$ari), n_comparisons = nrow(z),
+      stringsAsFactors = FALSE
+    ))) else data.frame(block = character(), agreement = numeric(),
+                        raw_agreement = numeric(), n_comparisons = integer(),
+                        stringsAsFactors = FALSE)
+  rel_ari <- ari[ari$type == "relationship", , drop = FALSE]
+  by_modality <- if (nrow(rel_ari)) do.call(rbind, lapply(
+    split(rel_ari, rel_ari$block), function(z) data.frame(
+      block = z$block[1L], agreement = mean(z$stability_ari),
+      raw_agreement = mean(z$ari), n_comparisons = nrow(z),
+      stringsAsFactors = FALSE
+    ))) else by_block[0, , drop = FALSE]
+  by_year <- rel_ari[grepl("weather|year", rel_ari$block, ignore.case = TRUE) |
+                       grepl("year|^[12][0-9]{3}$", rel_ari$relationship,
+                             ignore.case = TRUE), , drop = FALSE]
+
+  consensus_by_block <- list()
+  if (length(relationships)) {
+    relation_names <- names(relationships)
+    for (block in unique(relationship_groups)) {
+      take <- relation_names[relationship_groups[relation_names] == block]
+      block_kernel <- if (length(take) == 1L) relationships[[take]] else
+        consensus_environment_kernels(relationships[take])
+      consensus_by_block[[block]] <- .cluster_mega_similarity(
+        block_kernel, as.integer(k), as.character(method), seed = NULL
+      )
+    }
+  }
+  list(stability_by_block = by_block,
+       ari_by_relationship = rel_ari,
+       ari_by_year = by_year,
+       ari_by_modality = by_modality,
+       consensus_partition_by_block = consensus_by_block)
 }
 
 

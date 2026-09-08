@@ -32,6 +32,20 @@ test_that("fetch_soilgrids validates the request before any network work", {
   expect_error(fetch_soilgrids(sites, backend = "nope"))   # match.arg
 })
 
+test_that("SoilGrids validation uses property-specific depths", {
+  expect_true(.validate_soil_request("0-30cm", "mean", "ocs"))
+  expect_error(
+    .validate_soil_request("0-5cm", "mean", "ocs"),
+    "Property 'ocs'.*0-30cm"
+  )
+  combos <- .soil_request_combinations(
+    list(clay = c("0-5cm", "5-15cm"), ocs = "0-30cm"),
+    c("mean", "Q0.5"), c("clay", "ocs")
+  )
+  expect_equal(nrow(combos), 6L)
+  expect_equal(unique(combos$depth[combos$property == "ocs"]), "0-30cm")
+})
+
 # ---- WCS GetCoverage URL ----------------------------------------------------
 
 test_that("WCS GetCoverage URL is well-formed", {

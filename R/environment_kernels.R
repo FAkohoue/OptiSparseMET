@@ -22,6 +22,12 @@
 #'   [qc_environmental_data()].
 #' @param missing_action,impute Missing-data policy passed to
 #'   [qc_environmental_data()].
+#' @param redundancy Optional within-block redundancy control: `"none"`
+#'   (default), `"correlation"`, `"pca"`, or `"whiten"`. It may be a single
+#'   method for all non-geographic blocks or a named character vector by block.
+#' @param redundancy_control Named list with `correlation_threshold` (default
+#'   0.95) and `pca_variance` (default 0.95). Reduction is fully audited and the
+#'   unreduced covariates remain in `original_covariates`.
 #' @param include_interactions Logical. When `TRUE`, add all available pairwise
 #'   weather-by-soil, weather-by-management, and soil-by-management kernels.
 #' @param interaction_terms Optional named list defining an exact set of
@@ -53,6 +59,7 @@ build_environment_kernels <- function(
     min_coverage = 0.80,
     missing_action = c("impute", "warn", "error"),
     impute = c("median", "none"),
+    redundancy = "none", redundancy_control = list(),
     include_interactions = FALSE,
     interaction_terms = NULL,
     interaction_mode = c("anova", "product"),
@@ -61,6 +68,15 @@ build_environment_kernels <- function(
   missing_action <- match.arg(missing_action)
   impute <- match.arg(impute)
   interaction_mode <- match.arg(interaction_mode)
+  if (!is.character(redundancy) || !length(redundancy) || anyNA(redundancy) ||
+      any(!redundancy %in% c("none", "correlation", "pca", "whiten")))
+    stop("`redundancy` must contain none, correlation, pca, or whiten.")
+  if (length(redundancy) > 1L &&
+      (is.null(names(redundancy)) || any(!nzchar(names(redundancy))) ||
+       anyDuplicated(names(redundancy))))
+    stop("Multiple `redundancy` methods must be uniquely named by block.")
+  if (!is.list(redundancy_control))
+    stop("`redundancy_control` must be a named list.")
   if (!is.logical(include_interactions) || length(include_interactions) != 1L ||
       is.na(include_interactions))
     stop("`include_interactions` must be TRUE or FALSE.")
@@ -112,8 +128,10 @@ build_environment_kernels <- function(
 
   qcs <- list()
   Xs <- list()
+  Xs_original <- list()
   Ks <- list()
   bws <- list()
+  redundancy_audit <- list()
   for (nm in names(prepared)) {
     z <- prepared[[nm]]
     if (nm == "management") {
@@ -147,6 +165,10 @@ build_environment_kernels <- function(
       )
       Ks[[nm]] <- .normalise_environment_kernel(K)
       Xs[[nm]] <- X
+      Xs_original[[nm]] <- X
+      redundancy_audit[[nm]] <- .environment_redundancy_identity(
+        X, method = "geodesic_not_reduced"
+      )
       qcs[[nm]] <- q
       bws[[nm]] <- attr(K, "bandwidth")
       next
@@ -173,6 +195,15 @@ build_environment_kernels <- function(
       next
     }
     X <- X[, informative, drop = FALSE]
+    Xs_original[[nm]] <- X
+    reduction_method <- if (length(redundancy) == 1L &&
+                            is.null(names(redundancy))) redundancy[[1L]] else
+      if (nm %in% names(redundancy)) redundancy[[nm]] else "none"
+    reduced <- .control_environment_redundancy(
+      X, method = reduction_method, control = redundancy_control
+    )
+    X <- reduced$data
+    redundancy_audit[[nm]] <- reduced$audit
     which_kernel <- if (nm %in% names(kernels)) kernels[[nm]] else "gaussian"
     if (!which_kernel %in% c("gaussian", "correlation"))
       stop("Kernel for '", nm, "' must be gaussian or correlation.")
@@ -225,9 +256,13 @@ build_environment_kernels <- function(
   }
   block_diagnostics <- do.call(rbind, lapply(names(Xs), function(nm) {
     X <- Xs[[nm]]
+    red <- redundancy_audit[[nm]]
     data.frame(
-      block = nm, n_environments = nrow(X), n_variables = ncol(X),
-      effective_rank = qr(scale(X, center = TRUE, scale = FALSE))$rank,
+      block = nm, n_environments = nrow(X),
+      original_n_variables = length(red$original_variables),
+      n_variables = ncol(X), redundancy = red$method,
+      effective_rank_before = red$effective_rank_before,
+      effective_rank = red$effective_rank_after,
       stringsAsFactors = FALSE
     )
   }))
@@ -235,6 +270,8 @@ build_environment_kernels <- function(
   list(
     kernels = Ks,
     covariates = Xs,
+    original_covariates = Xs_original,
+    redundancy = redundancy_audit,
     audit = .bind_qc_component(qcs, "audit"),
     provenance = .bind_qc_component(qcs, "provenance"),
     imputation = .bind_qc_component(qcs, "imputation"),
@@ -251,6 +288,100 @@ build_environment_kernels <- function(
       NULL else variable_result$definitions,
     environments = environments
   )
+}
+
+
+.environment_redundancy_identity <- function(X, method = "none") {
+  rank <- qr(scale(X, center = TRUE, scale = FALSE))$rank
+  list(
+    method = method, original_variables = colnames(X),
+    retained_variables = colnames(X), components = colnames(X),
+    correlation_groups = data.frame(), loadings = NULL,
+    variance_explained = NULL, effective_rank_before = rank,
+    effective_rank_after = rank
+  )
+}
+
+
+.control_environment_redundancy <- function(X, method = "none",
+                                            control = list()) {
+  X <- as.matrix(X)
+  if (!ncol(X)) stop("Cannot control redundancy in an empty block.")
+  if (method == "none")
+    return(list(data = X, audit = .environment_redundancy_identity(X)))
+  correlation_threshold <- control$correlation_threshold %||% 0.95
+  pca_variance <- control$pca_variance %||% 0.95
+  if (!is.numeric(correlation_threshold) ||
+      length(correlation_threshold) != 1L ||
+      !is.finite(correlation_threshold) || correlation_threshold <= 0 ||
+      correlation_threshold > 1)
+    stop("`redundancy_control$correlation_threshold` must be in (0, 1].")
+  if (!is.numeric(pca_variance) || length(pca_variance) != 1L ||
+      !is.finite(pca_variance) || pca_variance <= 0 || pca_variance > 1)
+    stop("`redundancy_control$pca_variance` must be in (0, 1].")
+  before <- .environment_redundancy_identity(X, method = method)
+  Z <- scale(X)
+
+  if (method == "correlation") {
+    C <- abs(stats::cor(Z))
+    adjacency <- C >= correlation_threshold
+    diag(adjacency) <- TRUE
+    unseen <- seq_len(ncol(X))
+    groups <- list()
+    while (length(unseen)) {
+      component <- unseen[1L]
+      repeat {
+        expanded <- sort(unique(c(
+          component,
+          which(apply(adjacency[component, , drop = FALSE], 2L, any))
+        )))
+        if (identical(expanded, component)) break
+        component <- expanded
+      }
+      groups[[length(groups) + 1L]] <- component
+      unseen <- setdiff(unseen, component)
+    }
+    keep <- vapply(groups, `[`, integer(1), 1L)
+    out <- X[, keep, drop = FALSE]
+    group_table <- do.call(rbind, lapply(seq_along(groups), function(i) {
+      members <- colnames(X)[groups[[i]]]
+      data.frame(group = i, retained = members[1L],
+                 members = paste(members, collapse = ";"),
+                 n_variables = length(members), stringsAsFactors = FALSE)
+    }))
+    audit <- before
+    audit$retained_variables <- colnames(out)
+    audit$components <- colnames(out)
+    audit$correlation_groups <- group_table
+    audit$effective_rank_after <- qr(scale(out, center = TRUE,
+                                           scale = FALSE))$rank
+    return(list(data = out, audit = audit))
+  }
+
+  pc <- stats::prcomp(X, center = TRUE, scale. = TRUE)
+  variance <- pc$sdev^2
+  variance <- variance / sum(variance)
+  positive <- which(pc$sdev > max(pc$sdev) * sqrt(.Machine$double.eps))
+  if (!length(positive)) positive <- 1L
+  n_component <- if (method == "pca") {
+    min(max(which(cumsum(variance) < pca_variance), 0L) + 1L,
+        length(positive))
+  } else length(positive)
+  keep <- positive[seq_len(n_component)]
+  scores <- pc$x[, keep, drop = FALSE]
+  if (method == "whiten")
+    scores <- sweep(scores, 2L, pc$sdev[keep], `/`)
+  colnames(scores) <- paste0(if (method == "whiten") "WPC" else "PC",
+                             seq_along(keep))
+  rownames(scores) <- rownames(X)
+  audit <- before
+  audit$retained_variables <- colnames(scores)
+  audit$components <- colnames(scores)
+  audit$loadings <- pc$rotation[, keep, drop = FALSE]
+  audit$variance_explained <- stats::setNames(variance[keep], colnames(scores))
+  audit$effective_rank_after <- qr(scale(scores, center = TRUE,
+                                         scale = FALSE))$rank
+  list(data = scores, audit = audit)
 }
 
 #' Add functional-ANOVA interaction kernels

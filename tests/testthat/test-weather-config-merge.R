@@ -62,3 +62,31 @@ test_that("the weather catalogue documents the additional POWER parameters", {
                     wc$variable))
   expect_true(all(c("variable", "description", "units") %in% names(wc)))
 })
+
+test_that("the weather catalogue round-trips API codes and aggregation advice", {
+  wc <- enviromic_variable_catalog("weather")
+  expect_true(all(c("api_code", "output_name", "default_aggregation") %in%
+                    names(wc)))
+  expect_equal(wc$api_code[wc$output_name == "mean_temp"], "T2M")
+  expect_equal(wc$default_aggregation[wc$api_code == "PRECTOTCORR"], "sum")
+  expect_equal(unname(available_weather_parameters()), wc$api_code)
+  expect_equal(
+    enviromic_variable_catalog("weather", names = "api")$variable,
+    wc$api_code
+  )
+  resolved <- .resolve_weather_stats(c("T2M", "PRECTOTCORR", "EVPTRNS"))
+  expect_equal(unlist(resolved),
+               c(T2M = "mean", PRECTOTCORR = "sum", EVPTRNS = "sum"))
+  expect_equal(.resolve_weather_stats("EVPTRNS", c(EVPTRNS = "mean"))[[1]],
+               "mean")
+})
+
+test_that("the soil catalogue exposes property-specific metadata", {
+  sc <- enviromic_variable_catalog("soil")
+  ocs <- sc[sc$variable == "ocs", , drop = FALSE]
+  clay <- sc[sc$variable == "clay", , drop = FALSE]
+  expect_equal(ocs$default_depth, "0-30cm")
+  expect_true(ocs$stock_variable)
+  expect_false(ocs$profile_variable)
+  expect_match(clay$supported_depths, "0-5cm;5-15cm")
+})

@@ -78,9 +78,11 @@ reference:
       - fetch_soilgrids
       - soil_profile_features
       - enviromic_variable_catalog
+      - available_weather_parameters
       - envirotype_features
       - rice_weather_features
       - historical_envirotype
+      - historical_environment_characterization
       - assess_envirotype_stability
       - qc_environmental_data
       - build_environment_kernels
@@ -93,6 +95,7 @@ reference:
       - build_environment_relationship
       - cluster_environments
       - infer_mega_environments
+      - infer_environmental_strata
       - select_environments
       - screen_interactions
       - list_candidate_interactions
@@ -233,7 +236,7 @@ navbar:
       href: articles/index.html
     breeder_guide:
       text: Breeder guide
-      href: OptiSparseMET_Breeders_Guide.pdf
+      href: breeder-guide.html
     github:
       icon: fab fa-github
       href: https://github.com/FAkohoue/OptiSparseMET/

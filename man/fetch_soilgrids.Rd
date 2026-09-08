@@ -30,7 +30,9 @@ package is absent), \code{"rest"} (legacy beta properties/query endpoint, needs
 
 \item{properties}{Character vector of SoilGrids property names to retrieve.}
 
-\item{depth}{One or more of the six standard depth intervals.}
+\item{depth}{One or more property-supported depth intervals. A named list can
+map properties to different depths, for example
+\code{list(clay = c("0-5cm", "5-15cm"), ocs = "0-30cm")}.}
 
 \item{quantile}{One or more prediction statistics: \code{"mean"}, \code{"Q0.05"},
 \code{"Q0.5"} or \code{"Q0.95"}. Retrieving Q0.05/Q0.5/Q0.95 makes model uncertainty
@@ -95,9 +97,11 @@ moisture (SMAP, ESA-CCI, Copernicus), point profiles (ISRIC WoSIS), or -- best
 -- your own dated field measurements, which you can pass directly as the
 \code{soil} argument of \code{\link[=build_enviromic_covariates]{build_enviromic_covariates()}} (including one set per year).
 
-Predictions exist for six standard depth intervals
-(\verb{0-5cm}, \verb{5-15cm}, \verb{15-30cm}, \verb{30-60cm}, \verb{60-100cm}, \verb{100-200cm}) and four
-prediction statistics (\code{mean}, \code{Q0.05}, \code{Q0.5}, \code{Q0.95}). SoilGrids native
+Most properties exist for six standard depth intervals
+(\verb{0-5cm}, \verb{5-15cm}, \verb{15-30cm}, \verb{30-60cm}, \verb{60-100cm}, \verb{100-200cm}). Organic
+carbon stock (\code{ocs}) is instead supported at \verb{0-30cm}. Property-specific
+availability is reported by \code{\link[=enviromic_variable_catalog]{enviromic_variable_catalog()}}. Four prediction
+statistics are supported (\code{mean}, \code{Q0.05}, \code{Q0.5}, \code{Q0.95}). SoilGrids native
 data are on the Interrupted Goode Homolosine grid (EPSG:152160) at 250 m
 resolution; the WCS and WebDAV backends reproject site coordinates onto that
 grid with \code{\link[terra:project]{terra::project()}} and read only the cells needed via GDAL's

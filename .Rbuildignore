@@ -42,6 +42,7 @@
 ^DECISION_POINTS_DESIGN\.md$
 ^IMPLEMENTATION_PLAN\.md$
 ^VALIDATION\.md$
+^breeder-guide\.md$
 
 # Private reference PDFs and editable guides kept for development
 ^Colmant et al\. 2026\.pdf$

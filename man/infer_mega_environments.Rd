@@ -16,7 +16,8 @@ infer_mega_environments(
   min_stability = 0.7,
   stability_quantile = 0.1,
   n_boot = 200L,
-  seed = 1L
+  seed = 1L,
+  mode = c("mega_environment", "descriptive")
 )
 }
 \arguments{
@@ -56,6 +57,11 @@ relationship matrices, and relationship-bootstrap consensuses.}
 performed when at least one evidence block contains repeated matrices.}
 
 \item{seed}{Integer seed for reproducible k-means and bootstrap sampling.}
+
+\item{mode}{\code{"mega_environment"} (default) preserves the conservative hard-
+grouping behaviour. \code{"descriptive"} returns the best estimable candidate
+partition as environmental strata while still reporting whether it passed
+the strict validation gates.}
 }
 \value{
 A list containing \code{membership}, \code{clusters}, \code{Sigma_E}, inferred

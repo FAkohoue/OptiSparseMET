@@ -15,6 +15,8 @@ build_environment_kernels(
   min_coverage = 0.8,
   missing_action = c("impute", "warn", "error"),
   impute = c("median", "none"),
+  redundancy = "none",
+  redundancy_control = list(),
   include_interactions = FALSE,
   interaction_terms = NULL,
   interaction_mode = c("anova", "product"),
@@ -42,6 +44,14 @@ sensitivity in small environment networks.}
 
 \item{missing_action, impute}{Missing-data policy passed to
 \code{\link[=qc_environmental_data]{qc_environmental_data()}}.}
+
+\item{redundancy}{Optional within-block redundancy control: \code{"none"}
+(default), \code{"correlation"}, \code{"pca"}, or \code{"whiten"}. It may be a single
+method for all non-geographic blocks or a named character vector by block.}
+
+\item{redundancy_control}{Named list with \code{correlation_threshold} (default
+0.95) and \code{pca_variance} (default 0.95). Reduction is fully audited and the
+unreduced covariates remain in \code{original_covariates}.}
 
 \item{include_interactions}{Logical. When \code{TRUE}, add all available pairwise
 weather-by-soil, weather-by-management, and soil-by-management kernels.}

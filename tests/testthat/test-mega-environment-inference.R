@@ -70,7 +70,53 @@ test_that("unsupported environmental grouping falls back safely", {
   expect_equal(out$status, "unstable")
   expect_false(out$hard_groups)
   expect_equal(unique(out$membership), 1L)
+  expect_true(out$candidate_k >= 2L)
+  expect_equal(length(out$candidate_membership), 8L)
+  expect_equal(out$discovery$status, "candidate_detected")
+  expect_false(out$validation$passed)
+  expect_output(print(out), "No validated hard partition was supported")
+  expect_output(print(out), "Best descriptive candidate")
   expect_match(out$reason, "No partition passed")
+})
+
+test_that("candidate discovery is retained when environmental blocks conflict", {
+  D <- make_block_environment_kernel()
+  soil_group <- rep(c(1, 2), 4)
+  soil <- outer(soil_group, soil_group,
+                function(i, j) ifelse(i == j, 0.9, 0.05))
+  diag(soil) <- 1
+  dimnames(soil) <- dimnames(D)
+  out <- infer_mega_environments(
+    D, relationships = list(weather_2024 = D, soil = soil),
+    relationship_groups = c(weather_2024 = "weather", soil = "soil"),
+    n_boot = 0L
+  )
+  expect_equal(out$n_clusters, 1L)
+  expect_equal(out$candidate_k, 2L)
+  expect_equal(unname(out$candidate_membership[1:4]), rep(1L, 4))
+  expect_setequal(out$stability_by_block$block,
+                  c("algorithm", "weather", "soil"))
+  expect_gt(out$stability_by_block$agreement[
+    out$stability_by_block$block == "weather"],
+    out$stability_by_block$agreement[
+      out$stability_by_block$block == "soil"])
+  expect_true(all(c("relationship", "block", "ari") %in%
+                    names(out$candidate_ari_by_relationship)))
+})
+
+test_that("descriptive strata permit a distinctive singleton", {
+  env <- paste0("E", 1:5)
+  group <- c(1, 1, 1, 1, 2)
+  D <- outer(group, group, function(i, j) ifelse(i == j, 0.9, 0.05))
+  diag(D) <- 1
+  dimnames(D) <- list(env, env)
+  out <- infer_environmental_strata(
+    D, relationships = list(weather = D), n_boot = 0L
+  )
+  expect_equal(out$status, "descriptive")
+  expect_false(out$hard_groups)
+  expect_equal(out$n_clusters, 2L)
+  expect_true(1L %in% tabulate(out$membership))
 })
 
 test_that("fixed-k clustering remains available for external evidence", {

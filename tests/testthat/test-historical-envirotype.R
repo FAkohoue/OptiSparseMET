@@ -116,3 +116,43 @@ test_that(".merge_daily_series lets station data override and fill", {
   expect_equal(m$T2M, c(19.5, 21, 22.5))       # station wins, downloaded fills the NA
   expect_true("RAD" %in% names(m))             # station-missing variable retained
 })
+
+test_that("historical multimodal characterization joins weather and soil", {
+  make_network_year <- function(year_shift) {
+    do.call(rbind, lapply(seq_len(6), function(i) data.frame(
+      environment = paste0("E", i), day = 0:39,
+      T2M = 22 + year_shift + if (i <= 3) 0 else 5 + sin((0:39) / 8),
+      T2M_MAX = 28 + year_shift + if (i <= 3) 0 else 5 + sin((0:39) / 8),
+      PRECTOTCORR = if (i <= 3) 4 else 1,
+      stringsAsFactors = FALSE
+    )))
+  }
+  daily <- list(
+    `2021` = make_network_year(0),
+    `2022` = make_network_year(0.5),
+    `2023` = make_network_year(-0.5)
+  )
+  soil <- data.frame(
+    environment = paste0("E", 1:6),
+    clay = c(20, 21, 19, 45, 44, 46),
+    phh2o = c(6.0, 6.1, 5.9, 5.0, 5.1, 4.9),
+    soc = c(18, 17, 19, 9, 10, 8)
+  )
+  out <- historical_environment_characterization(
+    years = 2021:2023, daily_by_year = daily, soil = soil,
+    envirotype = list(windows = 1, stats = "mean"),
+    stability_control = list(n_boot = 0L),
+    kernel_control = list(redundancy = "correlation"),
+    inference_control = list(n_boot = 0L),
+    covariance_control = list(n_boot = 0L), seed = 8L
+  )
+  expect_true(all(c("weather", "soil") %in% names(out$integration_kernels)))
+  expect_equal(out$weather_stability$mean_stability, 1, tolerance = 1e-8)
+  expect_equal(out$kernel_agreement$kernel_1, "weather")
+  expect_equal(out$kernel_agreement$kernel_2, "soil")
+  expect_equal(out$environmental_strata$status, "descriptive")
+  expect_true(out$environmental_strata$candidate_k >= 2L)
+  expect_true(out$mega_environment_validation$status %in%
+                c("stable", "provisional", "unstable"))
+  expect_equal(out$covariance_calibration$status, "no_historical_met")
+})

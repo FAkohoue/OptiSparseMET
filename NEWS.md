@@ -2,6 +2,27 @@
 
 ## Statistical, environmental, and operational hardening
 
+* Environmental partitioning now separates discovery from validation.
+  `infer_mega_environments()` retains the best candidate partition and exposes
+  relationship- and evidence-block-specific agreement diagnostics even when
+  strict membership falls back to one group. The new
+  `infer_environmental_strata()` entry point returns descriptive partitions,
+  including optional singleton strata, without labelling them as genetic
+  mega-environments.
+* Added `historical_environment_characterization()` to join historical weather,
+  SoilGrids/profile features, separate modality kernels, temporal stability,
+  weight-free multimodal consensus, candidate strata, strict validation, and
+  optional historical-response covariance calibration in one audited workflow.
+* The enviromic catalogue now separates NASA POWER `api_code` from
+  `output_name`, provides advisory default aggregation metadata, and exposes
+  property-specific SoilGrids depths, quantiles, conversion factors, and
+  profile/stock roles. `available_weather_parameters()` returns request-ready
+  POWER codes, and `ocs` requests are validated at their supported `0-30cm`
+  depth.
+* `build_environment_kernels()` now offers explicit `"none"`, correlation,
+  PCA, and whitening redundancy controls. Original and transformed covariates,
+  correlation groups, loadings, variance explained, and effective ranks before
+  and after reduction are retained for audit.
 * Added `build_variable_interaction_kernels()` for pre-specified within- and
   cross-modality variable hypotheses. It matches exact post-quality-control
   columns, constructs row-wise tensor features, residualises them against their
