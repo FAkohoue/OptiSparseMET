@@ -41,8 +41,8 @@ $$
 📖 **[Full documentation & tutorials](https://FAkohoue.github.io/OptiSparseMET/)**
 
 <p align="center">
-  <img src="man/figures/OptiSparseMET_schematic.png"
-       alt="OptiSparseMET workflow schematic" width="100%">
+  <img src="man/figures/OptiSparseMET_schematic_v2.png"
+       alt="OptiSparseMET 0.2.0 audited environmental workflow and robust sparse MET design schematic" width="100%">
 </p>
 
 ---
