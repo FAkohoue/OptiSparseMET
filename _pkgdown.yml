@@ -120,9 +120,9 @@ reference:
 
   - title: "Module 3 — Sparse allocation across environments"
     desc: >
-      Distribute treatments across environments (M3 random-balanced and M4
-      equireplicate), verify feasibility and capacity, and choose the number and
-      identity of connecting common treatments.
+      Distribute treatments across environments using M3/M4 construction,
+      prediction-optimal, robust-prediction, or adaptive-sequential allocation;
+      verify feasibility and jointly optimise connecting common treatments.
     contents:
       - allocate_sparse_met
       - check_equireplicate_feasibility
@@ -130,6 +130,7 @@ reference:
       - construct_exact_bibd
       - derive_allocation_groups
       - optimize_allocation_gxe
+      - adaptive_met_allocation
       - feasibility_helpers
       - min_k_for_full_coverage
       - suggest_safe_k

@@ -160,10 +160,11 @@
 #'   least two unique, non-missing, non-empty elements.
 #'
 #' @param allocation_method Character scalar. Sparse allocation strategy.
-#'   Accepted values are `"random_balanced"` (M3-inspired stochastic
-#'   allocation) and `"equireplicate"` (M4-type equal-replication allocation). The
-#'   aliases `"M3"` and `"M4"` are also accepted and translated internally to
-#'   their canonical names before any further processing.
+#'   `"random_balanced"` and `"equireplicate"` are the M3/M4 constructors.
+#'   `"prediction_optimal"` refines a feasible constructor against the full
+#'   information criterion; `"robust_prediction"` evaluates uncertainty
+#'   scenarios; and `"adaptive_sequential"` adds the most informative currently
+#'   unobserved cells. The aliases `"M3"` and `"M4"` remain accepted.
 #'
 #' @param n_test_entries_per_environment Integer scalar or vector giving the
 #'   field capacity (total test treatments, including common treatments) of each
@@ -318,6 +319,24 @@
 #'   as well as tie-breaking in the strict exact constructor. If `NULL`, no
 #'   seed is set and results may differ across runs; the seed used internally
 #'   is returned as `seed_used`.
+#' @param G Optional genomic or pedigree relationship matrix for advanced
+#'   allocation methods. If omitted, `GRM` and then `A` are tried.
+#' @param allocation_criterion Prediction objective for advanced methods:
+#'   `"mean_pev"`, `"cdmean"`, or `"expected_gain"`.
+#' @param search_method Search engine passed to [optimize_design()].
+#' @param common_set `"provided"`, `"none"`, or `"optimize_jointly"`.
+#' @param common_control Named list optionally containing `count_range` and
+#'   `weight` for joint common-set optimisation.
+#' @param optimizer_control Named list of advanced controls, including
+#'   `start_method`, `objective`, `preserve`, `n_starts`, `iters`, `cooling`,
+#'   `exact_max_cells`, `candidate_mask`, and `cost_per_plot`.
+#' @param robust Optional scenario list from [robust_scenarios()]. The robust
+#'   method creates a conservative default when this is `NULL`.
+#' @param robust_aggregate,cvar_alpha Risk aggregation controls.
+#' @param observed_allocation Existing named 0/1 allocation used as the starting
+#'   information for `"adaptive_sequential"`.
+#' @param adaptive_batch_size Number of new cells returned by adaptive
+#'   allocation; `NULL` fills the requested environment capacities.
 #'
 #' @return A named list with the following components:
 #' \describe{
@@ -447,7 +466,9 @@
 allocate_sparse_met <- function(
     treatments,
     environments,
-    allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
+    allocation_method = c("random_balanced", "equireplicate", "M3", "M4",
+                          "prediction_optimal", "robust_prediction",
+                          "adaptive_sequential"),
     n_test_entries_per_environment,
     target_replications = NULL,
     common_treatments = NULL,
@@ -475,7 +496,18 @@ allocate_sparse_met <- function(
     balance_groups_across_env = TRUE,
     force_group_connectivity = TRUE,
     allow_approximate = FALSE,
-    seed = NULL
+    seed = NULL,
+    G = NULL,
+    allocation_criterion = c("mean_pev", "cdmean", "expected_gain"),
+    search_method = c("annealing", "exchange", "genetic", "exact", "mip"),
+    common_set = c("provided", "none", "optimize_jointly"),
+    common_control = list(),
+    optimizer_control = list(),
+    robust = NULL,
+    robust_aggregate = c("mean", "cvar", "min"),
+    cvar_alpha = 0.25,
+    observed_allocation = NULL,
+    adaptive_batch_size = NULL
 ) {
   
   # ============================================================
@@ -491,6 +523,24 @@ allocate_sparse_met <- function(
   }
   
   allocation_method <- match.arg(allocation_method)
+  requested_allocation_method <- allocation_method
+  allocation_criterion <- match.arg(allocation_criterion)
+  search_method <- match.arg(search_method)
+  common_set <- match.arg(common_set)
+  robust_aggregate <- match.arg(robust_aggregate)
+  if (!is.list(common_control) || !is.list(optimizer_control))
+    stop("`common_control` and `optimizer_control` must be lists.")
+  advanced_method <- requested_allocation_method %in%
+    c("prediction_optimal", "robust_prediction", "adaptive_sequential")
+  if (advanced_method) {
+    start_method <- if (is.null(optimizer_control$start_method))
+      "random_balanced" else as.character(optimizer_control$start_method)[1L]
+    if (start_method == "M3") start_method <- "random_balanced"
+    if (start_method == "M4") start_method <- "equireplicate"
+    if (!start_method %in% c("random_balanced", "equireplicate"))
+      stop("`optimizer_control$start_method` must be M3/random_balanced or M4/equireplicate.")
+    allocation_method <- start_method
+  }
   # "M3"/"M4" are convenience aliases for the two Montesinos-Lopez (2023)
   # methods. "equireplicate" is the canonical name for the M4-type constructor:
   # it guarantees equal treatment replication and exact requested environment
@@ -499,6 +549,7 @@ allocate_sparse_met <- function(
   # concurrence toward a near-balanced design.
   if (allocation_method == "M3") allocation_method <- "random_balanced"
   if (allocation_method == "M4") allocation_method <- "equireplicate"
+  if (common_set == "none") common_treatments <- NULL
 
   balance <- match.arg(balance)
   pair_aggregate <- match.arg(pair_aggregate)
@@ -1178,6 +1229,8 @@ allocate_sparse_met <- function(
         environment_cost = if (seed_constrained) seed_cost else NULL)
     after <- .balance_metrics(S1)
     alloc[sparse_treatments, ] <- S1
+    if (common_set == "optimize_jointly")
+      common_treatments <- rownames(alloc)[rowSums(alloc) == n_env]
     if (seed_constrained)
       seed_consumed[sparse_treatments] <-
         as.numeric(S1 %*% seed_cost[colnames(S1)])
@@ -1226,6 +1279,140 @@ allocate_sparse_met <- function(
         seed_budget = seed_constrained
       )
     )
+  }
+
+  # ============================================================
+  # 7D. Criterion-driven and sequential allocation modes
+  # ============================================================
+  advanced_optimization <- NULL
+  if (advanced_method) {
+    G_advanced <- if (!is.null(G)) G else if (!is.null(GRM)) GRM else A
+    if (is.null(G_advanced))
+      stop("Advanced allocation methods require `G`, `GRM`, or `A`.")
+    G_advanced <- as.matrix(G_advanced)
+    if (is.null(rownames(G_advanced)) || is.null(colnames(G_advanced)) ||
+        !all(treatments %in% rownames(G_advanced)) ||
+        !all(treatments %in% colnames(G_advanced)))
+      stop("The relationship matrix for advanced allocation must cover every treatment.")
+    G_advanced <- G_advanced[treatments, treatments, drop = FALSE]
+    if (is.list(Sigma_E) && !is.matrix(Sigma_E))
+      stop("Advanced allocation requires one central `Sigma_E` matrix; pass alternatives through `robust`.")
+    Sigma_advanced <- if (is.null(Sigma_E)) {
+      out <- diag(n_env); dimnames(out) <- list(environments, environments); out
+    } else {
+      out <- as.matrix(Sigma_E)
+      if (is.null(rownames(out)) || is.null(colnames(out)) ||
+          !all(environments %in% rownames(out)) ||
+          !all(environments %in% colnames(out)))
+        stop("`Sigma_E` must be named over every environment for advanced allocation.")
+      out[environments, environments, drop = FALSE]
+    }
+    ctl <- function(x, nm, default) if (is.null(x[[nm]])) default else x[[nm]]
+    sigma_g2_advanced <- ctl(optimizer_control, "sigma_g2", 1)
+    sigma_e2_advanced <- ctl(optimizer_control, "sigma_e2", 1)
+    tpe_advanced <- ctl(optimizer_control, "tpe_weights", NULL)
+    env_eff_advanced <- ctl(optimizer_control, "env_efficiency", NULL)
+    cost_advanced <- ctl(optimizer_control, "cost_per_plot", 1)
+
+    if (requested_allocation_method == "adaptive_sequential") {
+      observed <- if (is.null(observed_allocation))
+        matrix(0L, n_treat, n_env, dimnames = list(treatments, environments)) else
+          as.matrix(observed_allocation)
+      if (is.null(rownames(observed)) || is.null(colnames(observed)) ||
+          !setequal(rownames(observed), treatments) ||
+          !setequal(colnames(observed), environments))
+        stop("`observed_allocation` must cover the requested treatments and environments.")
+      observed <- observed[treatments, environments, drop = FALSE]
+      advanced_optimization <- adaptive_met_allocation(
+        observed, G = G_advanced, Sigma_E = Sigma_advanced,
+        target_environment_sizes = k_vec,
+        batch_size = adaptive_batch_size,
+        allocation_criterion = allocation_criterion,
+        robust = robust, robust_aggregate = robust_aggregate,
+        cvar_alpha = cvar_alpha,
+        candidate_mask = ctl(optimizer_control, "candidate_mask", NULL),
+        required_common_treatments = if (common_set == "provided")
+          common_treatments else NULL,
+        minimum_treatment_environments = 1L,
+        sigma_g2 = sigma_g2_advanced, sigma_e2 = sigma_e2_advanced,
+        tpe_weights = tpe_advanced, env_efficiency = env_eff_advanced,
+        cost_per_plot = cost_advanced,
+        seed_available = seed_available,
+        seed_required_per_environment = seed_required_per_environment,
+        minimum_seed_buffer = minimum_seed_buffer,
+        seed = seed, max_dim = ctl(optimizer_control, "max_dim", 6000L))
+      alloc <- advanced_optimization$allocation_matrix
+    } else {
+      robust_used <- robust
+      if (requested_allocation_method == "robust_prediction" && is.null(robust_used))
+        robust_used <- robust_scenarios(
+          sigma_e2 = ctl(optimizer_control, "robust_sigma_e2", c(0.5, 1, 2)),
+          sigma_g2 = ctl(optimizer_control, "robust_sigma_g2", 1),
+          sigmaE_shrink = ctl(optimizer_control, "sigmaE_shrink", c(0, 0.5)),
+          operational_scenarios = ctl(
+            optimizer_control, "operational_scenarios", NULL))
+      common_mode <- switch(common_set,
+                            provided = "fixed",
+                            none = "none",
+                            optimize_jointly = "optimize_jointly")
+      common_range <- ctl(common_control, "count_range", NULL)
+      if (common_mode == "optimize_jointly" && !is.null(common_range)) {
+        common_range <- as.integer(common_range)
+        attempts <- 0L
+        while (sum(rowSums(alloc) == n_env) < common_range[1L] &&
+               attempts < 500L) {
+          candidate <- .move_common_promote(alloc); attempts <- attempts + 1L
+          if (!is.null(candidate) && all(rowSums(candidate) >= 1L)) alloc <- candidate
+        }
+        while (sum(rowSums(alloc) == n_env) > common_range[2L] &&
+               attempts < 1000L) {
+          candidate <- .move_common_demote(alloc); attempts <- attempts + 1L
+          if (!is.null(candidate) && all(rowSums(candidate) >= 1L)) alloc <- candidate
+        }
+        if (sum(rowSums(alloc) == n_env) < common_range[1L] ||
+            sum(rowSums(alloc) == n_env) > common_range[2L])
+          stop("Could not construct a starting allocation inside `common_control$count_range`.")
+      }
+      advanced_optimization <- optimize_design(
+        alloc, G = G_advanced, Sigma_E = Sigma_advanced,
+        objective = ctl(optimizer_control, "objective", list()),
+        sigma_g2 = sigma_g2_advanced, sigma_e2 = sigma_e2_advanced,
+        tpe_weights = tpe_advanced, env_efficiency = env_eff_advanced,
+        design_evaluator = ctl(optimizer_control, "design_evaluator", NULL),
+        preserve = ctl(optimizer_control, "preserve", "margins"),
+        allocation_criterion = allocation_criterion,
+        search_method = search_method,
+        common_set = common_mode,
+        common_treatments = if (common_mode == "fixed")
+          common_treatments else NULL,
+        common_count_range = common_range,
+        common_weight = ctl(common_control, "weight", 0.10),
+        minimum_treatment_environments = 1L,
+        robust = robust_used, robust_aggregate = robust_aggregate,
+        cvar_alpha = cvar_alpha,
+        seed_available = seed_available,
+        seed_required_per_environment = seed_required_per_environment,
+        minimum_seed_buffer = minimum_seed_buffer,
+        environment_capacities = k_vec,
+        minimum_environment_entries = k_vec,
+        n_starts = ctl(optimizer_control, "n_starts", 5L),
+        iters = ctl(optimizer_control, "iters", 200L),
+        cooling = ctl(optimizer_control, "cooling", 0.97),
+        exact_max_cells = ctl(optimizer_control, "exact_max_cells", 16L),
+        seed = seed, max_dim = ctl(optimizer_control, "max_dim", 6000L),
+        verbose = ctl(optimizer_control, "verbose", FALSE))
+      alloc <- advanced_optimization$allocation_matrix
+      if (common_set == "optimize_jointly")
+        common_treatments <- rownames(alloc)[rowSums(alloc) == n_env]
+    }
+    if (seed_constrained)
+      seed_consumed <- stats::setNames(
+        as.numeric(alloc %*% seed_cost[environments]), treatments)
+    n_common <- length(common_treatments)
+    sparse_treatments <- setdiff(treatments, common_treatments)
+    n_sparse <- length(sparse_treatments)
+    k_sparse <- k_vec - n_common
+    total_sparse_slots <- sum(k_sparse)
   }
 
   # ============================================================
@@ -1312,7 +1499,15 @@ allocate_sparse_met <- function(
   
   
   summary_out <- list(
-    allocation_method        = allocation_method,
+    allocation_method        = if (advanced_method)
+      requested_allocation_method else allocation_method,
+    constructor_method       = allocation_method,
+    allocation_criterion     = if (advanced_method)
+      allocation_criterion else NA_character_,
+    search_method            = if (advanced_method)
+      if (requested_allocation_method == "adaptive_sequential")
+        "sequential_greedy" else search_method else NA_character_,
+    common_set               = common_set,
     allocation_group_source  = allocation_group_source,
     target_replications      = target_replications,
     n_treatments_total       = n_treat,
@@ -1361,6 +1556,7 @@ allocate_sparse_met <- function(
     balance_report       = balance_report,
     pair_refinement_report = pair_refinement_report,
     pairwise_connectivity = pairwise_connectivity,
+    advanced_optimization = advanced_optimization,
     seed_summary         = seed_summary,
     summary              = summary_out,
     seed_used            = seed_used

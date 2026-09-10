@@ -15,6 +15,14 @@ optimize_design(
   env_efficiency = NULL,
   design_evaluator = NULL,
   preserve = c("margins", "replication", "none"),
+  allocation_criterion = c("weighted", "mean_pev", "cdmean", "expected_gain"),
+  search_method = c("annealing", "exchange", "genetic", "exact", "mip"),
+  common_set = c("fixed", "optimize_jointly", "none"),
+  common_treatments = NULL,
+  common_count_range = NULL,
+  common_weight = 0.1,
+  minimum_treatment_environments = 0L,
+  maximum_treatment_environments = NULL,
   robust = NULL,
   robust_aggregate = c("mean", "cvar", "min"),
   cvar_alpha = 0.25,
@@ -26,6 +34,7 @@ optimize_design(
   n_starts = 5L,
   iters = 200L,
   cooling = 0.97,
+  exact_max_cells = 16L,
   seed = NULL,
   max_dim = 6000L,
   verbose = FALSE
@@ -57,6 +66,35 @@ allowing the annealing search to score actual plantable local layouts.}
 
 \item{preserve}{\code{"margins"}, \code{"replication"}, or \code{"none"} (see Details).}
 
+\item{allocation_criterion}{\code{"weighted"}, \code{"mean_pev"}, \code{"cdmean"}, or
+\code{"expected_gain"}; passed to \code{\link[=design_objective]{design_objective()}}.}
+
+\item{search_method}{Search engine. \code{"annealing"} is the scalable default;
+\code{"exchange"} accepts improving moves only; \code{"genetic"} uses an elitist
+mutation-selection population; and \code{"exact"} exhaustively evaluates all
+feasible binary designs for very small problems. \code{"mip"} is an alias for
+the dependency-free exact binary search and is intentionally guarded by
+\code{exact_max_cells}.}
+
+\item{common_set}{Whether globally common treatments are \code{"fixed"}, forbidden
+(\code{"none"}), or allowed to change in size and identity
+(\code{"optimize_jointly"}).}
+
+\item{common_treatments}{Optional fixed common-treatment IDs. With
+\code{common_set = "fixed"}, \code{NULL} infers them from all-environment rows of the
+starting design.}
+
+\item{common_count_range}{Allowed minimum and maximum number of global common
+treatments during joint optimisation. Defaults to the feasible range.}
+
+\item{common_weight}{Non-negative weight for a connectivity/diversity utility
+during joint common-set search. It is constant or zero outside
+\code{common_set = "optimize_jointly"}.}
+
+\item{minimum_treatment_environments, maximum_treatment_environments}{Scalar or
+treatment-specific bounds on the number of environments assigned to each
+treatment.}
+
 \item{robust}{Optional list from \code{\link[=robust_scenarios]{robust_scenarios()}}; if given, designs are
 scored by \code{\link[=robust_design_score]{robust_design_score()}}.}
 
@@ -87,6 +125,9 @@ Default 1 keeps every environment connected.}
 
 \item{cooling}{Geometric cooling factor per iteration. Default 0.97.}
 
+\item{exact_max_cells}{Maximum \code{nrow * ncol} accepted by exact/\code{"mip"}
+enumeration.}
+
 \item{seed}{Optional RNG seed.}
 
 \item{max_dim}{Guard passed to \code{\link[=met_information]{met_information()}}.}
@@ -104,8 +145,9 @@ evaluator \code{diagnostics}, preservation and robustness settings, optional
 Searches for the genotype-by-environment allocation that maximises a
 \code{\link[=design_objective]{design_objective()}} -- any weighted combination of statistical quality
 (reliability / CDmean), expected genetic gain (single-trait or multi-trait
-index), and resource cost -- by simulated-annealing exchange with multiple
-restarts. Unlike the greedy constructor in \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}, the
+index), and resource cost -- by exchange, simulated annealing, evolutionary
+mutation-selection, or guarded exact binary search. Unlike the greedy
+constructors in \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}, the
 allocation itself is optimised against the criterion on the coupled
 \code{\link[=met_information]{met_information()}} matrix. The scoring can be made robust to uncertain
 variance components by passing \code{\link[=robust_scenarios]{robust_scenarios()}}.

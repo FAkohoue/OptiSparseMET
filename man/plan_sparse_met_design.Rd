@@ -8,7 +8,8 @@ plan_sparse_met_design(
   treatments,
   environments,
   allocation_matrix = NULL,
-  allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
+  allocation_method = c("random_balanced", "equireplicate", "M3", "M4",
+    "prediction_optimal", "robust_prediction", "adaptive_sequential"),
   n_test_entries_per_environment,
   target_replications = NULL,
   common_treatments = NULL,
@@ -37,7 +38,17 @@ plan_sparse_met_design(
   balance_groups_across_env = TRUE,
   force_group_connectivity = TRUE,
   allow_approximate = FALSE,
-  seed = NULL
+  seed = NULL,
+  allocation_criterion = "mean_pev",
+  search_method = "annealing",
+  common_set = "provided",
+  common_control = list(),
+  optimizer_control = list(),
+  robust = NULL,
+  robust_aggregate = "cvar",
+  cvar_alpha = 0.25,
+  observed_allocation = NULL,
+  adaptive_batch_size = NULL
 )
 }
 \arguments{
@@ -130,6 +141,15 @@ treatment after all environments and local replications are planned.}
 \item{allow_approximate}{Logical passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 
 \item{seed}{Optional integer seed for reproducibility.}
+
+\item{allocation_criterion, search_method, common_set, common_control}{Advanced
+allocation controls passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{optimizer_control, robust, robust_aggregate, cvar_alpha}{Additional
+optimiser and robustness controls passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{observed_allocation, adaptive_batch_size}{Existing information and new
+recommendation count for adaptive sequential allocation.}
 }
 \value{
 A named list with:

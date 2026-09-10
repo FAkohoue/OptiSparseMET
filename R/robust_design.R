@@ -21,6 +21,10 @@
 #'   covariance matrices (for example calibration bootstrap or modality
 #'   sensitivity candidates). Each is crossed with the variance and shrinkage
 #'   grid. If omitted, the `Sigma_E` supplied to the scoring function is used.
+#' @param operational_scenarios Optional named list of operational scenarios.
+#'   Each element may provide `tpe_weights`, `env_efficiency`,
+#'   `cost_per_plot`, and `site_loss` (environment names whose information is
+#'   removed). These are crossed with the variance/covariance grid.
 #' @return A list of scenarios, each a list with `sigma_g2`, `sigma_e2`,
 #'   `sigmaE_shrink`, and `prob`.
 #' @seealso [robust_design_score()], [optimize_design()].
@@ -29,7 +33,8 @@
 #' @export
 robust_scenarios <- function(sigma_e2 = c(0.5, 1, 2), sigma_g2 = 1,
                              sigmaE_shrink = 0, probs = NULL,
-                             Sigma_E_candidates = NULL) {
+                             Sigma_E_candidates = NULL,
+                             operational_scenarios = NULL) {
   if (!is.numeric(sigma_g2) || !length(sigma_g2) ||
       any(!is.finite(sigma_g2)) || any(sigma_g2 <= 0))
     stop("`sigma_g2` must contain finite positive values.")
@@ -61,9 +66,23 @@ robust_scenarios <- function(sigma_e2 = c(0.5, 1, 2), sigma_g2 = 1,
          "positive-semidefinite square matrix with positive diagonal.")
   if (is.null(names(candidates)))
     names(candidates) <- paste0("candidate_", seq_along(candidates))
+  operations <- if (is.null(operational_scenarios))
+    list(baseline = list()) else operational_scenarios
+  if (!is.list(operations) || !length(operations) ||
+      any(!vapply(operations, is.list, logical(1))))
+    stop("`operational_scenarios` must be NULL or a non-empty list of lists.")
+  if (is.null(names(operations)))
+    names(operations) <- paste0("operation_", seq_along(operations))
+  allowed_operation_fields <- c("tpe_weights", "env_efficiency",
+                                "cost_per_plot", "site_loss")
+  if (any(vapply(operations, function(x)
+    length(setdiff(names(x), allowed_operation_fields)) > 0L, logical(1))))
+    stop("Operational scenarios may contain only tpe_weights, env_efficiency, ",
+         "cost_per_plot, and site_loss.")
   grid <- expand.grid(sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                       sigmaE_shrink = sigmaE_shrink,
                       candidate = seq_along(candidates),
+                      operation = seq_along(operations),
                       KEEP.OUT.ATTRS = FALSE)
   n <- nrow(grid)
   if (is.null(probs)) probs <- rep(1, n)
@@ -73,11 +92,14 @@ robust_scenarios <- function(sigma_e2 = c(0.5, 1, 2), sigma_g2 = 1,
   if (any(probs < 0) || sum(probs) == 0)
     stop("`probs` must be non-negative and not all zero.")
   probs <- probs / sum(probs)
-  lapply(seq_len(n), function(i)
-    list(sigma_g2 = grid$sigma_g2[i], sigma_e2 = grid$sigma_e2[i],
-         sigmaE_shrink = grid$sigmaE_shrink[i], prob = probs[i],
-         Sigma_E = candidates[[grid$candidate[i]]],
-         Sigma_E_candidate = names(candidates)[grid$candidate[i]]))
+  lapply(seq_len(n), function(i) {
+    op <- operations[[grid$operation[i]]]
+    c(list(sigma_g2 = grid$sigma_g2[i], sigma_e2 = grid$sigma_e2[i],
+           sigmaE_shrink = grid$sigmaE_shrink[i], prob = probs[i],
+           Sigma_E = candidates[[grid$candidate[i]]],
+           Sigma_E_candidate = names(candidates)[grid$candidate[i]],
+           operational_scenario = names(operations)[grid$operation[i]]), op)
+  })
 }
 
 
@@ -124,6 +146,7 @@ robust_design_score <- function(allocation_matrix, G, Sigma_E, scenarios,
          "and a finite non-negative probability.")
   Sigma_E <- if (is.null(Sigma_E)) NULL else as.matrix(Sigma_E)
 
+  dots <- list(...)
   scores <- vapply(scenarios, function(sc) {
     base_Sigma <- if (!is.null(sc$Sigma_E)) as.matrix(sc$Sigma_E) else Sigma_E
     if (!is.null(base_Sigma) && !is.null(Sigma_E) &&
@@ -138,8 +161,34 @@ robust_design_score <- function(allocation_matrix, G, Sigma_E, scenarios,
     SigE_sc <- if (is.null(base_Sigma)) NULL else
       (1 - sc$sigmaE_shrink) * base_Sigma +
       sc$sigmaE_shrink * diag(diag(base_Sigma))
-    design_objective(allocation_matrix, G = G, Sigma_E = SigE_sc,
-                     sigma_g2 = sc$sigma_g2, sigma_e2 = sc$sigma_e2, ...)$score
+    scenario_args <- dots
+    for (nm in c("tpe_weights", "env_efficiency", "cost_per_plot"))
+      if (!is.null(sc[[nm]])) scenario_args[[nm]] <- sc[[nm]]
+    if (!is.null(sc$site_loss) && length(sc$site_loss)) {
+      envs <- colnames(allocation_matrix)
+      lost <- as.character(sc$site_loss)
+      if (!all(lost %in% envs))
+        stop("A robust scenario names an unknown lost environment.")
+      eff <- scenario_args$env_efficiency
+      if (is.null(eff)) eff <- stats::setNames(rep(1, length(envs)), envs)
+      if (is.null(names(eff))) {
+        if (length(eff) == 1L) eff <- rep(eff, length(envs))
+        names(eff) <- envs
+      }
+      eff <- eff[envs]; eff[lost] <- 0
+      scenario_args$env_efficiency <- eff
+      if (!is.null(scenario_args$local_information)) {
+        li <- scenario_args$local_information
+        for (nm in lost) if (!is.null(li[[nm]])) li[[nm]][] <- 0
+        scenario_args$local_information <- li
+      }
+    }
+    scenario_args$allocation_matrix <- allocation_matrix
+    scenario_args$G <- G
+    scenario_args$Sigma_E <- SigE_sc
+    scenario_args$sigma_g2 <- sc$sigma_g2
+    scenario_args$sigma_e2 <- sc$sigma_e2
+    do.call(design_objective, scenario_args)$score
   }, numeric(1))
   probs <- vapply(scenarios, function(s) s$prob, numeric(1))
   if (sum(probs) <= 0)
@@ -158,7 +207,12 @@ robust_design_score <- function(allocation_matrix, G, Sigma_E, scenarios,
          function(s) if (is.null(s$Sigma_E_candidate))
            "supplied_central" else as.character(s$Sigma_E_candidate),
          character(1)
-       ))
+       ),
+       operational_scenario = vapply(
+         scenarios,
+         function(s) if (is.null(s$operational_scenario))
+           "baseline" else as.character(s$operational_scenario),
+         character(1)))
 }
 
 

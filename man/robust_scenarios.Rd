@@ -9,7 +9,8 @@ robust_scenarios(
   sigma_g2 = 1,
   sigmaE_shrink = 0,
   probs = NULL,
-  Sigma_E_candidates = NULL
+  Sigma_E_candidates = NULL,
+  operational_scenarios = NULL
 )
 }
 \arguments{
@@ -29,6 +30,11 @@ uniform.}
 covariance matrices (for example calibration bootstrap or modality
 sensitivity candidates). Each is crossed with the variance and shrinkage
 grid. If omitted, the \code{Sigma_E} supplied to the scoring function is used.}
+
+\item{operational_scenarios}{Optional named list of operational scenarios.
+Each element may provide \code{tpe_weights}, \code{env_efficiency},
+\code{cost_per_plot}, and \code{site_loss} (environment names whose information is
+removed). These are crossed with the variance/covariance grid.}
 }
 \value{
 A list of scenarios, each a list with \code{sigma_g2}, \code{sigma_e2},

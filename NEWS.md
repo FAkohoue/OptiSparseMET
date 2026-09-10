@@ -2,6 +2,22 @@
 
 ## Statistical, environmental, and operational hardening
 
+* `allocate_sparse_met()` now exposes `"prediction_optimal"`,
+  `"robust_prediction"`, and `"adaptive_sequential"` alongside M3/M4.
+  Prediction modes optimise mean PEV, CDmean, or expected gain; the common-set
+  size and identities may be changed jointly with the remaining incidence
+  matrix while capacity, seed, coverage, and optional local-layout constraints
+  remain enforced.
+* `optimize_design()` now separates the allocation criterion from the search
+  engine. Multi-start simulated annealing, greedy exchange, elitist
+  mutation-selection, and guarded exact binary enumeration (`"mip"` alias) are
+  available with explicit diagnostics; exact search refuses problems above its
+  declared cell limit.
+* Added `adaptive_met_allocation()` for auditable batch-sequential selection of
+  the genotype-environment cells with the greatest marginal information.
+  Robust scenarios can now change TPE weights, site efficiency/emergence, plot
+  cost, and complete site availability in addition to variance and covariance
+  assumptions.
 * The coupled MET engine now accepts target-population environment weights,
   environment-specific residual variances, and full treatment-information
   matrices from realised field layouts. `local_treatment_information()` and

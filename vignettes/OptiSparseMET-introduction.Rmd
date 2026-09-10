@@ -454,7 +454,7 @@ n_test_entries_per_environment <- c(
 
 | Argument | Default | When it is used |
 |---|---:|---|
-| `allocation_method` | `"random_balanced"` | Use `"equireplicate"` when equal environment replication and the required degree sequence are feasible. `"M3"` and `"M4"` remain aliases. |
+| `allocation_method` | `"random_balanced"` | M3/M4 are constructors; use `"prediction_optimal"`, `"robust_prediction"`, or `"adaptive_sequential"` when relationship and covariance inputs support criterion-driven allocation. |
 | `target_replications` | Inferred | Target number of environments per non-common treatment; strict for `equireplicate`. |
 | `common_treatments` | `NULL` | Character vector of preselected entries. When supplied, these identities are fixed and required at every environment; their local replication may differ. |
 | `balance` | `"none"` | `"env_pair"`, `"line_pair"`, or `"both"` for concurrence refinement. |
@@ -948,7 +948,49 @@ alloc_M4$summary$max_sparse_replication  # equals min_sparse_replication: equal 
 
 ---
 
-## 6.4 Equal-size special case: divisibility by J\*, I, and r
+## 6.4 Criterion-driven allocation beyond M3 and M4
+
+M3 and M4 specify how to construct a feasible incidence matrix; they do not
+define the breeder's statistical objective. Three additional public modes use
+the coupled MET information engine:
+
+| `allocation_method` | Decision |
+|---|---|
+| `"prediction_optimal"` | Refine a feasible M3/M4 start to minimise mean PEV, maximise CDmean, or maximise expected gain |
+| `"robust_prediction"` | Optimise mean, lower-tail CVaR, or worst-case performance over statistical and operational scenarios |
+| `"adaptive_sequential"` | Add the next most informative genotype-environment cells to an observed or committed design |
+
+```{r criterion-driven-allocation, eval=FALSE}
+prediction_design <- allocate_sparse_met(
+  x$treatments, x$environments,
+  allocation_method = "prediction_optimal",
+  n_test_entries_per_environment = 39,
+  G = x$G, Sigma_E = x$Sigma_E,
+  allocation_criterion = "mean_pev",
+  search_method = "annealing",
+  common_set = "optimize_jointly",
+  common_control = list(count_range = c(4, 12), weight = 0.15),
+  optimizer_control = list(start_method = "M3", n_starts = 5, iters = 250),
+  seed = 123
+)
+```
+
+`common_set = "optimize_jointly"` differs from the standalone common-set
+planner: common membership may change during the same search that changes the
+remaining incidence matrix. Full treatment coverage, environment capacities,
+seed limits, and any fieldbook evaluator remain hard constraints.
+
+The search engine is a computational choice, not a scientific criterion.
+`"exchange"` is greedy, `"annealing"` is the scalable default, and `"genetic"`
+uses an elitist mutation-selection population. `"exact"`/`"mip"` enumerates
+every feasible binary design and certifies small problems; it stops above
+`exact_max_cells` instead of returning an uncertified answer.
+
+`adaptive_met_allocation()` is also available directly when early observations
+already exist. Its recommendation table records every selected cell, marginal
+criterion improvement, reason, and cost.
+
+## 6.5 Equal-size special case: divisibility by J\*, I, and r
 
 For equal environment sizes, $J^* \times r = I \times k^*$ requires that $J^* \times r$
 be exactly divisible by $I$. Whether this is achievable for a given

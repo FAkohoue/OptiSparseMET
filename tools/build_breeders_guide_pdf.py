@@ -242,28 +242,28 @@ def _production_engine_page() -> bytes:
         y = _draw_paragraph(c, bullet, BULLET, x, y, width) - 3
     y -= 4
 
-    y = _draw_paragraph(c, "Joint allocation and field layout", HEADING, x, y, width) - 4
+    y = _draw_paragraph(c, "Prediction-optimal allocation", HEADING, x, y, width) - 4
     y = _draw_paragraph(
         c,
-        "<b>fieldbook_design_evaluator()</b> converts every candidate allocation "
-        "into actual local fieldbooks. It returns integer replication, repeated-"
-        "check overhead, site-specific cost, and full treatment-information "
-        "matrices from <b>local_treatment_information()</b>. "
-        "<b>optimize_design()</b> therefore accepts or rejects an allocation "
-        "using the plantable layouts it produces, not a fixed efficiency guess.",
+        "M3 and M4 remain transparent constructors. "
+        "<b>allocation_method = prediction_optimal</b> refines a feasible start "
+        "against mean PEV, CDmean, or expected gain. With "
+        "<b>common_set = optimize_jointly</b>, common-set size and identities "
+        "change in the same search as the remaining incidence matrix. "
+        "<b>fieldbook_design_evaluator()</b> can score integer replication, checks, "
+        "cost, and full local treatment information from plantable layouts.",
         BODY, x, y, width,
     ) - 13
 
-    y = _draw_paragraph(c, "Large-network calculation", HEADING, x, y, width) - 4
+    y = _draw_paragraph(c, "Search and large-network calculation", HEADING, x, y, width) - 4
     y = _draw_paragraph(
         c,
-        "<b>met_information(solver = \"auto\")</b> uses the exact dense solve "
-        "for moderate problems and matrix-free preconditioned conjugate gradients "
-        "(PCG) above the declared dimension threshold. PCG avoids the full "
-        "JE-by-JE matrix and estimates target PEV diagonals with deterministic "
-        "probes. Record the probe count, tolerance, iterations, residual norms, "
-        "and convergence fraction, and confirm design rankings are stable as the "
-        "probe count increases.",
+        "Choose exchange, simulated annealing, or genetic mutation-selection "
+        "independently from the scientific criterion. Guarded exact binary "
+        "search certifies only small problems and refuses larger ones. "
+        "<b>met_information(solver = \"auto\")</b> switches to matrix-free PCG "
+        "for large networks. Record search and solver diagnostics and confirm "
+        "that rankings are stable across restarts, probes, and tolerances.",
         BODY, x, y, width,
     )
 
@@ -308,11 +308,22 @@ def _release_record_page() -> bytes:
         "- Review proposed, accepted, and improving moves and the acceptance rate.",
         "- Investigate infeasible proposals and fieldbook-evaluator failures.",
         "- Review unique candidate evaluations, cache hits, and every restart "
-        "trajectory; retain the random seed and objective definition.",
+        "trajectory; retain the criterion, search engine, random seed, and controls.",
     ]
     for bullet in bullets:
         y = _draw_paragraph(c, bullet, BULLET, x, y, width) - 3
     y -= 4
+
+    y = _draw_paragraph(c, "Robust and adaptive decisions", HEADING, x, y, width) - 4
+    y = _draw_paragraph(
+        c,
+        "<b>robust_prediction</b> evaluates covariance and variance uncertainty "
+        "together with TPE shifts, emergence or efficiency loss, plot-cost "
+        "changes, and complete site loss. <b>adaptive_met_allocation()</b> adds "
+        "the next most informative cells to observations already collected or "
+        "committed and returns a stepwise marginal-information audit.",
+        BODY, x, y, width,
+    ) - 13
 
     y = _draw_paragraph(c, "Validated release object", HEADING, x, y, width) - 4
     y = _draw_paragraph(

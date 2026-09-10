@@ -34,7 +34,8 @@ Defaults to \code{allocation_matrix} (one plot per present cell).}
 
 \item{env_efficiency}{Optional length-\eqn{E} vector of within-environment
 design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
-local design). Defaults to 1 for every environment.}
+local design). Defaults to 1 for every environment. Zero is accepted to
+represent a lost or unavailable site in robust scenario evaluation.}
 
 \item{max_dim}{Integer threshold on \eqn{J \times E}. With
 \code{solver = "auto"}, larger problems use the iterative matrix-free path.}

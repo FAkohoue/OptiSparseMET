@@ -39,6 +39,10 @@
 #' @param fixed_plot_overhead Scalar or per-environment counts of physical plots
 #'   not represented in `reps` (for example repeated checks). These plots count
 #'   toward both budget and cost.
+#' @param criterion Scalar optimisation criterion. `"weighted"` uses `weights`;
+#'   `"mean_pev"` minimises mean prediction-error variance; `"cdmean"`
+#'   maximises mean reliability; and `"expected_gain"` maximises expected
+#'   genetic gain. All criteria are returned on a higher-is-better scale.
 #' @param weights Named list of non-negative weights `gain`, `reliability`,
 #'   `cost`. Default `list(gain = 1, reliability = 0, cost = 0)`.
 #' @param ref Named list of reference values (`gain`, `reliability`, `cost`) used
@@ -67,9 +71,12 @@ design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
                              trait_weights = NULL, trait_gencov = NULL,
                              R_T = NULL, multitrait = c("exact", "approx"),
                              cost_per_plot = 1, fixed_plot_overhead = 0,
+                             criterion = c("weighted", "mean_pev", "cdmean",
+                                           "expected_gain"),
                              weights = list(gain = 1, reliability = 0, cost = 0),
                              ref = NULL, budget = NULL, max_dim = 6000L) {
   multitrait <- match.arg(multitrait)
+  criterion <- match.arg(criterion)
   is_mt <- !is.null(trait_weights) && !is.null(trait_gencov)
   envs <- colnames(allocation_matrix)
   normalise_env_cost <- function(x, arg) {
@@ -147,8 +154,22 @@ design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
     out$score <- -Inf
     return(out)
   }
-  out$score <- .combine_design_score(out, weights, ref)
+  out$score <- .criterion_design_score(out, criterion, weights, ref)
   out
+}
+
+
+# Convert raw design components to a higher-is-better optimisation score.
+.criterion_design_score <- function(components, criterion, weights, ref = NULL) {
+  rv <- function(nm, d) if (is.null(ref) || is.null(ref[[nm]]) ||
+                            !is.finite(ref[[nm]]) || ref[[nm]] == 0) d else ref[[nm]]
+  switch(
+    criterion,
+    weighted = .combine_design_score(components, weights, ref),
+    mean_pev = -components$mean_PEV / rv("mean_PEV", 1),
+    cdmean = components$reliability / rv("reliability", 1),
+    expected_gain = components$gain / rv("gain", 1)
+  )
 }
 
 

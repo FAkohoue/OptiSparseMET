@@ -431,6 +431,65 @@ alloc_m4 <- allocate_sparse_met(
   target_replications = 3, common_treatments = common, seed = 1)
 ```
 
+## 3.4 Prediction-optimal, robust, and sequential allocation
+
+M3 and M4 remain transparent constructors and benchmark designs. For a final
+design, the same public allocator can refine their incidence matrix against the
+coupled MET information criterion. The objective, search algorithm, and
+common-set policy are deliberately separate.
+
+```{r advanced-allocation}
+alloc_opt <- allocate_sparse_met(
+  treatments = hybrids, environments = sites,
+  allocation_method = "prediction_optimal",
+  n_test_entries_per_environment = capacity - 20,
+  G = G, Sigma_E = Sigma_E,
+  allocation_criterion = "mean_pev",
+  search_method = "annealing",
+  common_set = "optimize_jointly",
+  common_control = list(count_range = c(6, 16), weight = 0.15),
+  optimizer_control = list(
+    start_method = "M3", n_starts = 5L, iters = 250L,
+    tpe_weights = setNames(rep(1 / E, E), sites)
+  ),
+  seed = 1
+)
+
+# Risk-averse optimisation can include covariance, variance, TPE, cost,
+# emergence/efficiency, and complete site-loss scenarios.
+ops <- list(
+  baseline = list(),
+  low_emergence_E3 = list(env_efficiency = setNames(
+    replace(rep(1, E), 3, 0.55), sites)),
+  lose_E7 = list(site_loss = sites[7])
+)
+scenarios <- robust_scenarios(
+  sigma_e2 = c(0.7, 1, 1.5), sigmaE_shrink = c(0, 0.5),
+  operational_scenarios = ops
+)
+alloc_robust <- allocate_sparse_met(
+  hybrids, sites, "robust_prediction", capacity - 20,
+  G = G, Sigma_E = Sigma_E, robust = scenarios,
+  robust_aggregate = "cvar", search_method = "annealing", seed = 1
+)
+
+# After early observations, request only the next batch of cells.
+next_batch <- adaptive_met_allocation(
+  observed_allocation = observed_incidence,
+  G = G, Sigma_E = Sigma_E,
+  target_environment_sizes = capacity - 20,
+  batch_size = 30L, allocation_criterion = "mean_pev",
+  required_common_treatments = common, seed = 1
+)
+next_batch$recommendations
+```
+
+`search_method = "exchange"` is a deterministic hill-climbing option;
+`"genetic"` uses an elitist mutation-selection population. `"exact"` (and its
+`"mip"` alias) certifies the optimum by enumerating feasible binary designs but
+is intentionally limited to very small incidence matrices. It refuses larger
+problems instead of implying a false optimality guarantee.
+
 `A <- alloc_m3$allocation_matrix` is the object every optimisation below
 consumes.
 

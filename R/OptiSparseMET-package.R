@@ -14,7 +14,7 @@
 #' ## Stage 1: across-environment sparse allocation
 #'
 #' `allocate_sparse_met()` determines which treatments enter which
-#' environments. Two allocation strategies are available.
+#' environments. M3/M4 constructors and three criterion-driven modes are available.
 #' `"random_balanced"` implements an M3-type stochastic allocation that
 #' approximates balance without requiring exact balanced incomplete block
 #' design (BIBD) parameters. It is appropriate when environment capacities
@@ -25,6 +25,12 @@
 #' jointly realisable. Optional balancing improves pairwise co-occurrence
 #' without changing either margin. It is not a strict BIBD, which generally
 #' cannot exist when treatments greatly outnumber environments.
+#' `"prediction_optimal"` refines a feasible constructor against mean PEV,
+#' CDmean, or expected gain. `"robust_prediction"` applies the same objective
+#' over variance, covariance, TPE, cost, efficiency, and site-loss scenarios.
+#' `"adaptive_sequential"` adds the next most informative unobserved cells to an
+#' existing allocation. Common-set size and identities may be optimized in the
+#' same search as the non-common incidence matrix.
 #'
 #' Allocation can be guided by family labels, a genomic relationship matrix
 #' (GRM), or a pedigree numerator relationship matrix (A). Additive
@@ -128,6 +134,8 @@
 #' | `warn_if_k_too_small()` | Non-fatal capacity pre-flight check |
 #' | `assign_replication_by_seed()` | Classify treatments into replication roles |
 #' | `optimize_common_treatments()` | Robustly select the size and identities of the global common core |
+#' | `optimize_design()` | Criterion-driven allocation with exchange, annealing, genetic, or guarded exact search |
+#' | `adaptive_met_allocation()` | Add the next most informative genotype-environment observations |
 #' | `met_prep_famoptg()` | Build block-based within-environment layouts |
 #' | `met_alpha_rc_stream()` | Build stream-based row-column layouts |
 #' | `met_evaluate_famoptg_efficiency()` | Evaluate efficiency of met_prep_famoptg() designs |

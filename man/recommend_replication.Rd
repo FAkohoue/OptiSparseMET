@@ -40,7 +40,8 @@ environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{env_efficiency}{Optional length-\eqn{E} vector of within-environment
 design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
-local design). Defaults to 1 for every environment.}
+local design). Defaults to 1 for every environment. Zero is accepted to
+represent a lost or unavailable site in robust scenario evaluation.}
 
 \item{tpe_weights}{Optional non-negative weights defining the target
 population of environments. Values are normalised to sum to one. The

@@ -7,7 +7,8 @@
 allocate_sparse_met(
   treatments,
   environments,
-  allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
+  allocation_method = c("random_balanced", "equireplicate", "M3", "M4",
+    "prediction_optimal", "robust_prediction", "adaptive_sequential"),
   n_test_entries_per_environment,
   target_replications = NULL,
   common_treatments = NULL,
@@ -35,7 +36,18 @@ allocate_sparse_met(
   balance_groups_across_env = TRUE,
   force_group_connectivity = TRUE,
   allow_approximate = FALSE,
-  seed = NULL
+  seed = NULL,
+  G = NULL,
+  allocation_criterion = c("mean_pev", "cdmean", "expected_gain"),
+  search_method = c("annealing", "exchange", "genetic", "exact", "mip"),
+  common_set = c("provided", "none", "optimize_jointly"),
+  common_control = list(),
+  optimizer_control = list(),
+  robust = NULL,
+  robust_aggregate = c("mean", "cvar", "min"),
+  cvar_alpha = 0.25,
+  observed_allocation = NULL,
+  adaptive_batch_size = NULL
 )
 }
 \arguments{
@@ -48,10 +60,11 @@ must be unique, non-missing, and non-empty.}
 least two unique, non-missing, non-empty elements.}
 
 \item{allocation_method}{Character scalar. Sparse allocation strategy.
-Accepted values are \code{"random_balanced"} (M3-inspired stochastic
-allocation) and \code{"equireplicate"} (M4-type equal-replication allocation). The
-aliases \code{"M3"} and \code{"M4"} are also accepted and translated internally to
-their canonical names before any further processing.}
+\code{"random_balanced"} and \code{"equireplicate"} are the M3/M4 constructors.
+\code{"prediction_optimal"} refines a feasible constructor against the full
+information criterion; \code{"robust_prediction"} evaluates uncertainty
+scenarios; and \code{"adaptive_sequential"} adds the most informative currently
+unobserved cells. The aliases \code{"M3"} and \code{"M4"} remain accepted.}
 
 \item{n_test_entries_per_environment}{Integer scalar or vector giving the
 field capacity (total test treatments, including common treatments) of each
@@ -209,6 +222,34 @@ and the stochastic tie-breaking in phase two under \code{"random_balanced"},
 as well as tie-breaking in the strict exact constructor. If \code{NULL}, no
 seed is set and results may differ across runs; the seed used internally
 is returned as \code{seed_used}.}
+
+\item{G}{Optional genomic or pedigree relationship matrix for advanced
+allocation methods. If omitted, \code{GRM} and then \code{A} are tried.}
+
+\item{allocation_criterion}{Prediction objective for advanced methods:
+\code{"mean_pev"}, \code{"cdmean"}, or \code{"expected_gain"}.}
+
+\item{search_method}{Search engine passed to \code{\link[=optimize_design]{optimize_design()}}.}
+
+\item{common_set}{\code{"provided"}, \code{"none"}, or \code{"optimize_jointly"}.}
+
+\item{common_control}{Named list optionally containing \code{count_range} and
+\code{weight} for joint common-set optimisation.}
+
+\item{optimizer_control}{Named list of advanced controls, including
+\code{start_method}, \code{objective}, \code{preserve}, \code{n_starts}, \code{iters}, \code{cooling},
+\code{exact_max_cells}, \code{candidate_mask}, and \code{cost_per_plot}.}
+
+\item{robust}{Optional scenario list from \code{\link[=robust_scenarios]{robust_scenarios()}}. The robust
+method creates a conservative default when this is \code{NULL}.}
+
+\item{robust_aggregate, cvar_alpha}{Risk aggregation controls.}
+
+\item{observed_allocation}{Existing named 0/1 allocation used as the starting
+information for \code{"adaptive_sequential"}.}
+
+\item{adaptive_batch_size}{Number of new cells returned by adaptive
+allocation; \code{NULL} fills the requested environment capacities.}
 }
 \value{
 A named list with the following components:

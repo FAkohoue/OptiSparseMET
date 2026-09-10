@@ -83,6 +83,12 @@
 #' @param force_group_connectivity Logical passed to [allocate_sparse_met()].
 #' @param allow_approximate Logical passed to [allocate_sparse_met()].
 #' @param seed Optional integer seed for reproducibility.
+#' @param allocation_criterion,search_method,common_set,common_control Advanced
+#'   allocation controls passed to [allocate_sparse_met()].
+#' @param optimizer_control,robust,robust_aggregate,cvar_alpha Additional
+#'   optimiser and robustness controls passed to [allocate_sparse_met()].
+#' @param observed_allocation,adaptive_batch_size Existing information and new
+#'   recommendation count for adaptive sequential allocation.
 #'
 #' @return A named list with:
 #' \describe{
@@ -112,7 +118,9 @@ plan_sparse_met_design <- function(
     treatments,
     environments,
     allocation_matrix = NULL,
-    allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
+    allocation_method = c("random_balanced", "equireplicate", "M3", "M4",
+                          "prediction_optimal", "robust_prediction",
+                          "adaptive_sequential"),
     n_test_entries_per_environment,
     target_replications = NULL,
     common_treatments = NULL,
@@ -141,7 +149,17 @@ plan_sparse_met_design <- function(
     balance_groups_across_env = TRUE,
     force_group_connectivity = TRUE,
     allow_approximate = FALSE,
-    seed = NULL
+    seed = NULL,
+    allocation_criterion = "mean_pev",
+    search_method = "annealing",
+    common_set = "provided",
+    common_control = list(),
+    optimizer_control = list(),
+    robust = NULL,
+    robust_aggregate = "cvar",
+    cvar_alpha = 0.25,
+    observed_allocation = NULL,
+    adaptive_batch_size = NULL
 ) {
 
   allocation_method <- match.arg(allocation_method)
@@ -684,7 +702,18 @@ plan_sparse_met_design <- function(
     balance_groups_across_env = balance_groups_across_env,
     force_group_connectivity = force_group_connectivity,
     allow_approximate = allow_approximate,
-    seed = seed
+    seed = seed,
+    G = if (!is.null(GRM)) GRM else A,
+    allocation_criterion = allocation_criterion,
+    search_method = search_method,
+    common_set = common_set,
+    common_control = common_control,
+    optimizer_control = optimizer_control,
+    robust = robust,
+    robust_aggregate = robust_aggregate,
+    cvar_alpha = cvar_alpha,
+    observed_allocation = observed_allocation,
+    adaptive_batch_size = adaptive_batch_size
   ) else {
     M_given <- as.matrix(allocation_matrix)
     if (!is.numeric(M_given) || anyNA(M_given) ||

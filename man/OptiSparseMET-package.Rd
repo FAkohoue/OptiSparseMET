@@ -20,7 +20,7 @@ field.
 \subsection{Stage 1: across-environment sparse allocation}{
 
 \code{allocate_sparse_met()} determines which treatments enter which
-environments. Two allocation strategies are available.
+environments. M3/M4 constructors and three criterion-driven modes are available.
 \code{"random_balanced"} implements an M3-type stochastic allocation that
 approximates balance without requiring exact balanced incomplete block
 design (BIBD) parameters. It is appropriate when environment capacities
@@ -31,6 +31,12 @@ allowing unequal environment sizes when the requested row and column degrees are
 jointly realisable. Optional balancing improves pairwise co-occurrence
 without changing either margin. It is not a strict BIBD, which generally
 cannot exist when treatments greatly outnumber environments.
+\code{"prediction_optimal"} refines a feasible constructor against mean PEV,
+CDmean, or expected gain. \code{"robust_prediction"} applies the same objective
+over variance, covariance, TPE, cost, efficiency, and site-loss scenarios.
+\code{"adaptive_sequential"} adds the next most informative unobserved cells to an
+existing allocation. Common-set size and identities may be optimized in the
+same search as the non-common incidence matrix.
 
 Allocation can be guided by family labels, a genomic relationship matrix
 (GRM), or a pedigree numerator relationship matrix (A). Additive
@@ -136,6 +142,8 @@ The complete two-stage pipeline can also be run end-to-end through
    \code{warn_if_k_too_small()} \tab Non-fatal capacity pre-flight check \cr
    \code{assign_replication_by_seed()} \tab Classify treatments into replication roles \cr
    \code{optimize_common_treatments()} \tab Robustly select the size and identities of the global common core \cr
+   \code{optimize_design()} \tab Criterion-driven allocation with exchange, annealing, genetic, or guarded exact search \cr
+   \code{adaptive_met_allocation()} \tab Add the next most informative genotype-environment observations \cr
    \code{met_prep_famoptg()} \tab Build block-based within-environment layouts \cr
    \code{met_alpha_rc_stream()} \tab Build stream-based row-column layouts \cr
    \code{met_evaluate_famoptg_efficiency()} \tab Evaluate efficiency of met_prep_famoptg() designs \cr

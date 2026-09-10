@@ -19,6 +19,16 @@ run_design_strategy(
   target_replications = NULL,
   common_treatments = NULL,
   balance = "none",
+  allocation_criterion = "mean_pev",
+  search_method = "annealing",
+  common_set = "provided",
+  common_control = list(),
+  optimizer_control = list(),
+  robust = NULL,
+  robust_aggregate = "cvar",
+  cvar_alpha = 0.25,
+  observed_allocation = NULL,
+  adaptive_batch_size = NULL,
   refine_gxe = FALSE,
   recommend_reps = FALSE,
   replication_levels = c(1, 1.5, 2),
@@ -56,6 +66,15 @@ tested lines from \code{treatments} by a training-set criterion
 (see \code{\link[=select_individuals]{select_individuals()}}). If \code{NULL}, all \code{treatments} are used.}
 
 \item{allocation_method, target_replications, common_treatments, balance}{Decision 3: passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{allocation_criterion, search_method, common_set, common_control}{Advanced
+allocation controls passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{optimizer_control, robust, robust_aggregate, cvar_alpha}{Additional
+optimiser and robustness controls passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
+
+\item{observed_allocation, adaptive_batch_size}{Starting information and batch
+size for \code{allocation_method = "adaptive_sequential"}.}
 
 \item{refine_gxe}{Logical. If \code{TRUE} (and \code{G}/\code{Sigma_E} supplied), refine the
 allocation with \code{\link[=optimize_allocation_gxe]{optimize_allocation_gxe()}}.}

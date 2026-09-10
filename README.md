@@ -49,7 +49,7 @@ $$
 
 ## What it does
 
-The pipeline runs in nine modules (94 exported functions), each documented in
+The pipeline runs in nine modules (95 exported functions), each documented in
 the [reference index](https://FAkohoue.github.io/OptiSparseMET/reference/) and
 demonstrated end-to-end in the pipeline vignette:
 
@@ -57,8 +57,9 @@ demonstrated end-to-end in the pipeline vignette:
    data-driven environmental covariance `Sigma_E`, and mega-environments.
 2. **Genetic relationship matrices** — genomic, hybrid/testcross (with optional
    dominance), and made-invertible relationship matrices.
-3. **Sparse allocation** — M3 (random-balanced) / M4 (equireplicate) allocation
-   with feasibility checks and auto-suggested common treatments.
+3. **Sparse allocation** — M3/M4 construction plus prediction-optimal,
+   robust-prediction, and adaptive-sequential allocation, with optional joint
+   optimisation of the common set.
 4. **Seed-aware replication** — a single seed inventory turned into a feasible
    per-site replication plan.
 5. **Within-environment field design** — block and alpha row-column layouts with
@@ -83,6 +84,24 @@ released design. TPE weights, environment-specific residual variances, realised
 integer replication, local treatment-information matrices, check-plot overhead,
 fieldbooks, solver diagnostics, and provenance can be stored in a validated
 `sparse_met_design` object.
+
+For a criterion-driven allocation, ask the public allocator to refine a
+feasible M3 or M4 start. The objective, search engine, and common-set policy are
+separate controls so the result remains interpretable.
+
+```r
+optimal <- allocate_sparse_met(
+  treatments = rownames(G), environments = colnames(Sigma_E),
+  allocation_method = "prediction_optimal",
+  n_test_entries_per_environment = 40,
+  G = G, Sigma_E = Sigma_E,
+  allocation_criterion = "mean_pev",
+  search_method = "annealing",
+  common_set = "optimize_jointly",
+  common_control = list(count_range = c(4, 12), weight = 0.15),
+  seed = 1
+)
+```
 
 ---
 
@@ -166,7 +185,7 @@ vignette("OptiSparseMET-pipeline", package = "OptiSparseMET")
 | [Environmental interactions](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-environmental-interactions.html) | Enviromic kernels and interaction evidence |
 | [Benchmarking](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-benchmarking.html) | Comparing and validating designs before release |
 | [Breeder's Guide](https://FAkohoue.github.io/OptiSparseMET/breeder-guide.html) | HTML guide page with an embedded and downloadable PDF |
-| [Function reference](https://FAkohoue.github.io/OptiSparseMET/reference/) | All 94 functions, grouped by module |
+| [Function reference](https://FAkohoue.github.io/OptiSparseMET/reference/) | All 95 functions, grouped by module |
 
 ```r
 # After installation:

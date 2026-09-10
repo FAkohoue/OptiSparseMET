@@ -12,6 +12,14 @@ variance and plot cost; joint allocation, integer replication, and local field
 layout optimisation; scalable matrix-free reliability calculations; and the
 validated design record used for field-book release.
 
+The allocator now presents five explicit choices: M3 random-balanced, M4
+equireplicate, prediction-optimal, robust-prediction, and adaptive-sequential.
+Prediction modes can jointly revise the common-set size and identities, while
+robust scenarios can represent TPE shifts, emergence or efficiency loss, cost
+changes, and complete site loss. The scientific criterion is selected
+separately from the exchange, annealing, genetic, or guarded exact search
+engine.
+
 The guide distinguishes descriptive environmental structure from genetic
 covariance estimated from historical MET responses. It also explains which
 diagnostics must be reviewed when an iterative solver or stochastic optimiser

@@ -22,6 +22,7 @@ design_objective(
   multitrait = c("exact", "approx"),
   cost_per_plot = 1,
   fixed_plot_overhead = 0,
+  criterion = c("weighted", "mean_pev", "cdmean", "expected_gain"),
   weights = list(gain = 1, reliability = 0, cost = 0),
   ref = NULL,
   budget = NULL,
@@ -56,6 +57,11 @@ per environment. Default 1.}
 \item{fixed_plot_overhead}{Scalar or per-environment counts of physical plots
 not represented in \code{reps} (for example repeated checks). These plots count
 toward both budget and cost.}
+
+\item{criterion}{Scalar optimisation criterion. \code{"weighted"} uses \code{weights};
+\code{"mean_pev"} minimises mean prediction-error variance; \code{"cdmean"}
+maximises mean reliability; and \code{"expected_gain"} maximises expected
+genetic gain. All criteria are returned on a higher-is-better scale.}
 
 \item{weights}{Named list of non-negative weights \code{gain}, \code{reliability},
 \code{cost}. Default \code{list(gain = 1, reliability = 0, cost = 0)}.}

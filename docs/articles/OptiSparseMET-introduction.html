@@ -641,9 +641,10 @@ settings. Names must cover every value in
 <tr class="odd">
 <td><code>allocation_method</code></td>
 <td align="right"><code>"random_balanced"</code></td>
-<td>Use <code>"equireplicate"</code> when equal environment replication
-and the required degree sequence are feasible. <code>"M3"</code> and
-<code>"M4"</code> remain aliases.</td>
+<td>M3/M4 are constructors; use <code>"prediction_optimal"</code>,
+<code>"robust_prediction"</code>, or <code>"adaptive_sequential"</code>
+when relationship and covariance inputs support criterion-driven
+allocation.</td>
 </tr>
 <tr class="even">
 <td><code>target_replications</code></td>
@@ -1845,7 +1846,70 @@ replication cannot be satisfied.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="equal-size-special-case-divisibility-by-j-i-and-r">6.4 Equal-size special case: divisibility by J*, I, and r<a class="anchor" aria-label="anchor" href="#equal-size-special-case-divisibility-by-j-i-and-r"></a>
+<h3 id="criterion-driven-allocation-beyond-m3-and-m4">6.4 Criterion-driven allocation beyond M3 and M4<a class="anchor" aria-label="anchor" href="#criterion-driven-allocation-beyond-m3-and-m4"></a>
+</h3>
+<p>M3 and M4 specify how to construct a feasible incidence matrix; they
+do not define the breeder’s statistical objective. Three additional
+public modes use the coupled MET information engine:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th><code>allocation_method</code></th>
+<th>Decision</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>"prediction_optimal"</code></td>
+<td>Refine a feasible M3/M4 start to minimise mean PEV, maximise CDmean,
+or maximise expected gain</td>
+</tr>
+<tr class="even">
+<td><code>"robust_prediction"</code></td>
+<td>Optimise mean, lower-tail CVaR, or worst-case performance over
+statistical and operational scenarios</td>
+</tr>
+<tr class="odd">
+<td><code>"adaptive_sequential"</code></td>
+<td>Add the next most informative genotype-environment cells to an
+observed or committed design</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prediction_design</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
+<span>  <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>, <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
+<span>  allocation_method <span class="op">=</span> <span class="st">"prediction_optimal"</span>,</span>
+<span>  n_test_entries_per_environment <span class="op">=</span> <span class="fl">39</span>,</span>
+<span>  G <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">G</span>, Sigma_E <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">Sigma_E</span>,</span>
+<span>  allocation_criterion <span class="op">=</span> <span class="st">"mean_pev"</span>,</span>
+<span>  search_method <span class="op">=</span> <span class="st">"annealing"</span>,</span>
+<span>  common_set <span class="op">=</span> <span class="st">"optimize_jointly"</span>,</span>
+<span>  common_control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>count_range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">12</span><span class="op">)</span>, weight <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span>,</span>
+<span>  optimizer_control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>start_method <span class="op">=</span> <span class="st">"M3"</span>, n_starts <span class="op">=</span> <span class="fl">5</span>, iters <span class="op">=</span> <span class="fl">250</span><span class="op">)</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><code>common_set = "optimize_jointly"</code> differs from the
+standalone common-set planner: common membership may change during the
+same search that changes the remaining incidence matrix. Full treatment
+coverage, environment capacities, seed limits, and any fieldbook
+evaluator remain hard constraints.</p>
+<p>The search engine is a computational choice, not a scientific
+criterion. <code>"exchange"</code> is greedy, <code>"annealing"</code>
+is the scalable default, and <code>"genetic"</code> uses an elitist
+mutation-selection population. <code>"exact"</code>/<code>"mip"</code>
+enumerates every feasible binary design and certifies small problems; it
+stops above <code>exact_max_cells</code> instead of returning an
+uncertified answer.</p>
+<p><code><a href="../reference/adaptive_met_allocation.html">adaptive_met_allocation()</a></code> is also available directly
+when early observations already exist. Its recommendation table records
+every selected cell, marginal criterion improvement, reason, and
+cost.</p>
+</div>
+<div class="section level3">
+<h3 id="equal-size-special-case-divisibility-by-j-i-and-r">6.5 Equal-size special case: divisibility by J*, I, and r<a class="anchor" aria-label="anchor" href="#equal-size-special-case-divisibility-by-j-i-and-r"></a>
 </h3>
 <p>For equal environment sizes, <span class="math inline">\(J^* \times r
 = I \times k^*\)</span> requires that <span class="math inline">\(J^*
@@ -2213,7 +2277,7 @@ freely.</li>
 fallback — the allocation proceeds with the closest possible balance,
 accepting minor replication differences.</li>
 </ol>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Quick check: is your combination feasible?</span></span>
 <span><span class="co"># J* = 75 (odd), I = 4, r = 2 -- should give --</span></span>
 <span><span class="fu"><a href="../reference/check_balanced_incomplete_feasibility.html">check_balanced_incomplete_feasibility</a></span><span class="op">(</span></span>
@@ -2300,7 +2364,7 @@ unobserved. Spreading related lines across environments ensures the full
 genetic diversity of the candidate set is represented at each site,
 maximizing the amount of novel genetic information available for
 calibrating the prediction model.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alloc_grm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/allocate_sparse_met.html">allocate_sparse_met</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
@@ -2330,7 +2394,7 @@ calibrating the prediction model.</p>
 <p>An environmental relationship is a description of sites; it is not,
 by itself, an estimate of genetic covariance. The recommended workflow
 therefore keeps the sources separate:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dedicated_interaction_hypotheses</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  interaction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"temperature_x_density"</span>, <span class="st">"temperature_x_density"</span></span>
@@ -2649,7 +2713,7 @@ These are pairwise scoring rules for one global common set. Repeating a
 genotype at one or both sites does not increase the shared-treatment
 count. Genetic effective sample size evaluates diversity separately; it
 does not replace the literal number of distinct shared identities.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">common_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/optimize_common_treatments.html">optimize_common_treatments</a></span><span class="op">(</span></span>
 <span>  G <span class="op">=</span> <span class="va">G</span>, Sigma_E <span class="op">=</span> <span class="va">Sigma_E</span>,</span>
 <span>  treatment_info <span class="op">=</span> <span class="va">treatment_info</span>,</span>
@@ -2764,7 +2828,7 @@ subset</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">seed_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Treatment     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  SeedAvailable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">20</span><span class="op">:</span><span class="fl">120</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">treatments</span><span class="op">)</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -2828,7 +2892,7 @@ block)</li>
 <p>Optional features include family-based or GRM/A-based genetic
 dispersion optimisation (minimising the average relatedness of adjacent
 plots) and mixed-model efficiency evaluation (A, D, CDmean).</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">design_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_prep_famoptg.html">met_prep_famoptg</a></span><span class="op">(</span></span>
 <span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>  check_families          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
@@ -2880,7 +2944,7 @@ block.</p>
 <code>[min_block_size, max_block_size]</code>
 </li>
 </ul>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">design_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_alpha_rc_stream.html">met_alpha_rc_stream</a></span><span class="op">(</span></span>
 <span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
 <span>  check_families   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHECK"</span>, <span class="st">"CHECK"</span><span class="op">)</span>,</span>
@@ -2948,7 +3012,7 @@ effects), and CDmean (for random treatment effects), under any of three
 residual structures: <code>"IID"</code>, <code>"AR1"</code> (along rows
 or columns), or <code>"AR1xAR1"</code> (spatial gradient in both
 dimensions).</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eff_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_famoptg_efficiency.html">met_evaluate_famoptg_efficiency</a></span><span class="op">(</span></span>
 <span>  field_book       <span class="op">=</span> <span class="va">design_E1</span><span class="op">$</span><span class="va">field_book</span>,</span>
 <span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
@@ -2987,7 +3051,7 @@ block effects respectively. The <code>varcomp</code> list must contain
 <code>sigma_rep2</code> and <code>sigma_ib2</code> (not
 <code>sigma_b2</code>). This two-level blocking structure reflects the
 hierarchical design of alpha row-column layouts.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eff_E2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_evaluate_alpha_efficiency.html">met_evaluate_alpha_efficiency</a></span><span class="op">(</span></span>
 <span>  field_book       <span class="op">=</span> <span class="va">design_E2</span><span class="op">$</span><span class="va">field_book</span>,</span>
 <span>  n_rows           <span class="op">=</span> <span class="fl">10L</span>,</span>
@@ -3036,7 +3100,7 @@ generates multiple independent random designs, evaluates each, and
 returns the best. All structural guarantees of
 <code><a href="../reference/met_prep_famoptg.html">met_prep_famoptg()</a></code> are enforced in every candidate
 design.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">opt_E1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_famoptg.html">met_optimize_famoptg</a></span><span class="op">(</span></span>
 <span>  <span class="co"># All arguments of met_prep_famoptg(), plus:</span></span>
 <span>  check_treatments        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
@@ -3093,7 +3157,7 @@ designs. At each generation, pairs of high-scoring designs are combined
 designs are carried forward unchanged. GA explores a broader search
 space than RS or SA for the same number of objective function
 evaluations, at the cost of higher implementation complexity.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Simulated Annealing</span></span>
 <span><span class="va">opt_E2_sa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/met_optimize_alpha_rc.html">met_optimize_alpha_rc</a></span><span class="op">(</span></span>
 <span>  check_treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CHK1"</span>, <span class="st">"CHK2"</span><span class="op">)</span>,</span>
@@ -3158,7 +3222,7 @@ unique candidate allocation is converted to integer replication and
 actual local fieldbooks, and the annealing objective uses the
 corresponding full treatment-information matrices and physical plot
 costs.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">layout_evaluator</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fieldbook_design_evaluator.html">fieldbook_design_evaluator</a></span><span class="op">(</span></span>
 <span>  env_design_specs <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">env_design_specs</span>,</span>
 <span>  treatment_info <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatment_info</span>,</span>
@@ -3208,7 +3272,7 @@ multipliers or a named list of complete local information matrices. The
 latter is preferred for the final decision because it preserves the
 off-diagonal contrast information created by blocks, repeated checks,
 random nuisance effects, and spatial correlation.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">local_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">joint</span><span class="op">$</span><span class="va">design</span><span class="op">$</span><span class="va">fieldbooks</span>, <span class="kw">function</span><span class="op">(</span><span class="va">fieldbook</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="../reference/local_treatment_information.html">local_treatment_information</a></span><span class="op">(</span></span>
 <span>    <span class="va">fieldbook</span>,</span>
@@ -3258,7 +3322,7 @@ weights, variance assumptions, diagnostics, and provenance. The
 validator checks matrix identifiers and dimensions, covariance symmetry
 and positive semidefiniteness, and exact fieldbook-to-replication
 reconciliation.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">release_design</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sparse_met_design.html">sparse_met_design</a></span><span class="op">(</span></span>
 <span>  allocation_matrix <span class="op">=</span> <span class="va">joint</span><span class="op">$</span><span class="va">design</span><span class="op">$</span><span class="va">allocation_matrix</span>,</span>
 <span>  reps <span class="op">=</span> <span class="va">joint</span><span class="op">$</span><span class="va">design</span><span class="op">$</span><span class="va">reps</span>,</span>
@@ -3282,7 +3346,7 @@ reconciliation.</p>
 <div class="section level3">
 <h3 id="step-by-step">13.1 Step-by-step<a class="anchor" aria-label="anchor" href="#step-by-step"></a>
 </h3>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/FAkohoue/OptiSparseMET" class="external-link">OptiSparseMET</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"OptiSparseMET_example_data"</span><span class="op">)</span></span>
@@ -3362,7 +3426,7 @@ single call. Each environment’s local design is controlled by
 <code>env_design_specs</code>, a named list where the
 <code>design</code> field specifies <code>"met_prep_famoptg"</code> or
 <code>"met_alpha_rc_stream"</code>:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plan_sparse_met_design.html">plan_sparse_met_design</a></span><span class="op">(</span></span>
 <span>  treatments                     <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">treatments</span>,</span>
 <span>  environments                   <span class="op">=</span> <span class="va">x</span><span class="op">$</span><span class="va">environments</span>,</span>
@@ -3395,7 +3459,7 @@ single call. Each environment’s local design is controlled by
 a different design engine and replication mode. The <code>design</code>
 field routes to the correct constructor. Additional fields are passed
 directly as arguments:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">env_design_specs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span></span>
 <span>  <span class="co"># p-rep block design</span></span>
@@ -3457,7 +3521,7 @@ genetic gain those designs achieve, together with Monte Carlo standard
 errors and 95% intervals. When fieldbooks exist, pass their actual
 treatment-by-environment plot counts through <code>reps</code>; do not
 substitute an intended average replication.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">n_geno</span> <span class="op">&lt;-</span> <span class="fl">120</span></span>
 <span><span class="va">n_env</span>  <span class="op">&lt;-</span> <span class="fl">4</span></span>
@@ -3545,7 +3609,7 @@ comparators, (iv) paired Monte Carlo evaluation across covariance,
 variance, and complete site-loss scenarios, (v)
 missing-environmental-covariate stress tests, and (vi) common-set,
 capacity, and allocation stability.</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/make_met_benchmark_designs.html">make_met_benchmark_designs</a></span><span class="op">(</span></span>
 <span>  treatments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">G0</span><span class="op">)</span>,</span>
 <span>  environments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">Sigma_E</span><span class="op">)</span>,</span>

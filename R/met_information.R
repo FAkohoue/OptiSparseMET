@@ -50,7 +50,8 @@
 #'   Defaults to `allocation_matrix` (one plot per present cell).
 #' @param env_efficiency Optional length-\eqn{E} vector of within-environment
 #'   design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
-#'   local design). Defaults to 1 for every environment.
+#'   local design). Defaults to 1 for every environment. Zero is accepted to
+#'   represent a lost or unavailable site in robust scenario evaluation.
 #' @param target Either `"across_tpe"` (reliability of the TPE-average breeding
 #'   value, the default) or `"environment_specific"` (per-cell PEV summary).
 #' @param max_dim Integer threshold on \eqn{J \times E}. With
@@ -191,8 +192,8 @@ met_information <- function(allocation_matrix, G, Sigma_E = NULL,
   }
   if (length(env_efficiency) != E) stop("`env_efficiency` must have length E.")
   if (!is.numeric(env_efficiency) || any(!is.finite(env_efficiency)) ||
-      any(env_efficiency <= 0 | env_efficiency > 1))
-    stop("`env_efficiency` values must be finite and in (0, 1].")
+      any(env_efficiency < 0 | env_efficiency > 1))
+    stop("`env_efficiency` values must be finite and in [0, 1].")
 
   # Covariance precision requires a positive-definite matrix. A Moore-Penrose
   # inverse is not appropriate here: a zero-variance direction would receive

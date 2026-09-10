@@ -3,6 +3,7 @@
 S3method(print,historical_met_fit)
 S3method(print,optisparsemet_environment_partition)
 S3method(print,sparse_met_design)
+export(adaptive_met_allocation)
 export(add_environment_kernel_interactions)
 export(add_management_interactions)
 export(agronomic_interaction_hypotheses)

@@ -51,8 +51,14 @@ Description: Constructs statistically connected and operationally feasible
     mega-environments and returns an unpartitioned network when grouping is
     unsupported. Target-population weights, environment-specific residual
     variances and plot costs, integer partial replication, and full local
-    treatment-information matrices feed the coupled design objective. A
-    matrix-free preconditioned-conjugate-gradient solver supports larger
+    treatment-information matrices feed the coupled design objective.
+    Prediction-optimal, scenario-robust, and adaptive-sequential allocation
+    modes complement the M3/M4 constructors; common-set size and identities can
+    be optimized jointly with the remaining incidence matrix. Exchange,
+    simulated-annealing, evolutionary, and guarded exact binary searches are
+    available. Operational scenarios can alter target weights, site efficiency,
+    plot cost, or remove a site entirely. A matrix-free
+    preconditioned-conjugate-gradient solver supports larger
     networks. The end-to-end pipeline joins capacity analysis, common-set
     selection, allocation, seed accounting, local field design, robust
     evaluation, and unified field-book assembly; versioned design objects

@@ -4,8 +4,9 @@
 #' Searches for the genotype-by-environment allocation that maximises a
 #' [design_objective()] -- any weighted combination of statistical quality
 #' (reliability / CDmean), expected genetic gain (single-trait or multi-trait
-#' index), and resource cost -- by simulated-annealing exchange with multiple
-#' restarts. Unlike the greedy constructor in [allocate_sparse_met()], the
+#' index), and resource cost -- by exchange, simulated annealing, evolutionary
+#' mutation-selection, or guarded exact binary search. Unlike the greedy
+#' constructors in [allocate_sparse_met()], the
 #' allocation itself is optimised against the criterion on the coupled
 #' [met_information()] matrix. The scoring can be made robust to uncertain
 #' variance components by passing [robust_scenarios()].
@@ -45,6 +46,30 @@
 #'   `fieldbooks`, and `metadata`. It is called once per unique candidate (results are cached),
 #'   allowing the annealing search to score actual plantable local layouts.
 #' @param preserve `"margins"`, `"replication"`, or `"none"` (see Details).
+#' @param allocation_criterion `"weighted"`, `"mean_pev"`, `"cdmean"`, or
+#'   `"expected_gain"`; passed to [design_objective()].
+#' @param search_method Search engine. `"annealing"` is the scalable default;
+#'   `"exchange"` accepts improving moves only; `"genetic"` uses an elitist
+#'   mutation-selection population; and `"exact"` exhaustively evaluates all
+#'   feasible binary designs for very small problems. `"mip"` is an alias for
+#'   the dependency-free exact binary search and is intentionally guarded by
+#'   `exact_max_cells`.
+#' @param common_set Whether globally common treatments are `"fixed"`, forbidden
+#'   (`"none"`), or allowed to change in size and identity
+#'   (`"optimize_jointly"`).
+#' @param common_treatments Optional fixed common-treatment IDs. With
+#'   `common_set = "fixed"`, `NULL` infers them from all-environment rows of the
+#'   starting design.
+#' @param common_count_range Allowed minimum and maximum number of global common
+#'   treatments during joint optimisation. Defaults to the feasible range.
+#' @param common_weight Non-negative weight for a connectivity/diversity utility
+#'   during joint common-set search. It is constant or zero outside
+#'   `common_set = "optimize_jointly"`.
+#' @param minimum_treatment_environments,maximum_treatment_environments Scalar or
+#'   treatment-specific bounds on the number of environments assigned to each
+#'   treatment.
+#' @param exact_max_cells Maximum `nrow * ncol` accepted by exact/`"mip"`
+#'   enumeration.
 #' @param robust Optional list from [robust_scenarios()]; if given, designs are
 #'   scored by [robust_design_score()].
 #' @param robust_aggregate,cvar_alpha Aggregation for robust scoring.
@@ -93,6 +118,16 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                             tpe_weights = NULL, env_efficiency = NULL,
                             design_evaluator = NULL,
                             preserve = c("margins", "replication", "none"),
+                            allocation_criterion = c("weighted", "mean_pev",
+                                                     "cdmean", "expected_gain"),
+                            search_method = c("annealing", "exchange", "genetic",
+                                              "exact", "mip"),
+                            common_set = c("fixed", "optimize_jointly", "none"),
+                            common_treatments = NULL,
+                            common_count_range = NULL,
+                            common_weight = 0.10,
+                            minimum_treatment_environments = 0L,
+                            maximum_treatment_environments = NULL,
                             robust = NULL,
                             robust_aggregate = c("mean", "cvar", "min"),
                             cvar_alpha = 0.25,
@@ -102,8 +137,13 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                             environment_capacities = NULL,
                             minimum_environment_entries = 1L,
                             n_starts = 5L, iters = 200L, cooling = 0.97,
+                            exact_max_cells = 16L,
                             seed = NULL, max_dim = 6000L, verbose = FALSE) {
   preserve <- match.arg(preserve)
+  allocation_criterion <- match.arg(allocation_criterion)
+  search_method <- match.arg(search_method)
+  if (search_method == "mip") search_method <- "exact"
+  common_set <- match.arg(common_set)
   robust_aggregate <- match.arg(robust_aggregate)
   if (!is.null(seed)) {
     if (!is.numeric(seed) || length(seed) != 1L || !is.finite(seed) ||
@@ -119,6 +159,14 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     stop("`seed_available` is required when `minimum_seed_buffer` is positive.")
   if (!is.null(design_evaluator) && !is.function(design_evaluator))
     stop("`design_evaluator` must be NULL or a function.")
+  if (!is.numeric(common_weight) || length(common_weight) != 1L ||
+      !is.finite(common_weight) || common_weight < 0)
+    stop("`common_weight` must be one finite non-negative value.")
+  if (!is.numeric(exact_max_cells) || length(exact_max_cells) != 1L ||
+      !is.finite(exact_max_cells) || exact_max_cells < 1L ||
+      exact_max_cells != as.integer(exact_max_cells))
+    stop("`exact_max_cells` must be a positive integer.")
+  exact_max_cells <- as.integer(exact_max_cells)
 
   M0 <- allocation_matrix
   storage.mode(M0) <- "integer"
@@ -129,6 +177,56 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     stop("`allocation_matrix` must be a named, unique, finite 0/1 matrix.")
   if (any(colSums(M0) == 0L))
     stop("Every environment in `allocation_matrix` must contain an entry.")
+
+  normalise_treatment_bound <- function(x, arg, default) {
+    if (is.null(x)) x <- default
+    if (!is.numeric(x) || !length(x) || any(!is.finite(x)) ||
+        any(abs(x - round(x)) > 1e-8))
+      stop(sprintf("`%s` must contain finite integer values.", arg))
+    if (!is.null(names(x)) && any(names(x) != "")) {
+      if (anyDuplicated(names(x)) || !all(rownames(M0) %in% names(x)))
+        stop(sprintf("Named `%s` must cover every treatment.", arg))
+      x <- x[rownames(M0)]
+    } else if (length(x) == 1L) x <- rep(x, nrow(M0))
+    else if (length(x) != nrow(M0))
+      stop(sprintf("`%s` must be scalar or have one value per treatment.", arg))
+    stats::setNames(as.integer(round(x)), rownames(M0))
+  }
+  minimum_treatment_environments <- normalise_treatment_bound(
+    minimum_treatment_environments, "minimum_treatment_environments", 0L)
+  maximum_treatment_environments <- normalise_treatment_bound(
+    maximum_treatment_environments, "maximum_treatment_environments", ncol(M0))
+  if (any(minimum_treatment_environments < 0L) ||
+      any(maximum_treatment_environments > ncol(M0)) ||
+      any(minimum_treatment_environments > maximum_treatment_environments))
+    stop("Treatment bounds must satisfy 0 <= minimum <= maximum <= ncol(allocation_matrix).")
+
+  inferred_common <- rownames(M0)[rowSums(M0) == ncol(M0)]
+  if (common_set == "fixed") {
+    if (is.null(common_treatments)) common_treatments <- inferred_common
+    common_treatments <- unique(as.character(common_treatments))
+    if (!all(common_treatments %in% rownames(M0)))
+      stop("`common_treatments` contains IDs absent from the allocation.")
+    if (length(common_treatments) &&
+        any(rowSums(M0[common_treatments, , drop = FALSE]) != ncol(M0)))
+      stop("Every fixed common treatment must occur in every starting environment.")
+  } else {
+    common_treatments <- character(0)
+  }
+  if (is.null(common_count_range)) {
+    common_count_range <- if (common_set == "fixed")
+      c(length(common_treatments), min(colSums(M0))) else if (common_set == "none")
+        c(0L, 0L) else c(0L, min(colSums(M0)))
+  }
+  if (!is.numeric(common_count_range) || length(common_count_range) != 2L ||
+      any(!is.finite(common_count_range)) ||
+      any(abs(common_count_range - round(common_count_range)) > 1e-8))
+    stop("`common_count_range` must contain two finite integers.")
+  common_count_range <- as.integer(round(common_count_range))
+  if (common_count_range[1L] < 0L ||
+      common_count_range[2L] < common_count_range[1L] ||
+      common_count_range[2L] > min(colSums(M0)))
+    stop("Invalid `common_count_range` for the starting environment sizes.")
   if (length(n_starts) != 1L || !is.finite(n_starts) ||
       n_starts < 1 || abs(n_starts - round(n_starts)) > 1e-8 ||
       length(iters) != 1L || !is.finite(iters) ||
@@ -226,11 +324,21 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     rowSums(sweep(M, 2L, seed_cost, `*`))
   design_feasible <- function(M) {
     loads <- colSums(M)
+    treatment_loads <- rowSums(M)
     load_ok <- all(loads >= minimum_environment_entries &
                      loads <= environment_capacities)
+    treatment_ok <- all(treatment_loads >= minimum_treatment_environments &
+                          treatment_loads <= maximum_treatment_environments)
+    common_now <- sum(treatment_loads == ncol(M))
+    common_ok <- common_now >= common_count_range[1L] &&
+      common_now <= common_count_range[2L]
+    if (common_set == "fixed" && length(common_treatments))
+      common_ok <- common_ok &&
+        all(treatment_loads[common_treatments] == ncol(M))
+    if (common_set == "none") common_ok <- common_now == 0L
     seed_ok <- is.null(seed_budget) ||
       all(seed_used(M) <= seed_budget + 1e-10)
-    load_ok && seed_ok
+    load_ok && treatment_ok && common_ok && seed_ok
   }
   if (!design_feasible(M0))
     stop("The starting allocation violates an environment or seed constraint.")
@@ -292,16 +400,18 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                            R_T = obj$R_T, multitrait = obj$multitrait,
                            cost_per_plot = base_eval$cost_per_plot,
                            fixed_plot_overhead = base_eval$fixed_plot_overhead,
+                           criterion = allocation_criterion,
                            weights = obj$weights, ref = NULL,
                            budget = NULL, max_dim = max_dim)
   ref <- list(gain = base$gain, reliability = base$reliability,
+              mean_PEV = base$mean_PEV,
               cost = if (base$cost > 0) base$cost else 1)
 
   score_fun <- function(M) {
     if (!design_feasible(M)) return(-Inf)
     ev <- evaluate_candidate(M)
     if (!isTRUE(ev$feasible)) return(-Inf)
-    if (is.null(robust)) {
+    ans <- if (is.null(robust)) {
       design_objective(M, G = G, Sigma_E = Sigma_E,
                        sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                        reps = ev$reps, env_efficiency = ev$env_efficiency,
@@ -313,6 +423,7 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                        R_T = obj$R_T, multitrait = obj$multitrait,
                        cost_per_plot = ev$cost_per_plot,
                        fixed_plot_overhead = ev$fixed_plot_overhead,
+                       criterion = allocation_criterion,
                        weights = obj$weights, ref = ref,
                        budget = obj$budget, max_dim = max_dim)$score
     } else {
@@ -328,9 +439,13 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                           local_information = ev$local_information,
                           cost_per_plot = ev$cost_per_plot,
                           fixed_plot_overhead = ev$fixed_plot_overhead,
+                          criterion = allocation_criterion,
                           weights = obj$weights, ref = ref,
                           budget = obj$budget, max_dim = max_dim)$score
     }
+    if (common_set == "optimize_jointly" && common_weight > 0)
+      ans <- ans + common_weight * .joint_common_utility(M, G, Sigma_E)
+    ans
   }
 
   score_start <- score_fun(M0)
@@ -339,42 +454,113 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
          "produces a non-finite score.")
   best_M <- M0; best_score <- score_start; trace <- numeric(0)
   proposals <- accepted <- improved <- infeasible_proposals <- 0L
-  trajectory <- vector("list", n_starts)
+  trajectory <- list()
 
-  for (st in seq_len(n_starts)) {
-    # First restart begins at the supplied design; later ones are perturbed.
-    cur_M <- if (st == 1L) M0 else .perturb_design(M0, preserve, obj$budget, 10L)
-    if (!design_feasible(cur_M)) cur_M <- M0
-    cur_s <- score_fun(cur_M)
-    restart_best <- cur_s
-    temp  <- max(abs(cur_s), 1e-3) * 0.5
-
-    for (it in seq_len(iters)) {
+  if (search_method == "exact") {
+    nc <- length(M0)
+    if (nc > exact_max_cells)
+      stop("Exact/`mip` search requires nrow * ncol <= `exact_max_cells` (",
+           exact_max_cells, "); use annealing, exchange, or genetic search.")
+    row_target <- rowSums(M0); col_target <- colSums(M0)
+    n_candidates <- 2^nc
+    for (code in 0:(n_candidates - 1)) {
       proposals <- proposals + 1L
-      prop_M <- .propose_move(cur_M, preserve, obj$budget)
-      if (is.null(prop_M)) { temp <- temp * cooling; next }
-      if (!design_feasible(prop_M)) {
-        infeasible_proposals <- infeasible_proposals + 1L
-        temp <- temp * cooling; next
+      bits <- as.integer(intToBits(code))[seq_len(nc)]
+      candidate <- matrix(bits, nrow(M0), ncol(M0),
+                          dimnames = dimnames(M0))
+      if (preserve == "margins" &&
+          (!identical(as.integer(rowSums(candidate)), as.integer(row_target)) ||
+           !identical(as.integer(colSums(candidate)), as.integer(col_target)))) next
+      if (preserve == "replication" &&
+          !identical(as.integer(rowSums(candidate)), as.integer(row_target))) next
+      if (!design_feasible(candidate)) next
+      new_s <- score_fun(candidate)
+      accepted <- accepted + 1L
+      if (is.finite(new_s) && new_s > best_score) {
+        improved <- improved + 1L
+        best_score <- new_s; best_M <- candidate
       }
-      new_s <- score_fun(prop_M)
-      d <- new_s - cur_s
-      if (is.finite(new_s) && (d > 0 || stats::runif(1) < exp(d / temp))) {
-        accepted <- accepted + 1L
-        cur_M <- prop_M; cur_s <- new_s
-        if (cur_s > restart_best) restart_best <- cur_s
-        if (cur_s > best_score) {
-          improved <- improved + 1L
-          best_score <- cur_s; best_M <- cur_M
-        }
-      }
-      temp <- temp * cooling
     }
-    trace <- c(trace, restart_best)
-    trajectory[[st]] <- data.frame(restart = st, final_score = cur_s,
-                                    best_score = restart_best)
-    if (verbose) message(sprintf("restart %d: score = %.5f (best = %.5f)",
-                                 st, cur_s, best_score))
+    trace <- best_score
+    trajectory[[1L]] <- data.frame(restart = 1L, final_score = best_score,
+                                    best_score = best_score)
+  } else if (search_method == "genetic") {
+    population_size <- max(4L, n_starts)
+    population <- vector("list", population_size)
+    population[[1L]] <- M0
+    for (i in 2:population_size) {
+      candidate <- .perturb_design(M0, preserve, obj$budget, 5L + i,
+                                   common_set)
+      population[[i]] <- if (design_feasible(candidate)) candidate else M0
+    }
+    scores <- vapply(population, score_fun, numeric(1))
+    for (generation in seq_len(iters)) {
+      elite_n <- max(2L, ceiling(population_size / 2))
+      elite <- order(scores, decreasing = TRUE)[seq_len(elite_n)]
+      next_population <- population[elite]
+      while (length(next_population) < population_size) {
+        parent <- population[[sample(elite, 1L)]]
+        child <- .perturb_design(parent, preserve, obj$budget,
+                                 sample.int(4L, 1L), common_set)
+        proposals <- proposals + 1L
+        if (!design_feasible(child)) {
+          infeasible_proposals <- infeasible_proposals + 1L
+          child <- parent
+        } else accepted <- accepted + 1L
+        next_population[[length(next_population) + 1L]] <- child
+      }
+      population <- next_population
+      scores <- vapply(population, score_fun, numeric(1))
+      gi <- which.max(scores)
+      if (scores[gi] > best_score) {
+        improved <- improved + 1L
+        best_score <- scores[gi]; best_M <- population[[gi]]
+      }
+      trace <- c(trace, best_score)
+    }
+    trajectory <- lapply(seq_along(population), function(i)
+      data.frame(restart = i, final_score = scores[i], best_score = best_score))
+  } else {
+    trajectory <- vector("list", n_starts)
+    for (st in seq_len(n_starts)) {
+      # First restart begins at the supplied design; later ones are perturbed.
+      cur_M <- if (st == 1L) M0 else
+        .perturb_design(M0, preserve, obj$budget, 10L, common_set)
+      if (!design_feasible(cur_M)) cur_M <- M0
+      cur_s <- score_fun(cur_M)
+      restart_best <- cur_s
+      temp <- max(abs(cur_s), 1e-3) * 0.5
+
+      for (it in seq_len(iters)) {
+        proposals <- proposals + 1L
+        prop_M <- .propose_move(cur_M, preserve, obj$budget, common_set)
+        if (is.null(prop_M)) { temp <- temp * cooling; next }
+        if (!design_feasible(prop_M)) {
+          infeasible_proposals <- infeasible_proposals + 1L
+          temp <- temp * cooling; next
+        }
+        new_s <- score_fun(prop_M)
+        d <- new_s - cur_s
+        accept <- is.finite(new_s) && (d > 0 ||
+          (search_method == "annealing" && temp > 0 &&
+             stats::runif(1) < exp(d / temp)))
+        if (accept) {
+          accepted <- accepted + 1L
+          cur_M <- prop_M; cur_s <- new_s
+          if (cur_s > restart_best) restart_best <- cur_s
+          if (cur_s > best_score) {
+            improved <- improved + 1L
+            best_score <- cur_s; best_M <- cur_M
+          }
+        }
+        temp <- temp * cooling
+      }
+      trace <- c(trace, restart_best)
+      trajectory[[st]] <- data.frame(restart = st, final_score = cur_s,
+                                      best_score = restart_best)
+      if (verbose) message(sprintf("restart %d: score = %.5f (best = %.5f)",
+                                   st, cur_s, best_score))
+    }
   }
 
   best_eval <- evaluate_candidate(best_M)
@@ -390,6 +576,7 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                            R_T = obj$R_T, multitrait = obj$multitrait,
                            cost_per_plot = best_eval$cost_per_plot,
                            fixed_plot_overhead = best_eval$fixed_plot_overhead,
+                           criterion = allocation_criterion,
                            weights = obj$weights, ref = ref,
                            budget = obj$budget, max_dim = max_dim)
 
@@ -406,13 +593,18 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
   }
 
   optimizer_diagnostics <- list(
+    search_method = search_method,
+    exact_certified = identical(search_method, "exact"),
     proposals = proposals, accepted = accepted,
     acceptance_rate = accepted / max(1L, proposals),
     improvements = improved,
     infeasible_proposals = infeasible_proposals,
     unique_design_evaluations = evaluator_calls,
     evaluator_cache_hits = evaluator_cache_hits,
-    evaluator_failures = evaluator_failures)
+    evaluator_failures = evaluator_failures,
+    common_set = common_set,
+    common_treatments = rownames(best_M)[rowSums(best_M) == ncol(best_M)],
+    n_common = sum(rowSums(best_M) == ncol(best_M)))
   design <- sparse_met_design(
     best_M,
     reps = if (is.null(best_eval$reps)) best_M else best_eval$reps,
@@ -421,13 +613,20 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
     diagnostics = optimizer_diagnostics,
     provenance = list(engine = "optimize_design",
-                      preserve = preserve, robust = !is.null(robust),
+                      preserve = preserve,
+                      allocation_criterion = allocation_criterion,
+                      search_method = search_method,
+                      common_set = common_set,
+                      robust = !is.null(robust),
                       seed = seed))
 
   list(allocation_matrix = best_M, score = best_score,
        components = comp[c("reliability", "mean_PEV", "gain", "plots", "cost")],
        score_start = score_start, trace = trace,
-       preserve = preserve, robust = !is.null(robust),
+       preserve = preserve, allocation_criterion = allocation_criterion,
+       search_method = search_method, common_set = common_set,
+       common_treatments = optimizer_diagnostics$common_treatments,
+       robust = !is.null(robust),
        seed_summary = seed_summary,
        design_evaluation = best_eval,
        design = design,
@@ -439,7 +638,15 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
 # ---- move generators --------------------------------------------------------
 
 # One random move respecting `preserve`; returns a modified matrix or NULL.
-.propose_move <- function(M, preserve, budget) {
+.propose_move <- function(M, preserve, budget, common_set = "fixed") {
+  if (common_set == "optimize_jointly" && stats::runif(1) < 0.30) {
+    common_move <- sample(c("identity", "promote", "demote"), 1L)
+    ans <- switch(common_move,
+                  identity = .move_common_identity(M),
+                  promote = .move_common_promote(M),
+                  demote = .move_common_demote(M))
+    if (!is.null(ans)) return(ans)
+  }
   if (preserve == "margins") return(.move_swap(M))
   if (preserve == "replication") return(.move_relocate(M))
   # preserve == "none": mix relocate / add / remove
@@ -495,10 +702,87 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
 }
 
 # Apply several random moves to diversify a restart.
-.perturb_design <- function(M, preserve, budget, n) {
+.perturb_design <- function(M, preserve, budget, n, common_set = "fixed") {
   for (i in seq_len(n)) {
-    m <- .propose_move(M, preserve, budget)
+    m <- .propose_move(M, preserve, budget, common_set)
     if (!is.null(m)) M <- m
   }
   M
+}
+
+
+# Swap the identity of one global common treatment while preserving every
+# environment margin exactly.
+.move_common_identity <- function(M) {
+  common <- which(rowSums(M) == ncol(M))
+  other <- which(rowSums(M) > 0L & rowSums(M) < ncol(M))
+  if (!length(common) || !length(other)) return(NULL)
+  a <- sample(common, 1L); b <- sample(other, 1L)
+  tmp <- M[a, ]; M[a, ] <- M[b, ]; M[b, ] <- tmp
+  M
+}
+
+
+# Promote a partially observed treatment to the global common set. Donor cells
+# are taken within the missing environments, preserving all environment sizes.
+.move_common_promote <- function(M) {
+  rs <- rowSums(M)
+  candidates <- which(rs > 0L & rs < ncol(M))
+  if (!length(candidates)) return(NULL)
+  b <- sample(candidates, 1L)
+  missing <- which(M[b, ] == 0L)
+  out <- M
+  for (e in missing) {
+    donors <- which(out[, e] == 1L & rowSums(out) > 1L &
+                      rowSums(out) < ncol(out))
+    donors <- setdiff(donors, b)
+    if (!length(donors)) return(NULL)
+    d <- sample(donors, 1L)
+    out[d, e] <- 0L; out[b, e] <- 1L
+  }
+  out
+}
+
+
+# Demote one common treatment in one environment and transfer that cell to a
+# non-common recipient, again preserving the environment margin.
+.move_common_demote <- function(M) {
+  common <- which(rowSums(M) == ncol(M))
+  if (!length(common)) return(NULL)
+  a <- sample(common, 1L)
+  env_order <- sample.int(ncol(M))
+  for (e in env_order) {
+    recipients <- which(M[, e] == 0L & rowSums(M) < ncol(M) - 1L)
+    if (!length(recipients)) next
+    b <- sample(recipients, 1L)
+    M[a, e] <- 0L; M[b, e] <- 1L
+    return(M)
+  }
+  NULL
+}
+
+
+# Unit-scale joint common-set utility. Pairwise overlap protects covariance
+# estimation; genetic effective size discourages redundant common anchors.
+.joint_common_utility <- function(M, G, Sigma_E, target_se = 0.15) {
+  E <- ncol(M); J <- nrow(M)
+  if (E < 2L || J < 1L) return(0)
+  overlap <- crossprod(M)
+  achieved <- overlap[upper.tri(overlap)]
+  if (is.null(Sigma_E)) {
+    targets <- rep(max(2, ceiling(sqrt(J))), length(achieved))
+  } else {
+    S <- as.matrix(Sigma_E)[colnames(M), colnames(M), drop = FALSE]
+    rho <- stats::cov2cor(S)[upper.tri(S)]
+    targets <- pmin(J, pmax(2, ceiling(((1 - rho^2) / target_se)^2)))
+  }
+  attainment <- pmin(1, achieved / pmax(1, targets))
+  common <- which(rowSums(M) == E)
+  diversity <- 0
+  if (length(common)) {
+    Gc <- as.matrix(G)[rownames(M)[common], rownames(M)[common], drop = FALSE]
+    neff <- sum(diag(Gc))^2 / max(sum(Gc^2), .Machine$double.eps)
+    diversity <- min(1, neff / length(common))
+  }
+  0.50 * min(attainment) + 0.25 * mean(attainment) + 0.25 * diversity
 }

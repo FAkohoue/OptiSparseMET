@@ -24,6 +24,12 @@
 #'   (see [select_individuals()]). If `NULL`, all `treatments` are used.
 #' @param allocation_method,target_replications,common_treatments,balance
 #'   Decision 3: passed to [allocate_sparse_met()].
+#' @param allocation_criterion,search_method,common_set,common_control Advanced
+#'   allocation controls passed to [allocate_sparse_met()].
+#' @param optimizer_control,robust,robust_aggregate,cvar_alpha Additional
+#'   optimiser and robustness controls passed to [allocate_sparse_met()].
+#' @param observed_allocation,adaptive_batch_size Starting information and batch
+#'   size for `allocation_method = "adaptive_sequential"`.
 #' @param refine_gxe Logical. If `TRUE` (and `G`/`Sigma_E` supplied), refine the
 #'   allocation with [optimize_allocation_gxe()].
 #' @param recommend_reps Logical. If `TRUE`, run [recommend_replication()]
@@ -59,6 +65,16 @@ run_design_strategy <- function(treatments,
                                 target_replications = NULL,
                                 common_treatments = NULL,
                                 balance = "none",
+                                allocation_criterion = "mean_pev",
+                                search_method = "annealing",
+                                common_set = "provided",
+                                common_control = list(),
+                                optimizer_control = list(),
+                                robust = NULL,
+                                robust_aggregate = "cvar",
+                                cvar_alpha = 0.25,
+                                observed_allocation = NULL,
+                                adaptive_batch_size = NULL,
                                 refine_gxe = FALSE,
                                 recommend_reps = FALSE,
                                 replication_levels = c(1, 1.5, 2),
@@ -93,13 +109,28 @@ run_design_strategy <- function(treatments,
   }
 
   ## Decision 3 -- allocation ---------------------------------------------------
+  allocation_optimizer_control <- utils::modifyList(
+    list(sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+         tpe_weights = tpe_weights, env_efficiency = env_efficiency,
+         max_dim = max_dim),
+    optimizer_control)
   alloc <- allocate_sparse_met(
     treatments = individuals, environments = environments,
     allocation_method = allocation_method,
     n_test_entries_per_environment = n_test_entries_per_environment,
     target_replications = target_replications,
     common_treatments = common_treatments,
-    balance = balance, seed = seed)
+    balance = balance, seed = seed,
+    G = G, Sigma_E = Sigma_E,
+    allocation_criterion = allocation_criterion,
+    search_method = search_method,
+    common_set = common_set,
+    common_control = common_control,
+    optimizer_control = allocation_optimizer_control,
+    robust = robust, robust_aggregate = robust_aggregate,
+    cvar_alpha = cvar_alpha,
+    observed_allocation = observed_allocation,
+    adaptive_batch_size = adaptive_batch_size)
   M <- alloc$allocation_matrix
 
   ## Align Sigma_E with the environments actually retained in the allocation. --
@@ -118,7 +149,9 @@ run_design_strategy <- function(treatments,
   }
 
   refined <- FALSE
-  if (refine_gxe) {
+  advanced_allocation <- allocation_method %in%
+    c("prediction_optimal", "robust_prediction", "adaptive_sequential")
+  if (refine_gxe && !advanced_allocation) {
     if (is.null(G) || is.null(Sigma_E))
       stop("`G` and `Sigma_E` are required for `refine_gxe = TRUE`.")
     Gm <- as.matrix(G)[rownames(M), rownames(M), drop = FALSE]
@@ -127,6 +160,8 @@ run_design_strategy <- function(treatments,
                                   tpe_weights = tpe_weights,
                                   env_efficiency = env_efficiency,
                                   seed = seed, max_dim = max_dim)$allocation_matrix
+    refined <- TRUE
+  } else if (refine_gxe && advanced_allocation) {
     refined <- TRUE
   }
 
@@ -171,8 +206,12 @@ run_design_strategy <- function(treatments,
     decisions = list(environments = environments,
                      individuals = individuals,
                      allocation_method = alloc$summary$allocation_method,
+                     allocation_criterion = alloc$summary$allocation_criterion,
+                     search_method = alloc$summary$search_method,
+                     common_set = alloc$summary$common_set,
                      gxe_refined = refined),
     allocation_matrix = M,
+    allocation = alloc,
     replication = replication,
     evaluation = evaluation
   )
