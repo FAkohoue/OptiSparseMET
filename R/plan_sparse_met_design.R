@@ -24,6 +24,10 @@
 #'
 #' @param treatments Character vector of treatment IDs.
 #' @param environments Character vector of environment names.
+#' @param allocation_matrix Optional precomputed named 0/1 treatment-by-
+#'   environment allocation. When supplied, allocation is not reconstructed;
+#'   the function builds plantable local fieldbooks for this exact candidate.
+#'   This is used by [fieldbook_design_evaluator()] during joint optimisation.
 #' @param allocation_method Character scalar passed to [allocate_sparse_met()].
 #' @param n_test_entries_per_environment Integer scalar or integer vector passed
 #'   to [allocate_sparse_met()].
@@ -107,6 +111,7 @@
 plan_sparse_met_design <- function(
     treatments,
     environments,
+    allocation_matrix = NULL,
     allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
     n_test_entries_per_environment,
     target_replications = NULL,
@@ -347,7 +352,8 @@ plan_sparse_met_design <- function(
     if (is.null(spec$design))
       stop("Each environment specification must include a `design` field. Missing for environment: ", env_name)
 
-    design_name <- as.character(spec$design)[1L]
+    design_name <- if (is.function(spec$design)) "<custom>" else
+      as.character(spec$design)[1L]
 
     # Validate required fields for built-in engines
     if (identical(design_name, "met_prep_famoptg")) {
@@ -647,7 +653,7 @@ plan_sparse_met_design <- function(
       }, numeric(1)), environments)
   }
 
-  sparse_out <- allocate_sparse_met(
+  sparse_out <- if (is.null(allocation_matrix)) allocate_sparse_met(
     treatments = treatments,
     environments = environments,
     allocation_method = allocation_method,
@@ -679,7 +685,63 @@ plan_sparse_met_design <- function(
     force_group_connectivity = force_group_connectivity,
     allow_approximate = allow_approximate,
     seed = seed
-  )
+  ) else {
+    M_given <- as.matrix(allocation_matrix)
+    if (!is.numeric(M_given) || anyNA(M_given) ||
+        !all(M_given %in% c(0, 1)) || is.null(rownames(M_given)) ||
+        is.null(colnames(M_given)) || anyDuplicated(rownames(M_given)) ||
+        anyDuplicated(colnames(M_given)) ||
+        !setequal(rownames(M_given), treatments) ||
+        !setequal(colnames(M_given), environments))
+      stop("`allocation_matrix` must be a uniquely named 0/1 matrix covering ",
+           "exactly `treatments` and `environments`.")
+    M_given <- M_given[treatments, environments, drop = FALSE]
+    storage.mode(M_given) <- "integer"
+    if (any(colSums(M_given) == 0L))
+      stop("Every environment in `allocation_matrix` must contain a treatment.")
+    if (length(common_treatments) &&
+        any(M_given[common_treatments, , drop = FALSE] != 1L))
+      stop("Every `common_treatments` entry must occur in every environment ",
+           "of the supplied `allocation_matrix`.")
+    alloc_tab <- which(M_given == 1L, arr.ind = TRUE)
+    alloc_tab <- data.frame(
+      Treatment = rownames(M_given)[alloc_tab[, "row"]],
+      Environment = colnames(M_given)[alloc_tab[, "col"]],
+      IsCommon = rownames(M_given)[alloc_tab[, "row"]] %in%
+        (common_treatments %||% character(0)),
+      stringsAsFactors = FALSE)
+    seed_summary_given <- NULL
+    if (!is.null(seed_info)) {
+      available <- stats::setNames(as.numeric(seed_info$SeedAvailable),
+                                    as.character(seed_info$Treatment))
+      if (!all(treatments %in% names(available)))
+        stop("`seed_info` must cover every treatment in `allocation_matrix`.")
+      used <- rowSums(sweep(M_given, 2L, allocation_seed_cost, `*`))
+      remaining <- available[treatments] - used
+      seed_summary_given <- data.frame(
+        Treatment = treatments,
+        SeedAvailable = as.numeric(available[treatments]),
+        MinimumBuffer = rep(minimum_seed_buffer, length(treatments)),
+        SeedAllocated = as.numeric(used),
+        SeedRemaining = as.numeric(remaining),
+        SeedSpendableRemaining = as.numeric(remaining - minimum_seed_buffer),
+        stringsAsFactors = FALSE)
+      if (any(seed_summary_given$SeedSpendableRemaining < -1e-8))
+        stop("The supplied `allocation_matrix` exceeds available seed.")
+    }
+    list(
+      allocation_matrix = M_given,
+      allocation_table = alloc_tab,
+      summary = list(
+        allocation_method = "provided",
+        n_total_test_treatments = length(treatments),
+        n_sparse_treatments = length(setdiff(
+          rownames(M_given)[rowSums(M_given) > 0L],
+          common_treatments %||% character(0))),
+        n_total_allocations = sum(M_given)),
+      seed_summary = seed_summary_given,
+      group_by_environment = data.frame())
+  }
   seed_remaining <- if (!is.null(sparse_out$seed_summary))
     stats::setNames(sparse_out$seed_summary$SeedSpendableRemaining,
                     sparse_out$seed_summary$Treatment) else NULL

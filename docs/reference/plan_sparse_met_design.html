@@ -87,6 +87,7 @@ combined MET field book using <code><a href="combine_met_fieldbooks.html">combin
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plan_sparse_met_design</span><span class="op">(</span></span>
 <span>  <span class="va">treatments</span>,</span>
 <span>  <span class="va">environments</span>,</span>
+<span>  allocation_matrix <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  allocation_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random_balanced"</span>, <span class="st">"equireplicate"</span>, <span class="st">"M3"</span>, <span class="st">"M4"</span><span class="op">)</span>,</span>
 <span>  <span class="va">n_test_entries_per_environment</span>,</span>
 <span>  target_replications <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -130,6 +131,13 @@ combined MET field book using <code><a href="combine_met_fieldbooks.html">combin
 
 <dt id="arg-environments">environments<a class="anchor" aria-label="anchor" href="#arg-environments"></a></dt>
 <dd><p>Character vector of environment names.</p></dd>
+
+
+<dt id="arg-allocation-matrix">allocation_matrix<a class="anchor" aria-label="anchor" href="#arg-allocation-matrix"></a></dt>
+<dd><p>Optional precomputed named 0/1 treatment-by-
+environment allocation. When supplied, allocation is not reconstructed;
+the function builds plantable local fieldbooks for this exact candidate.
+This is used by <code><a href="fieldbook_design_evaluator.html">fieldbook_design_evaluator()</a></code> during joint optimisation.</p></dd>
 
 
 <dt id="arg-allocation-method">allocation_method<a class="anchor" aria-label="anchor" href="#arg-allocation-method"></a></dt>

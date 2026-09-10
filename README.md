@@ -49,7 +49,7 @@ $$
 
 ## What it does
 
-The pipeline runs in nine modules (86 exported functions), each documented in
+The pipeline runs in nine modules (94 exported functions), each documented in
 the [reference index](https://FAkohoue.github.io/OptiSparseMET/reference/) and
 demonstrated end-to-end in the pipeline vignette:
 
@@ -70,6 +70,19 @@ demonstrated end-to-end in the pipeline vignette:
 8. **Benchmarking** — paired comparison of reference designs with confidence
    intervals, tail risk, and decision stability.
 9. **Field books** — per-site and combined MET field books, and field maps.
+
+For large networks, `met_information()` automatically uses a matrix-free PCG
+solver and reports approximation/convergence diagnostics. For fully joint
+allocation-replication-layout search, construct a callback with
+`fieldbook_design_evaluator()` and pass it to `optimize_design()`. Historical
+responses can be fitted directly with `fit_historical_met()` using diagonal,
+factor-analytic, or unstructured REML covariance models.
+
+The production path keeps the quantities used for optimisation attached to the
+released design. TPE weights, environment-specific residual variances, realised
+integer replication, local treatment-information matrices, check-plot overhead,
+fieldbooks, solver diagnostics, and provenance can be stored in a validated
+`sparse_met_design` object.
 
 ---
 
@@ -101,6 +114,39 @@ out <- plan_sparse_met_design(
 out$combined_field_book   # the assembled MET field book
 ```
 
+Evaluate the realised design with programme-specific TPE weights and residual
+variances. The solver is selected automatically; force `solver = "dense"` only
+when an exact dense inverse is required and the network is small enough.
+
+```r
+info <- met_information(
+  out$sparse_allocation$allocation_matrix,
+  G = G,
+  Sigma_E = Sigma_E,
+  sigma_e2 = c(E1 = 1.0, E2 = 1.3, E3 = 0.8, E4 = 1.1),
+  tpe_weights = c(E1 = 0.35, E2 = 0.25, E3 = 0.25, E4 = 0.15),
+  solver = "auto"
+)
+
+info$CDmean
+info$solver_diagnostics
+```
+
+For historical adjusted responses, estimate the genetic environment covariance
+without filling missing genotype-by-environment cells:
+
+```r
+fit <- fit_historical_met(
+  historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  response_col = "adjusted_value",
+  model = "fa",
+  rank = 2
+)
+Sigma_E <- fit$Sigma_E
+```
+
 For the **full scientific pipeline** — from environmental classification through
 optimisation, simulation, and benchmarking to the combined field book — see the
 tutorial:
@@ -120,7 +166,7 @@ vignette("OptiSparseMET-pipeline", package = "OptiSparseMET")
 | [Environmental interactions](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-environmental-interactions.html) | Enviromic kernels and interaction evidence |
 | [Benchmarking](https://FAkohoue.github.io/OptiSparseMET/articles/OptiSparseMET-benchmarking.html) | Comparing and validating designs before release |
 | [Breeder's Guide](https://FAkohoue.github.io/OptiSparseMET/breeder-guide.html) | HTML guide page with an embedded and downloadable PDF |
-| [Function reference](https://FAkohoue.github.io/OptiSparseMET/reference/) | All 86 functions, grouped by module |
+| [Function reference](https://FAkohoue.github.io/OptiSparseMET/reference/) | All 94 functions, grouped by module |
 
 ```r
 # After installation:

@@ -10,6 +10,8 @@ recommend_replication(
   Sigma_E = NULL,
   sigma_g2 = 1,
   sigma_e2 = 1,
+  env_efficiency = NULL,
+  tpe_weights = NULL,
   replication_levels = c(1, 1.5, 2, 3),
   n_sim = 30L,
   min_gain = 0.02,
@@ -31,7 +33,18 @@ covering the lines in \code{allocation_matrix}.}
 correlations across environments). Defaults to the identity (independent
 environments, unit variance).}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
+
+\item{env_efficiency}{Optional length-\eqn{E} vector of within-environment
+design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
+local design). Defaults to 1 for every environment.}
+
+\item{tpe_weights}{Optional non-negative weights defining the target
+population of environments. Values are normalised to sum to one. The
+default gives every environment equal weight.}
 
 \item{replication_levels}{Numeric vector of replication levels to evaluate.}
 
@@ -48,12 +61,14 @@ marginal accuracy gain still meets \code{min_gain}, else the smallest level.}
 
 \item{seed}{Optional RNG seed.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 }
 \value{
-A list with \code{table} (a data frame: replication, accuracy_mean,
-gain_mean, mean_PEV, feasible) and \code{recommended} (the chosen level).
+A list with \code{table} (requested and achieved replication, plot count,
+accuracy, gain, PEV, and feasibility), \code{recommended}, the corresponding
+integer \code{recommended_reps} matrix, and all evaluated integer
+\code{replication_matrices}.
 }
 \description{
 \code{recommend_replication()} sweeps candidate replication levels for a given
@@ -66,8 +81,10 @@ and it varies replication with the number of unique entries held fixed, so
 the two are not confounded (as they were in the paper's field-size grid).
 }
 \details{
-A replication level \code{r} scales the effective plots per tested cell
-(\code{reps = allocation_matrix * r}), so fractional (p-rep) levels are allowed.
+A replication level \code{r} sets the requested \emph{average} plots per tested cell.
+Fractional p-rep targets are converted to a balanced integer matrix (for
+example, 1.5 gives half the cells one plot and half two), so cost and seed
+feasibility always describe plantable plots rather than fractional plots.
 If \code{seed_available} (a per-line seed budget) and \code{seed_required_per_plot} are
 supplied, a level is flagged infeasible when total required seed exceeds the
 budget.

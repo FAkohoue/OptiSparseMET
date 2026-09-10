@@ -469,6 +469,56 @@ Screened interactions remain in `candidates` and therefore remain available
 for robust sensitivity analysis. The aggregate evidence gate then verifies
 that the supported components improve prediction jointly.
 
+## 8.4 Direct REML covariance for design
+
+Environmental kernels and a historical genetic covariance answer related but
+different questions. Kernels describe similarity implied by weather, soil,
+management, and geography. `fit_historical_met()` estimates the covariance of
+genetic responses across environments directly. It handles missing
+genotype-by-environment cells in the likelihood and supports diagonal,
+factor-analytic, and unstructured covariance models.
+
+```{r fit-historical-reml, eval=FALSE}
+reml_fit <- fit_historical_met(
+  adjusted_historical_met,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  response_col = "value",
+  model = "fa",
+  rank = 2,
+  residual_variance = c(E1 = 0.42, E2 = 0.55, E3 = 0.38, E4 = 0.61)
+)
+
+Sigma_E <- reml_fit$Sigma_E
+reml_fit$correlation
+reml_fit$loadings
+c(AIC = reml_fit$AIC, BIC = reml_fit$BIC)
+```
+
+Omit `residual_variance` only when replicated genotype-environment cells are
+available to estimate it. Fit several covariance structures and compare their
+out-of-sample performance. An unstructured model can be unstable in a small
+network; a low-rank factor-analytic model is often a more estimable central
+candidate, but the rank remains a model-selection decision.
+
+The fitted `Sigma_E` describes genetic covariance. TPE weights supplied later
+to `met_information()` describe programme importance. They must not be inferred
+from kernel mixture weights or from the diagonal of `Sigma_E`.
+
+```{r tpe-target, eval=FALSE}
+tpe_weights <- c(E1 = 0.40, E2 = 0.25, E3 = 0.20, E4 = 0.15)
+site_residual_variance <- c(E1 = 0.42, E2 = 0.55, E3 = 0.38, E4 = 0.61)
+
+information <- met_information(
+  allocation_matrix,
+  G = G,
+  Sigma_E = Sigma_E,
+  sigma_e2 = site_residual_variance,
+  tpe_weights = tpe_weights,
+  solver = "auto"
+)
+```
+
 # 9. No historical MET responses
 
 ```{r no-history-interactions, eval=FALSE}
@@ -531,10 +581,14 @@ Use the following sequence:
 8. Assess each dedicated interaction with blocked historical response evidence
    when available.
 9. Control multiplicity and evaluate bootstrap stability.
-10. Admit supported interactions to the aggregate central-covariance gate.
-11. Retain all broad, weakly supported, and rejected interactions as separate
+10. Fit diagonal, factor-analytic, and defensible unstructured historical
+    response covariances; compare them with blocked validation.
+11. Admit supported interactions to the aggregate central-covariance gate.
+12. Define TPE importance weights independently of environmental-kernel and
+    covariance-model weights.
+13. Retain all broad, weakly supported, and rejected interactions as separate
     maximin scenarios.
-12. Report both the central recommendation and the structural sensitivity
+14. Report both the central recommendation and the structural sensitivity
     results before releasing the field design.
 
 Hence, environmental interactions inform the design without being confused

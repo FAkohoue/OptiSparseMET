@@ -53,9 +53,12 @@ workflow.
 | Historical MET responses | Optional response evidence | Long data frame | Genotype, environment, value; year is recommended |
 | Dedicated interaction hypotheses | Optional, pre-specified structural evidence | Long data frame | `interaction`, `parent`, `modality`, `variable` |
 | Actual replication (`reps`) | Optional, strongly recommended after fieldbook construction | Treatment-by-environment numeric matrix | Same dimensions as allocation |
+| Local treatment information | Recommended for final scoring | Named list of treatment-information matrices | Environment names; treatment dimnames |
 | Plot cost and capacity | Optional operational evidence | Scalar or environment-named vectors | Environment names |
 | Seed inventory | Optional operational constraint | Treatment-named vector or two-column data frame | `Treatment`, `SeedAvailable` |
 | Seed required per plot | Conditional on seed inventory | Scalar, environment-named vector, or treatment-by-environment matrix | Treatment and environment names when matrix-valued |
+| TPE weights | Recommended when environments have unequal programme importance | Non-negative environment-named vector | Environment names |
+| Release design object | Recommended for the selected design | `sparse_met_design` | Reconciled allocation, replication, fieldbooks, assumptions, diagnostics, and provenance |
 
 Historical response values should be adjusted genotype estimates, best linear
 unbiased estimators (BLUEs), or best linear unbiased predictors (BLUPs) derived
@@ -258,6 +261,45 @@ while retaining every screened kernel as a structural sensitivity candidate.
 Bootstrap inclusion should be interpreted as weight-selection stability, not
 as causal evidence.
 
+Before design benchmarking, fit the genetic environment covariance directly
+when replicated or adjusted historical responses are available. This REML fit
+is separate from environmental-kernel calibration and retains incomplete
+genotype-by-environment histories in the likelihood.
+
+```{r historical-reml-benchmark, eval=FALSE}
+covariance_fits <- list(
+  diagonal = fit_historical_met(
+    historical_met,
+    genotype_col = "genotype", environment_col = "environment",
+    response_col = "adjusted_value", model = "diagonal",
+    residual_variance = residual_variance
+  ),
+  fa2 = fit_historical_met(
+    historical_met,
+    genotype_col = "genotype", environment_col = "environment",
+    response_col = "adjusted_value", model = "fa", rank = 2,
+    residual_variance = residual_variance
+  ),
+  unstructured = fit_historical_met(
+    historical_met,
+    genotype_col = "genotype", environment_col = "environment",
+    response_col = "adjusted_value", model = "unstructured",
+    residual_variance = residual_variance
+  )
+)
+
+data.frame(
+  model = names(covariance_fits),
+  AIC = vapply(covariance_fits, `[[`, numeric(1), "AIC"),
+  BIC = vapply(covariance_fits, `[[`, numeric(1), "BIC"),
+  convergence = vapply(covariance_fits, `[[`, numeric(1), "convergence")
+)
+```
+
+Compare these candidates in blocked prediction and in the design robustness
+grid. Reject a numerically converged covariance when it is poorly identified,
+biologically implausible, or unstable across years.
+
 # 5. Reference designs at equal sparse budget
 
 The design comparator constructs: (i) complete testing as an information upper
@@ -402,6 +444,42 @@ acceptable. Scenario probabilities should be supplied only when they are
 empirically defensible. Otherwise, the uniform summary is a sensitivity
 analysis rather than a Bayesian prior.
 
+## 6.1 Optimiser and solver diagnostics
+
+The production optimiser records proposals, accepted moves, improvements,
+infeasible candidates, evaluator failures, unique candidate evaluations, cache
+hits, and restart trajectories. Report these with the objective value. A design
+found after many evaluator failures needs investigation even if its score is
+high.
+
+Large-network information is approximate when the matrix-free PCG solver is
+selected. Check numerical agreement on a smaller representative network before
+relying on it at scale.
+
+```{r solver-audit, eval=FALSE}
+small_A <- optimised_allocation$allocation_matrix[1:30, , drop = FALSE]
+small_G <- G[rownames(small_A), rownames(small_A), drop = FALSE]
+tpe_weights <- c(E1 = 0.35, E2 = 0.25, E3 = 0.20, E4 = 0.20)
+
+dense <- met_information(
+  small_A, small_G, Sigma_central,
+  solver = "dense", max_dim = 10000L,
+  tpe_weights = tpe_weights
+)
+pcg <- met_information(
+  small_A, small_G, Sigma_central,
+  solver = "pcg", trace_samples = 400L,
+  tpe_weights = tpe_weights
+)
+
+c(dense = dense$CDmean, pcg = pcg$CDmean)
+pcg$solver_diagnostics
+```
+
+For the release run, increase `trace_samples` until the design ordering and
+reported CDmean are stable, record `solver_tol` and `solver_maxit`, and require
+the convergence diagnostics to meet the programme's declared numerical rule.
+
 # 7. Missing environmental covariates
 
 Environmental-data robustness is assessed by masking covariate cells, rebuilding
@@ -523,6 +601,10 @@ A quantitative-genetics report should provide:
 8. Common-set, capacity, and allocation stability.
 9. A discrete, feasibility-constrained, non-dominated cost--performance
    frontier.
+10. Dense-versus-PCG agreement on a representative network and convergence,
+    tolerance, iteration, and probe-count diagnostics for the release run.
+11. Exact reconciliation of allocation, integer replication, check overhead,
+    seed use, and final fieldbooks in a validated `sparse_met_design` object.
 
 These analyses do not guarantee future field performance. However, they make
 the assumptions, comparisons, and operational compromises auditable. That is

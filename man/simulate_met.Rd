@@ -12,6 +12,8 @@ simulate_met(
   sigma_e2 = 1,
   reps = NULL,
   env_efficiency = NULL,
+  tpe_weights = NULL,
+  local_information = NULL,
   n_sim = 50L,
   select_fraction = 0.1,
   bv_target = c("across_tpe", "environment_specific", "mega_environment"),
@@ -32,7 +34,10 @@ covering the lines in \code{allocation_matrix}.}
 correlations across environments). Defaults to the identity (independent
 environments, unit variance).}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{reps}{Optional \eqn{J \times E} matrix of plot counts per cell.
 Defaults to \code{allocation_matrix} (one plot per present cell).}
@@ -40,6 +45,17 @@ Defaults to \code{allocation_matrix} (one plot per present cell).}
 \item{env_efficiency}{Optional length-\eqn{E} vector of within-environment
 design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
 local design). Defaults to 1 for every environment.}
+
+\item{tpe_weights}{Optional non-negative weights defining the target
+population of environments. Values are normalised to sum to one. The
+default gives every environment equal weight.}
+
+\item{local_information}{Optional named list of treatment-information
+matrices, one per environment. Each matrix may cover all lines or a named
+subset of the lines present in that environment and must already have
+nuisance fixed and random effects absorbed. When supplied, these matrices
+replace the scalar \code{reps * env_efficiency / sigma_e2} approximation and
+therefore preserve the local layout's full off-diagonal information.}
 
 \item{n_sim}{Number of independent simulation replicates.}
 
@@ -58,8 +74,8 @@ subset). Ignored for \code{"across_tpe"}.}
 
 \item{seed}{Optional RNG seed.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 }
 \value{
 A list with the realised accuracy (\code{accuracy_mean}, \verb{_sd}, \verb{_se}, and

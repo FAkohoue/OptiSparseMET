@@ -11,6 +11,7 @@ optimize_allocation_gxe(
   sigma_g2 = 1,
   sigma_e2 = 1,
   env_efficiency = NULL,
+  tpe_weights = NULL,
   iter = 200L,
   seed = NULL,
   max_dim = 2000L
@@ -28,18 +29,25 @@ covering the lines in \code{allocation_matrix}.}
 correlations across environments). Defaults to the identity (independent
 environments, unit variance).}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{env_efficiency}{Optional length-\eqn{E} vector of within-environment
 design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
 local design). Defaults to 1 for every environment.}
 
+\item{tpe_weights}{Optional non-negative weights defining the target
+population of environments. Values are normalised to sum to one. The
+default gives every environment equal weight.}
+
 \item{iter}{Number of swap iterations.}
 
 \item{seed}{Optional RNG seed.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 }
 \value{
 A list with the refined \code{allocation_matrix}, \code{mean_PEV_before},

@@ -1834,6 +1834,128 @@ opt_E2_ga$optimization$best_score
 opt_E2_ga$optimization$ga_params
 ```
 
+## 12.3 Joint allocation and field-layout optimisation
+
+The local optimisers above improve one realised site layout. The network-level
+`optimize_design()` searches the treatment-by-environment allocation. Supplying
+a `fieldbook_design_evaluator()` connects both levels: every unique candidate
+allocation is converted to integer replication and actual local fieldbooks, and
+the annealing objective uses the corresponding full treatment-information
+matrices and physical plot costs.
+
+```{r optimize-joint-network, eval=FALSE}
+layout_evaluator <- fieldbook_design_evaluator(
+  env_design_specs = x$env_design_specs,
+  treatment_info = x$treatment_info,
+  common_treatments = x$common_treatments,
+  seed_info = x$seed_info,
+  seed_required_per_plot = x$seed_required_per_plot,
+  information_models = setNames(lapply(x$environments, function(e) list(
+    fixed_effects = "Block",
+    residual_structure = "AR1xAR1",
+    rho_row = 0.30,
+    rho_col = 0.20,
+    sigma_e2 = 1
+  )), x$environments),
+  cost_per_plot = setNames(rep(1, length(x$environments)), x$environments),
+  seed = 123
+)
+
+joint <- optimize_design(
+  alloc$allocation_matrix,
+  G = G0,
+  Sigma_E = Sigma_E,
+  tpe_weights = setNames(rep(1, length(x$environments)), x$environments),
+  design_evaluator = layout_evaluator,
+  objective = list(
+    weights = list(gain = 1, reliability = 0, cost = 0.15),
+    budget = 600
+  ),
+  preserve = "margins",
+  n_starts = 5L,
+  iters = 200L,
+  seed = 123
+)
+
+joint$diagnostics
+joint$design
+```
+
+The diagnostics distinguish proposed and accepted moves, improvements,
+infeasible proposals, unique fieldbook evaluations, cache hits, and evaluator
+failures. A high objective value is not sufficient when the best candidate was
+produced by a poorly explored or failure-prone search.
+
+## 12.4 Full local treatment information
+
+`met_information()` accepts either site efficiency multipliers or a named list
+of complete local information matrices. The latter is preferred for the final
+decision because it preserves the off-diagonal contrast information created by
+blocks, repeated checks, random nuisance effects, and spatial correlation.
+
+```{r complete-local-information, eval=FALSE}
+local_info <- lapply(joint$design$fieldbooks, function(fieldbook) {
+  local_treatment_information(
+    fieldbook,
+    treatments = intersect(fieldbook$Treatment, rownames(G0)),
+    check_treatments = x$common_treatments,
+    fixed_effects = "Block",
+    residual_structure = "AR1xAR1",
+    rho_row = 0.30,
+    rho_col = 0.20,
+    sigma_e2 = 1
+  )
+})
+
+network_information <- met_information(
+  joint$design$allocation_matrix,
+  G = G0,
+  Sigma_E = Sigma_E,
+  reps = joint$design$reps,
+  local_information = local_info,
+  tpe_weights = joint$design$tpe_weights,
+  solver = "auto"
+)
+```
+
+## 12.5 Large-network solver checks
+
+The dense calculation is exact but requires memory proportional to
+$(JE)^2$. With `solver = "auto"`, `met_information()` switches above `max_dim`
+to matrix-free preconditioned conjugate gradients (PCG). PCG applies the
+Kronecker prior and site information without constructing the full matrix. It
+uses deterministic Hutchinson probes to estimate target PEV diagonals.
+
+For a release calculation, record the solver, probe count, tolerance, maximum
+iterations, convergence fraction, iteration distribution, and residual norms.
+Repeat the calculation with more probes and confirm that CDmean and the ranking
+of candidate designs are stable. Use `solver = "dense"` as an audit on a
+smaller representative problem.
+
+## 12.6 Versioned release object
+
+`sparse_met_design()` stores the allocation, integer replication, fieldbooks,
+`G`, `Sigma_E`, TPE weights, variance assumptions, diagnostics, and provenance.
+The validator checks matrix identifiers and dimensions, covariance symmetry and
+positive semidefiniteness, and exact fieldbook-to-replication reconciliation.
+
+```{r validate-release-object, eval=FALSE}
+release_design <- sparse_met_design(
+  allocation_matrix = joint$design$allocation_matrix,
+  reps = joint$design$reps,
+  fieldbooks = joint$design$fieldbooks,
+  G = G0,
+  Sigma_E = Sigma_E,
+  tpe_weights = joint$design$tpe_weights,
+  sigma_g2 = 1,
+  sigma_e2 = setNames(rep(1, length(x$environments)), x$environments),
+  diagnostics = joint$diagnostics,
+  provenance = list(seed = 123, objective = joint$components)
+)
+
+validate_sparse_met_design(release_design)
+```
+
 ---
 
 # 13. Full Pipeline Example
@@ -2140,6 +2262,7 @@ demonstrations.
 | Component | Governing principle | Package function(s) |
 |-----------|--------------------|--------------------|
 | Environmental evidence | Keep modalities and interactions separate unless historical responses support calibration | `build_environment_kernels()`, `calibrate_environment_covariance()` |
+| Historical genetic covariance | Fit diagonal, factor-analytic, or unstructured covariance with missing cells handled in the REML likelihood | `fit_historical_met()` |
 | Environmental grouping | Infer and stability-screen group number; retain one network when unsupported | `infer_mega_environments()` |
 | Structural uncertainty | Evaluate unweighted alternatives by maximin robustness | `robust_scenarios()` |
 | Capacity verification | All treatments must be assignable at least once | `suggest_safe_k()`, `min_k_for_full_coverage()` |
@@ -2151,12 +2274,14 @@ demonstrations.
 | Block design | Control local heterogeneity within environments | `met_prep_famoptg()` |
 | Row-column design | Control spatial gradients in large fixed-grid fields | `met_alpha_rc_stream()` |
 | Efficiency evaluation | Quantify design quality before field deployment | `met_evaluate_famoptg_efficiency()`, `met_evaluate_alpha_efficiency()` |
-| Coupled MET evaluation | Use delivered plot counts to quantify PEV, CDmean, accuracy, and gain | `met_information()`, `simulate_met()` |
+| Coupled MET evaluation | Use TPE weights, environment-specific residual variance, and delivered local information to quantify PEV, CDmean, accuracy, and gain | `local_treatment_information()`, `met_information()`, `simulate_met()` |
+| Scalable evaluation | Use a matrix-free PCG calculation for networks that exceed the dense information-matrix threshold | `met_information()` |
 | Empirical benchmarking | Compare reference designs with paired truths, operational ledgers, and covariance/variance/site-loss stress tests | `make_met_benchmark_designs()`, `benchmark_met_designs()` |
 | Environmental validation | Quantify covariance recovery, blocked prediction, and missing-covariate sensitivity | `benchmark_environment_models()`, `simulate_environment_model_benchmark()`, `benchmark_environment_missingness()` |
 | Decision stability | Report common-set, capacity, and allocation reproducibility | `summarize_design_stability()` |
-| Optimisation | Search for higher-efficiency arrangements | `met_optimize_famoptg()`, `met_optimize_alpha_rc()` |
+| Optimisation | Search jointly over allocation, integer replication, local layouts, and physical cost | `fieldbook_design_evaluator()`, `optimize_design()`, `met_optimize_famoptg()`, `met_optimize_alpha_rc()` |
 | Assembly | Produce a unified field book for all environments | `combine_met_fieldbooks()`, `plan_sparse_met_design()` |
+| Release validation | Reconcile allocation, replication, fieldbooks, covariance assumptions, diagnostics, and provenance | `sparse_met_design()`, `validate_sparse_met_design()` |
 
 ---
 

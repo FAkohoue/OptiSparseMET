@@ -64,7 +64,7 @@
     <div class="section level2">
       <h2 id="module-environmental-classification-enviromics-">Module 1 — Environmental classification (enviromics)<a class="anchor" aria-label="anchor" href="#module-environmental-classification-enviromics-"></a></h2>
 
-      <div class="section-desc"><p>Retrieve and quality-control weather, soil, management, and geography data; build and combine environment kernels; calibrate a data-driven environmental covariance; and cluster sites into mega-environments.</p></div>
+      <div class="section-desc"><p>Retrieve and quality-control weather, soil, management, and geography data; build and combine environment kernels; calibrate a data-driven environmental covariance; fit genetic environment covariance by REML; and cluster sites into mega-environments.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -210,6 +210,13 @@
 
         </dt>
         <dd>Calibrate environmental covariance from historical MET information</dd>
+
+        <dt>
+
+          <code><a href="fit_historical_met.html">fit_historical_met()</a></code>
+
+        </dt>
+        <dd>Fit a genetic environment covariance from historical MET responses</dd>
 
         <dt>
 
@@ -469,7 +476,7 @@
       </dl></div><div class="section level2">
       <h2 id="module-seed-aware-replication">Module 4 — Seed-aware replication<a class="anchor" aria-label="anchor" href="#module-seed-aware-replication"></a></h2>
 
-      <div class="section-desc"><p>Turn a single network-wide seed inventory and per-plot seed requirements into a feasible per-site replication plan.</p></div>
+      <div class="section-desc"><p>Turn a single network-wide seed inventory and per-plot seed requirements into a feasible per-site integer and partially replicated plan.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -492,7 +499,7 @@
       </dl></div><div class="section level2">
       <h2 id="module-within-environment-field-design">Module 5 — Within-environment field design<a class="anchor" aria-label="anchor" href="#module-within-environment-field-design"></a></h2>
 
-      <div class="section-desc"><p>Construct and optimise within-site layouts (block-based repeated-check and alpha row-column), evaluate their statistical efficiency, and compare spatial error models.</p></div>
+      <div class="section-desc"><p>Construct and optimise within-site layouts (block-based repeated-check and alpha row-column), evaluate their statistical efficiency, retain full local treatment information, and compare spatial error models.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -547,10 +554,17 @@
 
         </dt>
         <dd>Score one design under several spatial models</dd>
+
+        <dt>
+
+          <code><a href="local_treatment_information.html">local_treatment_information()</a></code>
+
+        </dt>
+        <dd>Treatment information from a realised field layout</dd>
       </dl></div><div class="section level2">
       <h2 id="module-coupled-optimisation-information">Module 6 — Coupled optimisation &amp; information<a class="anchor" aria-label="anchor" href="#module-coupled-optimisation-information"></a></h2>
 
-      <div class="section-desc"><p>The two-level (allocation x local-efficiency) information matrix, exact multi-trait index reliability, criterion + gain + cost objectives, exchange/simulated-annealing optimisation, robust/CVaR scoring, and the Pareto trade-off frontier.</p></div>
+      <div class="section-desc"><p>The two-level allocation and local-layout information matrix, TPE-weighted reliability, scalable matrix-free solving, exact multi-trait index reliability, joint allocation-replication-layout optimisation, robust gain and cost objectives, and the Pareto trade-off frontier.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -584,6 +598,13 @@
 
         </dt>
         <dd>Criterion-driven optimisation of a sparse MET allocation</dd>
+
+        <dt>
+
+          <code><a href="fieldbook_design_evaluator.html">fieldbook_design_evaluator()</a></code>
+
+        </dt>
+        <dd>Build a joint allocation-replication-layout evaluator</dd>
 
         <dt>
 
@@ -738,7 +759,7 @@
       </dl></div><div class="section level2">
       <h2 id="module-pipeline-field-books-data">Module 9 — Pipeline, field books &amp; data<a class="anchor" aria-label="anchor" href="#module-pipeline-field-books-data"></a></h2>
 
-      <div class="section-desc"><p>End-to-end orchestration, assembly of per-site field books into a single combined MET field book, and the bundled example dataset.</p></div>
+      <div class="section-desc"><p>End-to-end orchestration, assembly of per-site field books into a single combined MET field book, versioned release-object validation, and the bundled example dataset.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -765,6 +786,20 @@
 
         </dt>
         <dd>Combine environment-level field books into a single MET field book</dd>
+
+        <dt>
+
+          <code><a href="sparse_met_design.html">sparse_met_design()</a></code>
+
+        </dt>
+        <dd>Create a validated sparse-MET design object</dd>
+
+        <dt>
+
+          <code><a href="validate_sparse_met_design.html">validate_sparse_met_design()</a></code>
+
+        </dt>
+        <dd>Validate a sparse-MET design object</dd>
 
         <dt>
 

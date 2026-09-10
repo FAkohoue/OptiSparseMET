@@ -12,6 +12,8 @@ design_objective(
   sigma_e2 = 1,
   reps = NULL,
   env_efficiency = NULL,
+  tpe_weights = NULL,
+  local_information = NULL,
   prop = 0.1,
   sigma_g = 1,
   trait_weights = NULL,
@@ -19,6 +21,7 @@ design_objective(
   R_T = NULL,
   multitrait = c("exact", "approx"),
   cost_per_plot = 1,
+  fixed_plot_overhead = 0,
   weights = list(gain = 1, reliability = 0, cost = 0),
   ref = NULL,
   budget = NULL,
@@ -29,7 +32,10 @@ design_objective(
 \item{allocation_matrix}{Genotype-by-environment 0/1 (or replication-count)
 matrix with dimnames.}
 
-\item{G, Sigma_E, sigma_g2, sigma_e2, reps, env_efficiency, max_dim}{Passed to
+\item{G, Sigma_E, sigma_g2, sigma_e2, reps, env_efficiency, tpe_weights}{Passed to
+\code{\link[=met_information]{met_information()}} (across-TPE target).}
+
+\item{local_information, max_dim}{Passed to
 \code{\link[=met_information]{met_information()}} (across-TPE target).}
 
 \item{prop, sigma_g, trait_weights, trait_gencov}{Passed to
@@ -44,8 +50,12 @@ to \code{sigma_e2 * I}).}
 MME via \code{\link[=met_information_mt]{met_information_mt()}} for the index reliability; \code{"approx"} uses the
 single-trait reliability times the index SD.}
 
-\item{cost_per_plot}{Cost of one physical plot.
-Default 1.}
+\item{cost_per_plot}{Cost of one physical plot: a scalar or a named value
+per environment. Default 1.}
+
+\item{fixed_plot_overhead}{Scalar or per-environment counts of physical plots
+not represented in \code{reps} (for example repeated checks). These plots count
+toward both budget and cost.}
 
 \item{weights}{Named list of non-negative weights \code{gain}, \code{reliability},
 \code{cost}. Default \code{list(gain = 1, reliability = 0, cost = 0)}.}

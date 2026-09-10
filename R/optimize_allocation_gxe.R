@@ -29,7 +29,7 @@
 #' @export
 optimize_allocation_gxe <- function(allocation_matrix, G, Sigma_E = NULL,
                                     sigma_g2 = 1, sigma_e2 = 1,
-                                    env_efficiency = NULL,
+                                    env_efficiency = NULL, tpe_weights = NULL,
                                     iter = 200L, seed = NULL, max_dim = 2000L) {
   M <- allocation_matrix
   if (is.null(rownames(M)) || is.null(colnames(M)))
@@ -41,6 +41,7 @@ optimize_allocation_gxe <- function(allocation_matrix, G, Sigma_E = NULL,
     met_information(mat, G = G, Sigma_E = Sigma_E,
                     sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                     env_efficiency = env_efficiency,
+                    tpe_weights = tpe_weights,
                     target = "across_tpe", max_dim = max_dim)$mean_PEV
   }
 
@@ -65,6 +66,7 @@ optimize_allocation_gxe <- function(allocation_matrix, G, Sigma_E = NULL,
   info <- met_information(M, G = G, Sigma_E = Sigma_E,
                           sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                           env_efficiency = env_efficiency,
+                          tpe_weights = tpe_weights,
                           target = "across_tpe", max_dim = max_dim)
   list(allocation_matrix = M,
        mean_PEV_before   = before,

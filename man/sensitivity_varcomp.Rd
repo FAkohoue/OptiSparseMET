@@ -36,8 +36,8 @@ Defaults to \code{allocation_matrix} (one plot per present cell).}
 design efficiency factors \eqn{\epsilon_e \in (0,1]} (the coupling to the
 local design). Defaults to 1 for every environment.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 }
 \value{
 A data frame with columns \code{lambda}, \code{mean_PEV}, and \code{CDmean}.

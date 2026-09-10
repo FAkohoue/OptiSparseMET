@@ -32,8 +32,10 @@
 #'   [recommend_replication()].
 #' @param evaluate Logical. If `TRUE` (and `G`/`Sigma_E` supplied), evaluate the
 #'   final allocation with [met_information()] and [simulate_met()].
-#' @param n_sim,sigma_g2,sigma_e2,bv_target,target_envs Evaluation settings
+#' @param n_sim,sigma_g2,sigma_e2,bv_target,target_envs,tpe_weights Evaluation settings
 #'   passed to [simulate_met()].
+#' @param env_efficiency Site-efficiency vector passed to [met_information()]
+#'   and [simulate_met()].
 #' @param seed,max_dim Reproducibility and size controls.
 #'
 #' @return A list with `decisions` (chosen `environments`, `individuals`,
@@ -65,6 +67,7 @@ run_design_strategy <- function(treatments,
                                 evaluate = TRUE, n_sim = 30L,
                                 sigma_g2 = 1, sigma_e2 = 1,
                                 bv_target = "across_tpe", target_envs = NULL,
+                                tpe_weights = NULL, env_efficiency = NULL,
                                 seed = NULL, max_dim = 6000L) {
 
   treatments <- unique(as.character(treatments))
@@ -121,6 +124,8 @@ run_design_strategy <- function(treatments,
     Gm <- as.matrix(G)[rownames(M), rownames(M), drop = FALSE]
     M  <- optimize_allocation_gxe(M, G = Gm, Sigma_E = Sigma_E_M,
                                   sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                                  tpe_weights = tpe_weights,
+                                  env_efficiency = env_efficiency,
                                   seed = seed, max_dim = max_dim)$allocation_matrix
     refined <- TRUE
   }
@@ -133,6 +138,7 @@ run_design_strategy <- function(treatments,
     Gm <- as.matrix(G)[rownames(M), rownames(M), drop = FALSE]
     replication <- recommend_replication(
       M, G = Gm, Sigma_E = Sigma_E_M, sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+      env_efficiency = env_efficiency, tpe_weights = tpe_weights,
       replication_levels = replication_levels, n_sim = n_sim,
       seed_available = seed_available,
       seed_required_per_plot = seed_required_per_plot,
@@ -143,11 +149,16 @@ run_design_strategy <- function(treatments,
   evaluation <- NULL
   if (evaluate && !is.null(G) && !is.null(Sigma_E)) {
     Gm  <- as.matrix(G)[rownames(M), rownames(M), drop = FALSE]
+    reps_eval <- if (!is.null(replication)) replication$recommended_reps else NULL
     info <- met_information(M, G = Gm, Sigma_E = Sigma_E_M,
                             sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                            reps = reps_eval, env_efficiency = env_efficiency,
+                            tpe_weights = tpe_weights,
                             max_dim = max_dim)
     sim  <- simulate_met(M, G = Gm, Sigma_E = Sigma_E_M,
                          sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                         reps = reps_eval, env_efficiency = env_efficiency,
+                         tpe_weights = tpe_weights,
                          n_sim = n_sim, bv_target = bv_target,
                          target_envs = target_envs, seed = seed, max_dim = max_dim)
     evaluation <- list(mean_PEV = info$mean_PEV, CDmean = info$CDmean,

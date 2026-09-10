@@ -34,7 +34,8 @@
 #'   from [desired_gain_weights()]. At least one weight must be non-zero. If
 #'   `NULL`, per-trait reliabilities are returned but no index summary.
 #' @param sigma_e2 Residual scale used only when `R_T` is `NULL`. Default 1.
-#' @param reps,env_efficiency,max_dim Passed to [met_information()].
+#' @param reps,env_efficiency,tpe_weights,local_information,max_dim Passed to
+#'   [met_information()].
 #' @return A list with `CDmean_index` (mean index reliability), `rel_index_per_line`,
 #'   `PEV_index_per_line`, `mean_PEV_index`, `CD_per_trait` (a `T`-vector of mean
 #'   per-trait reliabilities), `sigma_index` (\eqn{\sqrt{w'\Sigma_T w}}),
@@ -58,6 +59,7 @@
 met_information_mt <- function(allocation_matrix, G, Sigma_E = NULL,
                                Sigma_T, R_T = NULL, index_weights = NULL,
                                sigma_e2 = 1, reps = NULL, env_efficiency = NULL,
+                               tpe_weights = NULL, local_information = NULL,
                                max_dim = 6000L) {
   Sigma_T <- as.matrix(Sigma_T)
   Tn <- nrow(Sigma_T)
@@ -73,10 +75,17 @@ met_information_mt <- function(allocation_matrix, G, Sigma_E = NULL,
       stop("Named `Sigma_T` must have unique matching row and column names.")
     Sigma_T <- Sigma_T[trait_names, trait_names, drop = FALSE]
   }
-  if (!is.numeric(sigma_e2) || length(sigma_e2) != 1L ||
-      !is.finite(sigma_e2) || sigma_e2 <= 0)
-    stop("`sigma_e2` must be one finite positive number.")
-  if (is.null(R_T)) R_T <- diag(sigma_e2, Tn)
+  env_names <- colnames(allocation_matrix)
+  sigma_e_by_env <- .normalise_environment_variance(sigma_e2, env_names)
+  # With R_T omitted, sigma_e2 is the environment-specific residual scale and
+  # the canonical trait residual covariance is identity.  When R_T is supplied
+  # it defines the complete trait residual covariance, preserving the historic
+  # behaviour in which sigma_e2 is ignored on that path.
+  if (is.null(R_T)) {
+    R_T <- diag(1, Tn)
+  } else {
+    sigma_e_by_env <- stats::setNames(rep(1, length(env_names)), env_names)
+  }
   R_T <- as.matrix(R_T)
   if (!is.numeric(R_T) || nrow(R_T) != Tn || ncol(R_T) != Tn ||
       any(!is.finite(R_T)) ||
@@ -106,7 +115,10 @@ met_information_mt <- function(allocation_matrix, G, Sigma_E = NULL,
   J <- nrow(Gm)
   if (is.null(Sigma_E)) Sigma_E <- diag(ncol(allocation_matrix))
   Sigma_E <- as.matrix(Sigma_E)
-  s <- mean(Sigma_E)                       # = omega' Sigma_E omega, omega = 1/E
+  omega <- .normalise_tpe_weights(tpe_weights, env_names)
+  if (!is.null(rownames(Sigma_E)) && !is.null(colnames(Sigma_E)))
+    Sigma_E <- Sigma_E[env_names, env_names, drop = FALSE]
+  s <- as.numeric(crossprod(omega, Sigma_E %*% omega))
   if (!is.finite(s) || s <= 0)
     stop("`Sigma_E` must imply positive across-TPE variance.")
 
@@ -140,9 +152,11 @@ met_information_mt <- function(allocation_matrix, G, Sigma_E = NULL,
   pev <- matrix(NA_real_, Tn, J)           # canonical trait x genotype
   for (k in seq_len(Tn)) {
     info_k <- met_information(allocation_matrix, G = G, Sigma_E = Sigma_E,
-                              sigma_g2 = lambda[k], sigma_e2 = 1,
+                              sigma_g2 = lambda[k], sigma_e2 = sigma_e_by_env,
                               reps = reps, env_efficiency = env_efficiency,
-                              target = "across_tpe", max_dim = max_dim)
+                              target = "across_tpe", max_dim = max_dim,
+                              tpe_weights = omega,
+                              local_information = local_information)
     pev[k, ] <- info_k$PEV_per_line
   }
 

@@ -30,6 +30,8 @@ run_design_strategy(
   sigma_e2 = 1,
   bv_target = "across_tpe",
   target_envs = NULL,
+  tpe_weights = NULL,
+  env_efficiency = NULL,
   seed = NULL,
   max_dim = 6000L
 )
@@ -67,8 +69,11 @@ allocation with \code{\link[=optimize_allocation_gxe]{optimize_allocation_gxe()}
 \item{evaluate}{Logical. If \code{TRUE} (and \code{G}/\code{Sigma_E} supplied), evaluate the
 final allocation with \code{\link[=met_information]{met_information()}} and \code{\link[=simulate_met]{simulate_met()}}.}
 
-\item{n_sim, sigma_g2, sigma_e2, bv_target, target_envs}{Evaluation settings
+\item{n_sim, sigma_g2, sigma_e2, bv_target, target_envs, tpe_weights}{Evaluation settings
 passed to \code{\link[=simulate_met]{simulate_met()}}.}
+
+\item{env_efficiency}{Site-efficiency vector passed to \code{\link[=met_information]{met_information()}}
+and \code{\link[=simulate_met]{simulate_met()}}.}
 
 \item{seed, max_dim}{Reproducibility and size controls.}
 }

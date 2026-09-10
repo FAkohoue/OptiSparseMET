@@ -70,7 +70,8 @@ reference:
     desc: >
       Retrieve and quality-control weather, soil, management, and geography
       data; build and combine environment kernels; calibrate a data-driven
-      environmental covariance; and cluster sites into mega-environments.
+      environmental covariance; fit genetic environment covariance by REML;
+      and cluster sites into mega-environments.
     contents:
       - build_enviromic_covariates
       - fetch_weather_series
@@ -92,6 +93,7 @@ reference:
       - build_variable_interaction_kernels
       - assess_variable_interactions
       - calibrate_environment_covariance
+      - fit_historical_met
       - build_environment_relationship
       - cluster_environments
       - infer_mega_environments
@@ -145,7 +147,7 @@ reference:
   - title: "Module 4 — Seed-aware replication"
     desc: >
       Turn a single network-wide seed inventory and per-plot seed requirements
-      into a feasible per-site replication plan.
+      into a feasible per-site integer and partially replicated plan.
     contents:
       - assign_replication_by_seed
       - recommend_replication
@@ -153,8 +155,8 @@ reference:
   - title: "Module 5 — Within-environment field design"
     desc: >
       Construct and optimise within-site layouts (block-based repeated-check and
-      alpha row-column), evaluate their statistical efficiency, and compare
-      spatial error models.
+      alpha row-column), evaluate their statistical efficiency, retain full
+      local treatment information, and compare spatial error models.
     contents:
       - met_prep_famoptg
       - met_alpha_rc_stream
@@ -163,18 +165,20 @@ reference:
       - met_evaluate_famoptg_efficiency
       - met_evaluate_alpha_efficiency
       - compare_spatial_models
+      - local_treatment_information
 
   - title: "Module 6 — Coupled optimisation & information"
     desc: >
-      The two-level (allocation x local-efficiency) information matrix, exact
-      multi-trait index reliability, criterion + gain + cost objectives,
-      exchange/simulated-annealing optimisation, robust/CVaR scoring, and the
-      Pareto trade-off frontier.
+      The two-level allocation and local-layout information matrix, TPE-weighted
+      reliability, scalable matrix-free solving, exact multi-trait index
+      reliability, joint allocation-replication-layout optimisation, robust
+      gain and cost objectives, and the Pareto trade-off frontier.
     contents:
       - met_information
       - met_information_mt
       - design_objective
       - optimize_design
+      - fieldbook_design_evaluator
       - robust_scenarios
       - robust_design_score
       - pareto_designs
@@ -212,11 +216,14 @@ reference:
   - title: "Module 9 — Pipeline, field books & data"
     desc: >
       End-to-end orchestration, assembly of per-site field books into a single
-      combined MET field book, and the bundled example dataset.
+      combined MET field book, versioned release-object validation, and the
+      bundled example dataset.
     contents:
       - plan_sparse_met_design
       - run_design_strategy
       - combine_met_fieldbooks
+      - sparse_met_design
+      - validate_sparse_met_design
       - OptiSparseMET_example_data
 
 navbar:

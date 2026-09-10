@@ -60,7 +60,9 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/feasibility_helpers.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fetch_soilgrids.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fetch_weather_series.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fieldbook_design_evaluator.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/field_plot_accounting.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/fit_historical_met.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/historical_environment_characterization.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/historical_envirotype.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/index.html</loc></url>
@@ -68,6 +70,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/infer_mega_environments.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/kinship_pca.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/list_candidate_interactions.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/local_treatment_information.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/make_met_benchmark_designs.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_alpha_rc_stream.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/met_evaluate_alpha_efficiency.html</loc></url>
@@ -104,6 +107,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/simulate_environment_model_benchmark.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/simulate_met.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/soil_profile_features.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/sparse_met_design.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/sparsity_grid.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/suggest_common_range.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/suggest_common_treatments.html</loc></url>
@@ -114,6 +118,7 @@
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/tune_common_treatments.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/tune_relationship_matrix.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/validate_design_criteria.html</loc></url>
+<url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/validate_sparse_met_design.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/reference/warn_if_k_too_small.html</loc></url>
 <url><loc>https://FAkohoue.github.io/OptiSparseMET/VALIDATION.html</loc></url>
 </urlset>

@@ -14,7 +14,7 @@ header-includes:
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 vignette: >
-  %\VignetteIndexEntry{End-to-End Sparse MET Pipeline}
+  %\VignetteIndexEntry{End-to-End Sparse MET Pipeline: from Environmental Classification to the Combined Field Book}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -271,6 +271,32 @@ cal$weights                          # fitted kernel weights (on the simplex)
 cal$interaction_evidence             # per-interaction CV / bootstrap evidence
 ```
 
+The kernel calibration asks whether measured environmental features predict
+historical response structure. When the immediate requirement is a genetic
+environment covariance for design calculations, fit it directly by REML. The
+likelihood handles missing genotype-by-environment cells; replicated cells can
+also identify the residual variance.
+
+```{r historical-reml}
+reml_fit <- fit_historical_met(
+  historical,
+  genotype_col = "genotype",
+  environment_col = "environment",
+  response_col = "value",
+  environments = sites,
+  model = "fa",
+  rank = 2
+)
+
+Sigma_E <- reml_fit$Sigma_E
+reml_fit$convergence
+reml_fit$loadings
+```
+
+Compare diagonal, factor-analytic, and unstructured fits with AIC, BIC, blocked
+prediction, and biological plausibility. A lower in-sample criterion does not
+replace leave-year-out or leave-environment-out validation.
+
 When no historical target is available, `calibrate_environment_covariance()`
 returns the identity as a neutral central covariance and keeps interaction
 kernels as *unweighted structural-uncertainty scenarios* — an honest fallback
@@ -435,6 +461,24 @@ rep_plan <- assign_replication_by_seed(
 head(rep_plan)
 ```
 
+Fractional p-rep targets are realised as integer plots. For example, a target
+of 1.5 assigns one plot to half of the occupied cells and two plots to the
+remainder, balanced across treatments and environments.
+
+```{r integer-replication}
+rep_choice <- recommend_replication(
+  A, G = G, Sigma_E = Sigma_E,
+  sigma_e2 = setNames(c(1.0, 1.2, 0.9, 1.1, 1.3, 0.8, 1.0), sites),
+  tpe_weights = setNames(c(0.18, 0.16, 0.15, 0.14, 0.13, 0.12, 0.12), sites),
+  replication_levels = c(1, 1.5, 2),
+  n_sim = 100L,
+  seed = 1
+)
+
+rep_choice$table
+rep_choice$recommended_reps
+```
+
 ---
 
 # Module 5 — Within-environment field design
@@ -472,6 +516,24 @@ fb_alpha <- met_alpha_rc_stream(
 `compare_spatial_models()` can score IID / AR1×AR1 / P-spline error models to
 pick the analysis model each layout best supports.
 
+A scalar efficiency factor is useful for screening, but the final network
+calculation should retain the complete contrast information from each realised
+layout. `local_treatment_information()` absorbs checks, fixed blocks, optional
+random nuisance factors, and the selected spatial residual model.
+
+```{r local-information}
+I_block <- local_treatment_information(
+  fb_block$field_book,
+  treatments = hybrids[1:180],
+  check_treatments = common[1:4],
+  fixed_effects = "Block",
+  residual_structure = "AR1xAR1",
+  rho_row = 0.35,
+  rho_col = 0.20,
+  sigma_e2 = 1
+)
+```
+
 ---
 
 # Module 6 — Coupled optimisation & information
@@ -490,20 +552,40 @@ $$
 from which the across-TPE reliability of line $j$ is
 
 $$
-\mathrm{CD}_j \;=\; 1 - \frac{\mathrm{PEV}_j}{\sigma_g^2\, G_{jj}\,\bar{\Sigma}_E},
+\mathrm{CD}_j \;=\; 1 - \frac{\mathrm{PEV}_j}
+{\sigma_g^2\, G_{jj}\, w^\top\Sigma_E w},
 \qquad
-\mathrm{PEV}_j \;=\; \frac{1}{E^2}\, a_j^\top C_{uu}^{-1} a_j .
+\mathrm{PEV}_j \;=\; a_j^\top C_{uu}^{-1} a_j,
 $$
+
+where $w$ contains the target-population-of-environments (TPE) weights and
+$a_j$ places those weights on line $j$'s environment-specific effects. Equal
+weights reproduce the ordinary across-environment mean.
 
 ## 6.1 Reliability of the whole design
 
 ```{r info}
 eff <- setNames(rep(0.9, E), sites)     # e.g. from Module 5 evaluations
-info <- met_information(A, G = G, Sigma_E = Sigma_E,
-                        sigma_g2 = 1, sigma_e2 = 1, env_efficiency = eff)
+residual_var <- setNames(c(1.0, 1.2, 0.9, 1.1, 1.3, 0.8, 1.0), sites)
+tpe <- setNames(c(0.18, 0.16, 0.15, 0.14, 0.13, 0.12, 0.12), sites)
+info <- met_information(
+  A, G = G, Sigma_E = Sigma_E,
+  sigma_g2 = 1, sigma_e2 = residual_var,
+  env_efficiency = eff, tpe_weights = tpe,
+  solver = "auto", trace_samples = 80L
+)
 info$CDmean                              # mean across-TPE reliability
 info$mean_PEV
+info$solver_used                         # dense exact or matrix-free PCG
+info$solver_diagnostics                  # convergence and approximation audit
 ```
+
+`solver = "auto"` uses the exact dense calculation for moderate networks and
+switches to preconditioned conjugate gradients above `max_dim`. The PCG path
+never forms the full $JE\times JE$ matrix and estimates target PEV diagonals
+with deterministic Hutchinson probes. Increase `trace_samples` until the
+reported decision metric is stable; require all or nearly all solves to meet
+the declared tolerance before release.
 
 ## 6.2 Exact multi-trait index reliability
 
@@ -550,7 +632,61 @@ opt <- optimize_design(
 opt$allocation_matrix                    # improved incidence
 ```
 
-## 6.4 Pareto frontier (budget vs. gain)
+## 6.4 Joint allocation, replication, and local layout
+
+For the final optimisation, score the plantable fieldbooks rather than a fixed
+site-efficiency approximation. The evaluator builds a local design for every
+unique candidate, derives integer replication and full treatment information,
+and counts repeated checks as fixed plot overhead.
+
+```{r joint-layout-optimization}
+local_specs <- setNames(lapply(sites, function(site) list(
+  design = "met_prep_famoptg",
+  check_treatments = common[1:4],
+  check_families = rep("CHK", 4),
+  n_blocks = 4L,
+  n_rows = 20L,
+  n_cols = 12L,
+  replication_mode = "unreplicated"
+)), sites)
+
+layout_evaluator <- fieldbook_design_evaluator(
+  env_design_specs = local_specs,
+  treatment_info = data.frame(Treatment = hybrids, Family = families),
+  common_treatments = common[1:4],
+  information_models = setNames(lapply(sites, function(site) list(
+    fixed_effects = "Block",
+    residual_structure = "AR1xAR1",
+    rho_row = 0.35,
+    rho_col = 0.20,
+    sigma_e2 = residual_var[[site]]
+  )), sites),
+  cost_per_plot = setNames(c(1, 1, 1.1, 1.1, 1.2, 1.2, 1.2), sites),
+  seed = 1
+)
+
+joint_opt <- optimize_design(
+  A, G = G, Sigma_E = Sigma_E,
+  tpe_weights = tpe,
+  design_evaluator = layout_evaluator,
+  objective = list(
+    weights = list(gain = 1, reliability = 0, cost = 0.15),
+    budget = 1500
+  ),
+  preserve = "margins",
+  n_starts = 5L, iters = 200L, seed = 1
+)
+
+joint_opt$diagnostics
+validate_sparse_met_design(joint_opt$design)
+joint_opt$design$fieldbooks
+```
+
+The returned `sparse_met_design` is the release record. It reconciles the
+allocation, realised replication, fieldbooks, covariance assumptions, TPE
+weights, diagnostics, and provenance under a versioned schema.
+
+## 6.5 Pareto frontier (budget vs. gain)
 
 ```{r pareto}
 pf <- pareto_designs(A, G = G, Sigma_E = Sigma_E,
@@ -691,4 +827,3 @@ In short: the coupled information matrix and its exact multi-trait extension are
 correct to floating-point precision — the reliabilities this pipeline reports
 are the same numbers a full mixed-model analysis would return.
 ```
-

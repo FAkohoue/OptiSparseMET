@@ -11,6 +11,9 @@ optimize_design(
   objective = list(),
   sigma_g2 = 1,
   sigma_e2 = 1,
+  tpe_weights = NULL,
+  env_efficiency = NULL,
+  design_evaluator = NULL,
   preserve = c("margins", "replication", "none"),
   robust = NULL,
   robust_aggregate = c("mean", "cvar", "min"),
@@ -40,6 +43,17 @@ optimize_design(
 
 \item{sigma_g2, sigma_e2}{Nominal variance components (used when \code{robust} is
 \code{NULL}, and to normalise the objective reference).}
+
+\item{tpe_weights}{Target-population weights passed to \code{\link[=met_information]{met_information()}}.}
+
+\item{env_efficiency}{Optional fixed site-efficiency vector. For genuine
+allocation-replication-layout optimisation, use \code{design_evaluator}.}
+
+\item{design_evaluator}{Optional function taking one candidate allocation
+matrix and returning a list with any of \code{reps}, \code{env_efficiency},
+\code{local_information}, \code{cost_per_plot}, \code{fixed_plot_overhead}, \code{feasible},
+\code{fieldbooks}, and \code{metadata}. It is called once per unique candidate (results are cached),
+allowing the annealing search to score actual plantable local layouts.}
 
 \item{preserve}{\code{"margins"}, \code{"replication"}, or \code{"none"} (see Details).}
 
@@ -80,10 +94,11 @@ Default 1 keeps every environment connected.}
 \item{verbose}{Print per-restart progress.}
 }
 \value{
-A list with \code{allocation_matrix} (best found), \code{score}, \code{components}
-(raw reliability/gain/plots/cost of the best design), \code{score_start},
-\code{trace} (best score per restart), \code{preserve}, \code{robust} (logical), and
-\code{seed_summary} when seed constraints are active.
+A list with the best \code{allocation_matrix}, \code{score}, raw objective
+\code{components}, starting score, restart \code{trace}, full \code{trajectory}, move and
+evaluator \code{diagnostics}, preservation and robustness settings, optional
+\code{seed_summary}, the best \code{design_evaluation}, and a validated
+\code{sparse_met_design} in \code{design}.
 }
 \description{
 Searches for the genotype-by-environment allocation that maximises a

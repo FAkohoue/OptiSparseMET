@@ -5,12 +5,18 @@ required for each decision, and the checks to complete before releasing a field
 book. It is written for breeders, quantitative geneticists, trial managers, and
 reviewers.
 
-The September 2026 update documents the package's improved environmental
-workflow: descriptive environmental strata are separated from validated hard
-groups, candidate partitions and evidence-block diagnostics are retained,
-weather and SoilGrids metadata are request-safe, within-block redundancy
-control is optional and audited, and historical weather and soil can be
-characterized through one high-level workflow.
+The September 2026 update documents the complete production workflow. It covers
+the improved environmental evidence pipeline; REML estimation of genetic
+environment covariance; target-population weights; environment-specific error
+variance and plot cost; joint allocation, integer replication, and local field
+layout optimisation; scalable matrix-free reliability calculations; and the
+validated design record used for field-book release.
+
+The guide distinguishes descriptive environmental structure from genetic
+covariance estimated from historical MET responses. It also explains which
+diagnostics must be reviewed when an iterative solver or stochastic optimiser
+is used, and how candidate plots, repeated checks, seed, and fixed overhead are
+reconciled before a design is released.
 
 <p>
   <a class="btn btn-primary" href="OptiSparseMET_Breeders_Guide.pdf" target="_blank" rel="noopener">

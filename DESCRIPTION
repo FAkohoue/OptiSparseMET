@@ -39,17 +39,25 @@ Description: Constructs statistically connected and operationally feasible
     cross-modality interaction kernels. Pre-specified variable interactions
     can be represented by dedicated residualised tensor kernels with
     strong-heredity parent structures and complete construction audits.
-    Historical MET responses, when
-    available, calibrate genetic environment covariance by blocked validation.
+    Historical MET responses, when available, calibrate environmental kernels
+    by blocked validation and estimate genetic environment covariance by
+    restricted maximum likelihood with diagonal, factor-analytic, or
+    unstructured models that retain missing genotype-environment cells.
     Component-wise interaction assessment uses blocked prediction,
     multiplicity control, and bootstrap inclusion stability.
     Without historical responses, the central covariance is the identity
     matrix and unweighted kernels define separate maximin sensitivity
     scenarios. Stability-screened clustering infers descriptive
     mega-environments and returns an unpartitioned network when grouping is
-    unsupported. The end-to-end pipeline joins capacity analysis, common-set
+    unsupported. Target-population weights, environment-specific residual
+    variances and plot costs, integer partial replication, and full local
+    treatment-information matrices feed the coupled design objective. A
+    matrix-free preconditioned-conjugate-gradient solver supports larger
+    networks. The end-to-end pipeline joins capacity analysis, common-set
     selection, allocation, seed accounting, local field design, robust
-    evaluation, and unified field-book assembly.
+    evaluation, and unified field-book assembly; versioned design objects
+    reconcile the released allocation, replication, fieldbooks, diagnostics,
+    and provenance.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

@@ -36,6 +36,14 @@
 #'   `trait_gencov`, `budget`.
 #' @param sigma_g2,sigma_e2 Nominal variance components (used when `robust` is
 #'   `NULL`, and to normalise the objective reference).
+#' @param tpe_weights Target-population weights passed to [met_information()].
+#' @param env_efficiency Optional fixed site-efficiency vector. For genuine
+#'   allocation-replication-layout optimisation, use `design_evaluator`.
+#' @param design_evaluator Optional function taking one candidate allocation
+#'   matrix and returning a list with any of `reps`, `env_efficiency`,
+#'   `local_information`, `cost_per_plot`, `fixed_plot_overhead`, `feasible`,
+#'   `fieldbooks`, and `metadata`. It is called once per unique candidate (results are cached),
+#'   allowing the annealing search to score actual plantable local layouts.
 #' @param preserve `"margins"`, `"replication"`, or `"none"` (see Details).
 #' @param robust Optional list from [robust_scenarios()]; if given, designs are
 #'   scored by [robust_design_score()].
@@ -60,10 +68,11 @@
 #' @param seed Optional RNG seed.
 #' @param max_dim Guard passed to [met_information()].
 #' @param verbose Print per-restart progress.
-#' @return A list with `allocation_matrix` (best found), `score`, `components`
-#'   (raw reliability/gain/plots/cost of the best design), `score_start`,
-#'   `trace` (best score per restart), `preserve`, `robust` (logical), and
-#'   `seed_summary` when seed constraints are active.
+#' @return A list with the best `allocation_matrix`, `score`, raw objective
+#'   `components`, starting score, restart `trace`, full `trajectory`, move and
+#'   evaluator `diagnostics`, preservation and robustness settings, optional
+#'   `seed_summary`, the best `design_evaluation`, and a validated
+#'   `sparse_met_design` in `design`.
 #' @seealso [design_objective()], [robust_design_score()], [pareto_designs()],
 #'   [allocate_sparse_met()].
 #' @examples
@@ -81,6 +90,8 @@
 optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                             objective = list(),
                             sigma_g2 = 1, sigma_e2 = 1,
+                            tpe_weights = NULL, env_efficiency = NULL,
+                            design_evaluator = NULL,
                             preserve = c("margins", "replication", "none"),
                             robust = NULL,
                             robust_aggregate = c("mean", "cvar", "min"),
@@ -106,6 +117,8 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     stop("`minimum_seed_buffer` must be one finite non-negative number.")
   if (is.null(seed_available) && minimum_seed_buffer > 0)
     stop("`seed_available` is required when `minimum_seed_buffer` is positive.")
+  if (!is.null(design_evaluator) && !is.function(design_evaluator))
+    stop("`design_evaluator` must be NULL or a function.")
 
   M0 <- allocation_matrix
   storage.mode(M0) <- "integer"
@@ -229,15 +242,56 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
          R_T = NULL, multitrait = "exact", budget = NULL),
     objective)
 
+  evaluator_cache <- new.env(parent = emptyenv(), hash = TRUE)
+  evaluator_calls <- 0L
+  evaluator_cache_hits <- 0L
+  evaluator_failures <- 0L
+  evaluate_candidate <- function(M) {
+    key <- paste0(as.integer(M), collapse = "")
+    if (exists(key, envir = evaluator_cache, inherits = FALSE)) {
+      evaluator_cache_hits <<- evaluator_cache_hits + 1L
+      return(get(key, envir = evaluator_cache, inherits = FALSE))
+    }
+    evaluator_calls <<- evaluator_calls + 1L
+    ans <- if (is.null(design_evaluator)) {
+      list(reps = NULL, env_efficiency = env_efficiency,
+           local_information = NULL, feasible = TRUE,
+           cost_per_plot = obj$cost_per_plot, fixed_plot_overhead = 0)
+    } else tryCatch(design_evaluator(M), error = function(e) {
+      evaluator_failures <<- evaluator_failures + 1L
+      structure(list(feasible = FALSE, error = conditionMessage(e)),
+                class = "design_evaluator_error")
+    })
+    if (!is.list(ans))
+      stop("`design_evaluator` must return a list.")
+    if (is.null(ans$feasible)) ans$feasible <- TRUE
+    if (!is.logical(ans$feasible) || length(ans$feasible) != 1L ||
+        is.na(ans$feasible))
+      stop("`design_evaluator()$feasible` must be TRUE or FALSE.")
+    if (is.null(ans$cost_per_plot)) ans$cost_per_plot <- obj$cost_per_plot
+    if (is.null(ans$fixed_plot_overhead)) ans$fixed_plot_overhead <- 0
+    assign(key, ans, envir = evaluator_cache)
+    ans
+  }
+
   # Reference for normalisation: components of the starting design at nominal
   # variance parameters.
+  base_eval <- evaluate_candidate(M0)
+  if (!isTRUE(base_eval$feasible))
+    stop("The starting allocation cannot be converted to a feasible local design",
+         if (!is.null(base_eval$error)) paste0(": ", base_eval$error) else ".")
   base <- design_objective(M0, G = G, Sigma_E = Sigma_E,
                            sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                           reps = base_eval$reps,
+                           env_efficiency = base_eval$env_efficiency,
+                           tpe_weights = tpe_weights,
+                           local_information = base_eval$local_information,
                            prop = obj$prop, sigma_g = obj$sigma_g,
                            trait_weights = obj$trait_weights,
                            trait_gencov = obj$trait_gencov,
                            R_T = obj$R_T, multitrait = obj$multitrait,
-                           cost_per_plot = obj$cost_per_plot,
+                           cost_per_plot = base_eval$cost_per_plot,
+                           fixed_plot_overhead = base_eval$fixed_plot_overhead,
                            weights = obj$weights, ref = NULL,
                            budget = NULL, max_dim = max_dim)
   ref <- list(gain = base$gain, reliability = base$reliability,
@@ -245,14 +299,20 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
 
   score_fun <- function(M) {
     if (!design_feasible(M)) return(-Inf)
+    ev <- evaluate_candidate(M)
+    if (!isTRUE(ev$feasible)) return(-Inf)
     if (is.null(robust)) {
       design_objective(M, G = G, Sigma_E = Sigma_E,
                        sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                       reps = ev$reps, env_efficiency = ev$env_efficiency,
+                       tpe_weights = tpe_weights,
+                       local_information = ev$local_information,
                        prop = obj$prop, sigma_g = obj$sigma_g,
                        trait_weights = obj$trait_weights,
                        trait_gencov = obj$trait_gencov,
                        R_T = obj$R_T, multitrait = obj$multitrait,
-                       cost_per_plot = obj$cost_per_plot,
+                       cost_per_plot = ev$cost_per_plot,
+                       fixed_plot_overhead = ev$fixed_plot_overhead,
                        weights = obj$weights, ref = ref,
                        budget = obj$budget, max_dim = max_dim)$score
     } else {
@@ -262,7 +322,12 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                           trait_weights = obj$trait_weights,
                           trait_gencov = obj$trait_gencov,
                           R_T = obj$R_T, multitrait = obj$multitrait,
-                          cost_per_plot = obj$cost_per_plot,
+                          reps = ev$reps,
+                          env_efficiency = ev$env_efficiency,
+                          tpe_weights = tpe_weights,
+                          local_information = ev$local_information,
+                          cost_per_plot = ev$cost_per_plot,
+                          fixed_plot_overhead = ev$fixed_plot_overhead,
                           weights = obj$weights, ref = ref,
                           budget = obj$budget, max_dim = max_dim)$score
     }
@@ -273,6 +338,8 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     stop("The starting design is infeasible under the objective budget or ",
          "produces a non-finite score.")
   best_M <- M0; best_score <- score_start; trace <- numeric(0)
+  proposals <- accepted <- improved <- infeasible_proposals <- 0L
+  trajectory <- vector("list", n_starts)
 
   for (st in seq_len(n_starts)) {
     # First restart begins at the supplied design; later ones are perturbed.
@@ -283,30 +350,46 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
     temp  <- max(abs(cur_s), 1e-3) * 0.5
 
     for (it in seq_len(iters)) {
+      proposals <- proposals + 1L
       prop_M <- .propose_move(cur_M, preserve, obj$budget)
       if (is.null(prop_M)) { temp <- temp * cooling; next }
-      if (!design_feasible(prop_M)) { temp <- temp * cooling; next }
+      if (!design_feasible(prop_M)) {
+        infeasible_proposals <- infeasible_proposals + 1L
+        temp <- temp * cooling; next
+      }
       new_s <- score_fun(prop_M)
       d <- new_s - cur_s
       if (is.finite(new_s) && (d > 0 || stats::runif(1) < exp(d / temp))) {
+        accepted <- accepted + 1L
         cur_M <- prop_M; cur_s <- new_s
         if (cur_s > restart_best) restart_best <- cur_s
-        if (cur_s > best_score) { best_score <- cur_s; best_M <- cur_M }
+        if (cur_s > best_score) {
+          improved <- improved + 1L
+          best_score <- cur_s; best_M <- cur_M
+        }
       }
       temp <- temp * cooling
     }
     trace <- c(trace, restart_best)
+    trajectory[[st]] <- data.frame(restart = st, final_score = cur_s,
+                                    best_score = restart_best)
     if (verbose) message(sprintf("restart %d: score = %.5f (best = %.5f)",
                                  st, cur_s, best_score))
   }
 
+  best_eval <- evaluate_candidate(best_M)
   comp <- design_objective(best_M, G = G, Sigma_E = Sigma_E,
                            sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+                           reps = best_eval$reps,
+                           env_efficiency = best_eval$env_efficiency,
+                           tpe_weights = tpe_weights,
+                           local_information = best_eval$local_information,
                            prop = obj$prop, sigma_g = obj$sigma_g,
                            trait_weights = obj$trait_weights,
                            trait_gencov = obj$trait_gencov,
                            R_T = obj$R_T, multitrait = obj$multitrait,
-                           cost_per_plot = obj$cost_per_plot,
+                           cost_per_plot = best_eval$cost_per_plot,
+                           fixed_plot_overhead = best_eval$fixed_plot_overhead,
                            weights = obj$weights, ref = ref,
                            budget = obj$budget, max_dim = max_dim)
 
@@ -322,11 +405,34 @@ optimize_design <- function(allocation_matrix, G, Sigma_E = NULL,
                stringsAsFactors = FALSE)
   }
 
+  optimizer_diagnostics <- list(
+    proposals = proposals, accepted = accepted,
+    acceptance_rate = accepted / max(1L, proposals),
+    improvements = improved,
+    infeasible_proposals = infeasible_proposals,
+    unique_design_evaluations = evaluator_calls,
+    evaluator_cache_hits = evaluator_cache_hits,
+    evaluator_failures = evaluator_failures)
+  design <- sparse_met_design(
+    best_M,
+    reps = if (is.null(best_eval$reps)) best_M else best_eval$reps,
+    fieldbooks = best_eval$fieldbooks,
+    G = G, Sigma_E = Sigma_E, tpe_weights = tpe_weights,
+    sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
+    diagnostics = optimizer_diagnostics,
+    provenance = list(engine = "optimize_design",
+                      preserve = preserve, robust = !is.null(robust),
+                      seed = seed))
+
   list(allocation_matrix = best_M, score = best_score,
        components = comp[c("reliability", "mean_PEV", "gain", "plots", "cost")],
        score_start = score_start, trace = trace,
        preserve = preserve, robust = !is.null(robust),
-       seed_summary = seed_summary)
+       seed_summary = seed_summary,
+       design_evaluation = best_eval,
+       design = design,
+       trajectory = do.call(rbind, trajectory),
+       diagnostics = optimizer_diagnostics)
 }
 
 

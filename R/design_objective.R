@@ -21,7 +21,9 @@
 #'
 #' @param allocation_matrix Genotype-by-environment 0/1 (or replication-count)
 #'   matrix with dimnames.
-#' @param G,Sigma_E,sigma_g2,sigma_e2,reps,env_efficiency,max_dim Passed to
+#' @param G,Sigma_E,sigma_g2,sigma_e2,reps,env_efficiency,tpe_weights Passed to
+#'   [met_information()] (across-TPE target).
+#' @param local_information,max_dim Passed to
 #'   [met_information()] (across-TPE target).
 #' @param prop,sigma_g,trait_weights,trait_gencov Passed to
 #'   [expected_genetic_gain()]. Supplying `trait_weights` (e.g. from
@@ -32,8 +34,11 @@
 #' @param multitrait `"exact"` (default) uses the full trait-covariance Kronecker
 #'   MME via [met_information_mt()] for the index reliability; `"approx"` uses the
 #'   single-trait reliability times the index SD.
-#' @param cost_per_plot Cost of one physical plot.
-#'   Default 1.
+#' @param cost_per_plot Cost of one physical plot: a scalar or a named value
+#'   per environment. Default 1.
+#' @param fixed_plot_overhead Scalar or per-environment counts of physical plots
+#'   not represented in `reps` (for example repeated checks). These plots count
+#'   toward both budget and cost.
 #' @param weights Named list of non-negative weights `gain`, `reliability`,
 #'   `cost`. Default `list(gain = 1, reliability = 0, cost = 0)`.
 #' @param ref Named list of reference values (`gain`, `reliability`, `cost`) used
@@ -57,17 +62,31 @@
 design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
                              sigma_g2 = 1, sigma_e2 = 1,
                              reps = NULL, env_efficiency = NULL,
+                             tpe_weights = NULL, local_information = NULL,
                              prop = 0.1, sigma_g = 1,
                              trait_weights = NULL, trait_gencov = NULL,
                              R_T = NULL, multitrait = c("exact", "approx"),
-                             cost_per_plot = 1,
+                             cost_per_plot = 1, fixed_plot_overhead = 0,
                              weights = list(gain = 1, reliability = 0, cost = 0),
                              ref = NULL, budget = NULL, max_dim = 6000L) {
   multitrait <- match.arg(multitrait)
   is_mt <- !is.null(trait_weights) && !is.null(trait_gencov)
-  if (!is.numeric(cost_per_plot) || length(cost_per_plot) != 1L ||
-      !is.finite(cost_per_plot) || cost_per_plot < 0)
-    stop("`cost_per_plot` must be one finite non-negative number.")
+  envs <- colnames(allocation_matrix)
+  normalise_env_cost <- function(x, arg) {
+    if (!is.numeric(x) || !length(x) || any(!is.finite(x)) || any(x < 0))
+      stop("`", arg, "` must contain finite non-negative values.")
+    if (!is.null(names(x))) {
+      if (anyDuplicated(names(x)) || !all(envs %in% names(x)))
+        stop("Named `", arg, "` must cover every environment.")
+      x <- x[envs]
+    } else if (length(x) == 1L) x <- rep(x, length(envs))
+    else if (length(x) != length(envs))
+      stop("`", arg, "` must be scalar or have one value per environment.")
+    stats::setNames(as.numeric(x), envs)
+  }
+  cost_per_plot <- normalise_env_cost(cost_per_plot, "cost_per_plot")
+  fixed_plot_overhead <- normalise_env_cost(fixed_plot_overhead,
+                                             "fixed_plot_overhead")
   if (!is.null(budget) &&
       (!is.numeric(budget) || length(budget) != 1L ||
        !is.finite(budget) || budget < 0))
@@ -87,6 +106,8 @@ design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
                              Sigma_T = trait_gencov, R_T = R_T,
                              index_weights = trait_weights, sigma_e2 = sigma_e2,
                              reps = reps, env_efficiency = env_efficiency,
+                             tpe_weights = tpe_weights,
+                             local_information = local_information,
                              max_dim = max_dim)
     reliability <- mt$CDmean_index
     mean_PEV <- mt$mean_PEV_index
@@ -96,7 +117,9 @@ design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
     info <- met_information(allocation_matrix, G = G, Sigma_E = Sigma_E,
                             sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                             reps = reps, env_efficiency = env_efficiency,
-                            target = "across_tpe", max_dim = max_dim)
+                            target = "across_tpe", max_dim = max_dim,
+                            tpe_weights = tpe_weights,
+                            local_information = local_information)
     reliability <- info$CDmean
     mean_PEV <- info$mean_PEV
     gain <- expected_genetic_gain(reliability = reliability, sigma_g = sigma_g,
@@ -109,11 +132,15 @@ design_objective <- function(allocation_matrix, G, Sigma_E = NULL,
       any(plot_matrix < 0))
     stop("Plot counts from `reps`/`allocation_matrix` must be a finite, ",
          "non-negative matrix matching the allocation dimensions.")
-  plots <- sum(plot_matrix)
-  cost  <- plots * cost_per_plot
+  treatment_plots <- sum(plot_matrix)
+  plots <- treatment_plots + sum(fixed_plot_overhead)
+  cost <- sum(sweep(plot_matrix, 2L, cost_per_plot, `*`)) +
+    sum(fixed_plot_overhead * cost_per_plot)
 
   out <- list(reliability = reliability, mean_PEV = mean_PEV,
-              gain = gain, plots = plots, cost = cost, feasible = TRUE)
+              gain = gain, treatment_plots = treatment_plots,
+              fixed_plot_overhead = fixed_plot_overhead,
+              plots = plots, cost = cost, feasible = TRUE)
 
   if (!is.null(budget) && plots > budget) {
     out$feasible <- FALSE

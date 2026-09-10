@@ -37,7 +37,10 @@ environments (a broad-TPE structure makes the sweep informative).}
 \item{plot_budget}{Optional cap on total plots (\code{ipf * noe}); cells exceeding
 it are skipped.}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{n_sim}{Number of independent simulation replicates.}
 
@@ -56,8 +59,8 @@ subset). Ignored for \code{"across_tpe"}.}
 
 \item{seed}{Optional RNG seed.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 }
 \value{
 A data frame (sorted by \code{accuracy_mean}, best first) with one row per

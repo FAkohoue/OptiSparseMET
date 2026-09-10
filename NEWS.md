@@ -2,6 +2,27 @@
 
 ## Statistical, environmental, and operational hardening
 
+* The coupled MET engine now accepts target-population environment weights,
+  environment-specific residual variances, and full treatment-information
+  matrices from realised field layouts. `local_treatment_information()` and
+  `fieldbook_design_evaluator()` connect plantable layouts and integer
+  replication directly to `optimize_design()`, whose cached candidate
+  evaluations now include acceptance and feasibility diagnostics.
+* `met_information()` now switches from the exact dense inverse to a
+  matrix-free PCG/Hutchinson engine above `max_dim`, removing the previous hard
+  6,000-effect ceiling while explicitly labelling approximate results and
+  returning convergence diagnostics.
+* Added `fit_historical_met()` for missing-cell REML estimation of diagonal,
+  factor-analytic, or unstructured genetic environment covariance. Replicated
+  observations estimate residual error; adjusted means can use supplied
+  environment-specific residual variances.
+* Replication targets are now materialised as balanced integer plot counts.
+  Site-specific costs and repeated-check plot overhead are included in budget
+  scoring, and `run_design_strategy()` evaluates the recommended plantable
+  replication rather than silently reverting to one plot per cell.
+* Added the versioned `sparse_met_design` object and cross-component validation
+  of allocation, replication, covariance inputs, and fieldbook reconciliation.
+
 * Environmental partitioning now separates discovery from validation.
   `infer_mega_environments()` retains the best candidate partition and exposes
   relationship- and evidence-block-specific agreement diagnostics even when

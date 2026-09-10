@@ -14,6 +14,8 @@ met_information_mt(
   sigma_e2 = 1,
   reps = NULL,
   env_efficiency = NULL,
+  tpe_weights = NULL,
+  local_information = NULL,
   max_dim = 6000L
 )
 }
@@ -37,7 +39,8 @@ from \code{\link[=desired_gain_weights]{desired_gain_weights()}}. At least one w
 
 \item{sigma_e2}{Residual scale used only when \code{R_T} is \code{NULL}. Default 1.}
 
-\item{reps, env_efficiency, max_dim}{Passed to \code{\link[=met_information]{met_information()}}.}
+\item{reps, env_efficiency, tpe_weights, local_information, max_dim}{Passed to
+\code{\link[=met_information]{met_information()}}.}
 }
 \value{
 A list with \code{CDmean_index} (mean index reliability), \code{rel_index_per_line},

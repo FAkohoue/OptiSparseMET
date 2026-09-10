@@ -13,7 +13,13 @@ met_information(
   reps = NULL,
   env_efficiency = NULL,
   target = c("across_tpe", "environment_specific"),
-  max_dim = 6000L
+  max_dim = 6000L,
+  tpe_weights = NULL,
+  local_information = NULL,
+  solver = c("auto", "dense", "pcg"),
+  trace_samples = 40L,
+  solver_tol = 1e-07,
+  solver_maxit = 1000L
 )
 }
 \arguments{
@@ -28,7 +34,10 @@ covering the lines in \code{allocation_matrix}.}
 correlations across environments). Defaults to the identity (independent
 environments, unit variance).}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{reps}{Optional \eqn{J \times E} matrix of plot counts per cell.
 Defaults to \code{allocation_matrix} (one plot per present cell).}
@@ -40,12 +49,35 @@ local design). Defaults to 1 for every environment.}
 \item{target}{Either \code{"across_tpe"} (reliability of the TPE-average breeding
 value, the default) or \code{"environment_specific"} (per-cell PEV summary).}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
+
+\item{tpe_weights}{Optional non-negative weights defining the target
+population of environments. Values are normalised to sum to one. The
+default gives every environment equal weight.}
+
+\item{local_information}{Optional named list of treatment-information
+matrices, one per environment. Each matrix may cover all lines or a named
+subset of the lines present in that environment and must already have
+nuisance fixed and random effects absorbed. When supplied, these matrices
+replace the scalar \code{reps * env_efficiency / sigma_e2} approximation and
+therefore preserve the local layout's full off-diagonal information.}
+
+\item{solver}{\code{"auto"}, \code{"dense"}, or \code{"pcg"}. The PCG path avoids the
+dense \eqn{JE \times JE} matrix and estimates target PEV diagonals with
+deterministic Hutchinson probes.}
+
+\item{trace_samples}{Number of probe vectors for \code{solver = "pcg"}.}
+
+\item{solver_tol, solver_maxit}{Relative tolerance and iteration limit for
+each preconditioned conjugate-gradient solve.}
 }
 \value{
-A list with \code{mean_PEV}, \code{CDmean}, \code{PEV_per_line} (across-TPE), the
-assembled \code{C_uu}, and metadata (\code{J}, \code{E}, \code{target}).
+A list with \code{mean_PEV}, \code{CDmean}, per-line PEV and CD, aligned TPE
+weights and residual variances, dimensions, target, solver identity,
+approximation flag, and solver diagnostics. The exact dense path also
+returns the assembled \code{C_uu} and \code{data_information} matrices; these are
+\code{NULL} on the matrix-free PCG path.
 }
 \description{
 \code{met_information()} couples the two design levels that \code{OptiSparseMET}
@@ -67,17 +99,20 @@ The G x E effects \eqn{u} (one per line-by-environment cell) have prior
 covariance \eqn{\sigma_g^2\,(\Sigma_E \otimes G)}, so prior precision
 \eqn{\sigma_g^{-2}(\Sigma_E^{-1} \otimes G^{-1})}. Each present cell
 \eqn{(j,e)} contributes diagonal information
-\eqn{d_{je} = \text{reps}_{je}\, \epsilon_e / \sigma_e^2}, where
+\eqn{d_{je} = \text{reps}_{je}\, \epsilon_e / \sigma_{\mathrm{res},e}^2}, where
 \eqn{\epsilon_e \in (0,1]} is the within-environment efficiency factor (from a
-local design's A / CDmean evaluation). Environment means are absorbed as fixed
+local design's A / CDmean evaluation). For final evaluation, a full local
+treatment-information matrix may replace this scalar approximation and retain
+off-diagonal contrast information. Environment means are absorbed as fixed
 effects, giving the effect information matrix
 \deqn{C_{uu} = D - D X (X^\top D X)^{-1} X^\top D + \sigma_g^{-2}
   (\Sigma_E^{-1} \otimes G^{-1}).}
 (The absorption form is verified to match the full mixed-model-equations
 solution.) The across-TPE breeding value of line \eqn{j} is
-\eqn{\bar u_j = E^{-1}\sum_e u_{je}}; its PEV is
-\eqn{a_j^\top C_{uu}^{-1} a_j} with \eqn{a_j} averaging line \eqn{j}'s cells,
-and its reliability is \eqn{\text{CD}_j = 1 - \text{PEV}_j / \operatorname{Var}(\bar u_j)}.
+\eqn{\bar u_j = \sum_e w_e u_{je}}, where non-negative target weights sum to
+one. Its PEV is \eqn{a_j^\top C_{uu}^{-1} a_j}, with \eqn{a_j} placing the
+weights on line \eqn{j}'s environment cells, and its reliability is
+\eqn{\text{CD}_j = 1 - \text{PEV}_j / \operatorname{Var}(\bar u_j)}.
 }
 \seealso{
 \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}, \code{\link[=simulate_met]{simulate_met()}}.

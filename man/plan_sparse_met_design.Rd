@@ -7,6 +7,7 @@
 plan_sparse_met_design(
   treatments,
   environments,
+  allocation_matrix = NULL,
   allocation_method = c("random_balanced", "equireplicate", "M3", "M4"),
   n_test_entries_per_environment,
   target_replications = NULL,
@@ -43,6 +44,11 @@ plan_sparse_met_design(
 \item{treatments}{Character vector of treatment IDs.}
 
 \item{environments}{Character vector of environment names.}
+
+\item{allocation_matrix}{Optional precomputed named 0/1 treatment-by-
+environment allocation. When supplied, allocation is not reconstructed;
+the function builds plantable local fieldbooks for this exact candidate.
+This is used by \code{\link[=fieldbook_design_evaluator]{fieldbook_design_evaluator()}} during joint optimisation.}
 
 \item{allocation_method}{Character scalar passed to \code{\link[=allocate_sparse_met]{allocate_sparse_met()}}.}
 

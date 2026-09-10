@@ -188,3 +188,50 @@ if (getRversion() >= "2.15.1") {
   }
   invisible(TRUE)
 }
+
+
+# ------------------------------------------------------------------------------
+# .normalise_tpe_weights
+# ------------------------------------------------------------------------------
+# Keep the definition of the target population of environments identical in
+# the information, simulation, and optimisation paths.
+.normalise_tpe_weights <- function(tpe_weights, envs) {
+  E <- length(envs)
+  if (is.null(tpe_weights)) {
+    return(stats::setNames(rep(1 / E, E), envs))
+  }
+  if (!is.numeric(tpe_weights) || length(tpe_weights) != E ||
+      any(!is.finite(tpe_weights)) || any(tpe_weights < 0) ||
+      sum(tpe_weights) <= 0)
+    stop("`tpe_weights` must contain one finite non-negative value per ",
+         "environment and must not sum to zero.")
+  if (!is.null(names(tpe_weights))) {
+    if (any(names(tpe_weights) == "") || anyDuplicated(names(tpe_weights)) ||
+        !setequal(names(tpe_weights), envs))
+      stop("Named `tpe_weights` must uniquely cover every environment.")
+    tpe_weights <- tpe_weights[envs]
+  }
+  stats::setNames(as.numeric(tpe_weights) / sum(tpe_weights), envs)
+}
+
+
+# ------------------------------------------------------------------------------
+# .normalise_environment_variance
+# ------------------------------------------------------------------------------
+# Accept a scalar or an environment-specific residual-variance vector.
+.normalise_environment_variance <- function(x, envs, arg = "sigma_e2") {
+  E <- length(envs)
+  if (!is.numeric(x) || !length(x) || any(!is.finite(x)) || any(x <= 0))
+    stop("`", arg, "` must contain finite positive values.")
+  if (!is.null(names(x))) {
+    if (any(names(x) == "") || anyDuplicated(names(x)) ||
+        !all(envs %in% names(x)))
+      stop("Named `", arg, "` must uniquely cover every environment.")
+    x <- x[envs]
+  } else if (length(x) == 1L) {
+    x <- rep(x, E)
+  } else if (length(x) != E) {
+    stop("`", arg, "` must be scalar or contain one value per environment.")
+  }
+  stats::setNames(as.numeric(x), envs)
+}

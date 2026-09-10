@@ -73,7 +73,10 @@ Default 0. See
 \item{cost_per_plot}{Optional cost of one plot; enables a \code{gain_per_cost}
 column. Default \code{NULL}.}
 
-\item{sigma_g2, sigma_e2}{Genetic and residual variance scalars.}
+\item{sigma_g2}{Genetic variance scalar.}
+
+\item{sigma_e2}{Residual variance scalar or a vector with one value per
+environment. A named vector is aligned to \code{allocation_matrix} columns.}
 
 \item{n_sim}{Number of independent simulation replicates.}
 
@@ -95,8 +98,8 @@ reaching \code{target_accuracy}. \code{candidate_plots} \emph{is} the interval.}
 
 \item{seed}{Optional RNG seed.}
 
-\item{max_dim}{Integer guard on \eqn{J \times E}; above it the dense inverse
-is refused with an informative error.}
+\item{max_dim}{Integer threshold on \eqn{J \times E}. With
+\code{solver = "auto"}, larger problems use the iterative matrix-free path.}
 
 \item{robust}{Optional list from \code{\link[=robust_scenarios]{robust_scenarios()}}. When supplied, every
 candidate capacity is simulated under every variance/covariance scenario.

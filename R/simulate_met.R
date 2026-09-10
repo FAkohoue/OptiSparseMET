@@ -45,6 +45,7 @@
 simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
                          sigma_g2 = 1, sigma_e2 = 1,
                          reps = NULL, env_efficiency = NULL,
+                         tpe_weights = NULL, local_information = NULL,
                          n_sim = 50L, select_fraction = 0.1,
                          bv_target = c("across_tpe", "environment_specific",
                                        "mega_environment"),
@@ -63,14 +64,13 @@ simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
   if (!is.numeric(sigma_g2) || length(sigma_g2) != 1L ||
       !is.finite(sigma_g2) || sigma_g2 <= 0)
     stop("`sigma_g2` must be a finite positive scalar.")
-  if (!is.numeric(sigma_e2) || length(sigma_e2) != 1L ||
-      !is.finite(sigma_e2) || sigma_e2 <= 0)
-    stop("`sigma_e2` must be a finite positive scalar.")
-
   info <- met_information(allocation_matrix, G = G, Sigma_E = Sigma_E,
                           sigma_g2 = sigma_g2, sigma_e2 = sigma_e2,
                           reps = reps, env_efficiency = env_efficiency,
-                          target = "across_tpe", max_dim = max_dim)
+                          target = "across_tpe", max_dim = max_dim,
+                          tpe_weights = tpe_weights,
+                          local_information = local_information,
+                          solver = "dense")
 
   lines <- rownames(allocation_matrix)
   envs  <- colnames(allocation_matrix)
@@ -87,7 +87,7 @@ simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
     ti
   }
   w <- switch(bv_target,
-    across_tpe = rep(1 / E, E),
+    across_tpe = info$tpe_weights,
     environment_specific = {
       if (is.null(tgt_idx) || length(tgt_idx) != 1L)
         stop("`bv_target = \"environment_specific\"` needs exactly one `target_envs`.")
@@ -106,22 +106,7 @@ simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
   Sigma_E <- as.matrix(Sigma_E)
   if (!is.null(rownames(Sigma_E)) && !is.null(colnames(Sigma_E)))
     Sigma_E <- Sigma_E[envs, envs, drop = FALSE]
-  if (is.null(reps)) {
-    reps <- allocation_matrix
-  } else if (!is.null(rownames(reps)) && !is.null(colnames(reps))) {
-    reps <- reps[lines, envs, drop = FALSE]
-  }
-  reps <- as.matrix(reps)
-  if (is.null(env_efficiency)) {
-    env_efficiency <- stats::setNames(rep(1, E), envs)
-  } else if (!is.null(names(env_efficiency))) {
-    env_efficiency <- env_efficiency[envs]
-  }
   Gsub <- as.matrix(G[lines, lines, drop = FALSE])
-
-  d       <- as.numeric(sweep(reps, 2, env_efficiency / sigma_e2, `*`))
-  present <- as.numeric(allocation_matrix) > 0
-  env_of  <- rep(seq_len(E), each = J)
 
   # PD-safe inverse of the coefficient matrix: plain solve when well-conditioned,
   # else a jittered solve, else a symmetric pseudo-inverse (a singular Sigma_E
@@ -143,6 +128,16 @@ simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
     jit <- 1e-8 * mean(diag(covU))
     Lc <- tryCatch(t(chol(covU + diag(jit, nrow(covU)))), error = function(e) NULL)
   }
+
+  # The sufficient statistic after nuisance-effect absorption has covariance
+  # equal to the data-information matrix.  Simulating it directly makes the
+  # outcome engine exactly consistent with both the scalar efficiency shortcut
+  # and full treatment-information matrices from real field layouts.
+  data_info <- (info$data_information + t(info$data_information)) / 2
+  ed <- eigen(data_info, symmetric = TRUE)
+  if (min(ed$values) < -1e-8 * max(abs(ed$values), 1))
+    stop("The assembled local data-information matrix is not positive semidefinite.")
+  Ld <- ed$vectors %*% (t(ed$vectors) * sqrt(pmax(ed$values, 0)))
   if (is.null(Lc)) {
      e <- eigen((covU + t(covU)) / 2, symmetric = TRUE)
     vals <- pmax(e$values, 0)
@@ -160,23 +155,12 @@ simulate_met <- function(allocation_matrix, G, Sigma_E = NULL,
   gains     <- numeric(n_sim)
   common    <- numeric(n_sim)   # coincidence of selected sets (Mothukuri et al. 2025)
   avg_rank  <- numeric(n_sim)   # mean true rank of the predicted-selected lines
-  pres_idx  <- which(present == 1)
 
   for (s in seq_len(n_sim)) {
     u      <- as.numeric(Lc %*% stats::rnorm(J * E))
     trueBV <- as.numeric(matrix(u, nrow = J, ncol = E) %*% w)   # target-weighted BV
 
-    ybar <- numeric(J * E)
-    ybar[pres_idx] <- u[pres_idx] +
-      stats::rnorm(length(pres_idx)) * sqrt(1 / d[pres_idx])
-
-    rhs <- numeric(J * E)
-    for (e in seq_len(E)) {
-      idx <- which(env_of == e & present == 1)
-      if (!length(idx)) next
-      muhat <- sum(d[idx] * ybar[idx]) / sum(d[idx])     # absorbed environment mean
-      rhs[idx] <- d[idx] * (ybar[idx] - muhat)
-    }
+    rhs <- as.numeric(data_info %*% u + Ld %*% stats::rnorm(J * E))
 
     uhat   <- as.numeric(Cuu_inv %*% rhs)
     predBV <- as.numeric(matrix(uhat, nrow = J, ncol = E) %*% w)
